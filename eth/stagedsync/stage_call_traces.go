@@ -24,8 +24,11 @@ import (
 	"github.com/ledgerwatch/turbo-geth/core/vm/stack"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/ethdb/bitmapdb"
+	"github.com/ledgerwatch/turbo-geth/filters"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/params"
+
+	"github.com/willf/bloom"
 )
 
 const (
@@ -77,6 +80,8 @@ func SpawnCallTraces(s *StageState, db ethdb.Database, chainConfig *params.Chain
 func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock uint64, chainConfig *params.ChainConfig, chainContext core.ChainContext, datadir string, quit <-chan struct{}) error {
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
+
+	accountsBloomFilter := filters.NewBloom(bloom.New(uint((512*datasize.MB).Bytes()*8), 15))
 
 	froms := map[string]*roaring.Bitmap{}
 	tos := map[string]*roaring.Bitmap{}
@@ -182,9 +187,8 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 					return fmt.Errorf("%s: seeking in account changeset cursor: %v", logPrefix, errAcc)
 				}
 				if errAcc = cs.Walk(func(k, v []byte) error {
-					if len(v) == 0 {
-						accountCache.Set(k, nil)
-					} else {
+					if len(v) > 0 {
+						accountsBloomFilter.Add(k)
 						accountCache.Set(k, v)
 					}
 					accountsPreset++
@@ -217,6 +221,8 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 		}
 		stateReader := state.NewPlainDBState(tx.(ethdb.HasTx).Tx(), blockNum-1)
 		stateWriter := state.NewCacheStateWriter()
+		bloomStateReader := filters.NewBloomStateReader(accountsBloomFilter, stateReader)
+		bloomStateWriter := filters.NewBloomStateWriter(accountsBloomFilter, stateWriter)
 
 		if caching {
 			stateReader.SetAccountCache(accountCache)
@@ -231,7 +237,7 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 
 		tracer := NewCallTracer()
 		vmConfig := &vm.Config{Debug: true, NoReceipts: true, ReadOnly: false, Tracer: tracer}
-		if _, err = core.ExecuteBlockEphemerally(chainConfig, vmConfig, chainContext, engine, block, stateReader, stateWriter); err != nil {
+		if _, err = core.ExecuteBlockEphemerally(chainConfig, vmConfig, chainContext, engine, block, bloomStateReader, bloomStateWriter); err != nil {
 			return err
 		}
 		for addr := range tracer.froms {
