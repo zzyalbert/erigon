@@ -53,6 +53,7 @@ require (
 	github.com/mattn/go-colorable v0.1.7
 	github.com/mattn/go-isatty v0.0.12
 	github.com/olekukonko/tablewriter v0.0.4
+	github.com/panmari/cuckoofilter v1.0.1
 	github.com/pborman/uuid v1.2.1
 	github.com/petar/GoLLRB v0.0.0-20190514000832-33fb24c13b99
 	github.com/peterh/liner v1.2.0
@@ -69,6 +70,7 @@ require (
 	github.com/urfave/cli v1.22.4
 	github.com/valyala/gozstd v1.8.3
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
+	github.com/willf/bloom v2.0.3+incompatible
 	github.com/wsddn/go-ecdh v0.0.0-20161211032359-48726bab9208
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
