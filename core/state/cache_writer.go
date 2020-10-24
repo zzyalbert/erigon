@@ -67,9 +67,6 @@ func (w *CacheStateWriter) UpdateAccountCode(address common.Address, incarnation
 }
 
 func (w *CacheStateWriter) DeleteAccount(ctx context.Context, address common.Address, original *accounts.Account) error {
-	if w.accountCache != nil {
-		w.accountCache.Set(address[:], nil)
-	}
 	if w.codeCache != nil {
 		w.codeCache.Set(address[:], nil)
 	}
@@ -86,7 +83,7 @@ func (w *CacheStateWriter) WriteAccountStorage(ctx context.Context, address comm
 		return nil
 	}
 
-	if w.storageCache != nil {
+	if w.storageCache != nil && !value.IsZero() {
 		compositeKey := dbutils.PlainGenerateCompositeStorageKey(address, incarnation, *key)
 		w.storageCache.Set(compositeKey, value.Bytes())
 	}
