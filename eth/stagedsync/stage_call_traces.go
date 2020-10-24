@@ -28,7 +28,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/params"
 
-	"github.com/willf/bloom"
+	cuckoo "github.com/panmari/cuckoofilter"
 )
 
 const (
@@ -81,7 +81,8 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
 
-	accountsBloomFilter := filters.NewBloom(bloom.New(uint((512*datasize.MB).Bytes()*8), 15))
+	accountsBloomFilter := filters.NewCuckoo(cuckoo.NewFilter(150_000_000))  // 150M entries should be enoughbloom
+	storageBloomFilter := filters.NewCuckoo(cuckoo.NewFilter(1_500_000_000)) // 150M entries should be enoughbloom
 
 	froms := map[string]*roaring.Bitmap{}
 	tos := map[string]*roaring.Bitmap{}
@@ -207,9 +208,8 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 					return fmt.Errorf("%s: seeking in storage changeset cursor: %v", logPrefix, errSt)
 				}
 				if errSt = cs.Walk(func(k, v []byte) error {
-					if len(v) == 0 {
-						storageCache.Set(k, nil)
-					} else {
+					if len(v) != 0 {
+						storageBloomFilter.Add(k)
 						storageCache.Set(k, v)
 					}
 					storagePreset++
@@ -221,8 +221,8 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 		}
 		stateReader := state.NewPlainDBState(tx.(ethdb.HasTx).Tx(), blockNum-1)
 		stateWriter := state.NewCacheStateWriter()
-		bloomStateReader := filters.NewBloomStateReader(accountsBloomFilter, stateReader)
-		bloomStateWriter := filters.NewBloomStateWriter(accountsBloomFilter, stateWriter)
+		bloomStateReader := filters.NewBloomStateReader(accountsBloomFilter, storageBloomFilter, stateReader)
+		bloomStateWriter := filters.NewBloomStateWriter(accountsBloomFilter, storageBloomFilter, stateWriter)
 
 		if caching {
 			stateReader.SetAccountCache(accountCache)
