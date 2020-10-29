@@ -755,6 +755,7 @@ func (csd *changesetSearchDecorator) buildChangeset(from, to uint64) error {
 	if from >= to {
 		return nil
 	}
+	fmt.Println("buildChangeset",from, to)
 	cs := make([]struct {
 		Walker   changeset.Walker
 		BlockNum uint64

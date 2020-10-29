@@ -7,7 +7,7 @@ const (
 	StateSnapshotName          = "state"
 	ReceiptsSnapshotName       = "receipts"
 
-	HeadersSnapshotHash  = "7727174de470b7fe0bb3e36d35e85cc48853d470" //11кk block 1mb chunk
+	HeadersSnapshotHash  = "17a944acc9fc8a35283d28fe13ab314653f011ca" //11кk block 1mb chunk
 	BlocksSnapshotHash   = "0546b881c50de9984dd8865d0f18cc5153e4c21b" //11кk block 1mb chunk
 	StateSnapshotHash    = ""
 	ReceiptsSnapshotHash = ""

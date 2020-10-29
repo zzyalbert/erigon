@@ -3,7 +3,6 @@ package generate
 import (
 	"context"
 	"errors"
-	"fmt"
 	lg "github.com/anacrolix/log"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
@@ -42,7 +41,7 @@ func Seed(pathes []string) error {
 
 	pathes = []string{
 		cfg.DataDir + "/headers",
-		cfg.DataDir + "/bodies",
+		//cfg.DataDir + "/bodies",
 		//cfg.DataDir+"/state/",
 		//cfg.DataDir+"/receipts/",
 	}
@@ -54,6 +53,7 @@ func Seed(pathes []string) error {
 	}
 	defer cl.Close()
 
+	log.Info("Chunk size", "=",  trnt.DefaultChunkSize)
 	torrents := make([]*torrent.Torrent, len(pathes))
 	for i, v := range pathes {
 		i := i
@@ -64,7 +64,6 @@ func Seed(pathes []string) error {
 		}
 
 		if _, err := os.Stat(v); os.IsNotExist(err) {
-			fmt.Println(err)
 			continue
 		} else if err != nil {
 			return err
@@ -88,7 +87,7 @@ func Seed(pathes []string) error {
 			Trackers:  trnt.Trackers,
 			InfoHash:  mi.HashInfoBytes(),
 			InfoBytes: mi.InfoBytes,
-			ChunkSize: trnt.DefaultChunkSize,
+			//ChunkSize: trnt.DefaultChunkSize,
 		})
 		if err != nil {
 			return err
@@ -111,7 +110,7 @@ func Seed(pathes []string) error {
 		ticker := time.NewTicker(10 * time.Second)
 		for range ticker.C {
 			for _, t := range cl.Torrents() {
-				log.Info("Snapshot stats", "snapshot", t.Name(), "active peers", t.Stats().ActivePeers, "seeding", t.Seeding(), "hash", t.Metainfo().HashInfoBytes().String())
+				log.Info("Snapshot stats", "snapshot", t.Name(), "active peers", t.Stats().ActivePeers, "total peers",t.Stats().TotalPeers,  "seeding", t.Seeding(), "hash", t.Metainfo().HashInfoBytes().String())
 			}
 
 			if common.IsCanceled(ctx) {

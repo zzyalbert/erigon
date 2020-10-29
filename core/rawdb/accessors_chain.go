@@ -196,6 +196,7 @@ func WriteFastTrieProgress(db DatabaseWriter, count uint64) {
 func ReadHeaderRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
 	data, err := db.Get(dbutils.HeaderPrefix, dbutils.HeaderKey(number, hash))
 	if err != nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
+
 		log.Error("ReadHeaderRLP failed", "err", err)
 	}
 	return data
@@ -213,6 +214,7 @@ func HasHeader(db DatabaseReader, hash common.Hash, number uint64) bool {
 func ReadHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Header {
 	data := ReadHeaderRLP(db, hash, number)
 	if len(data) == 0 {
+		fmt.Println("empty")
 		return nil
 	}
 	header := new(types.Header)

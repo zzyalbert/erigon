@@ -34,8 +34,8 @@ func New(snapshotsDir string, snapshotMode SnapshotMode, seeding bool) *Client {
 	torrentConfig.DataDir = snapshotsDir
 	torrentConfig.NoDHT = true
 	torrentConfig.DisableTrackers = false
-	torrentConfig.Debug = false
-	torrentConfig.Logger = NewLogger()
+	//torrentConfig.Debug = true
+	//torrentConfig.Logger = NewLogger()
 	torrentClient, err := torrent.NewClient(torrentConfig)
 	if err != nil {
 		log.Error("Fail to start torrnet client", "err", err)
@@ -72,13 +72,13 @@ func (cli *Client) AddTorrent(ctx context.Context, db ethdb.Database, snapshotNa
 	} else if err != nil {
 		return err
 	}
-
 	t, _, err := cli.Cli.AddTorrentSpec(&torrent.TorrentSpec{
 		Trackers:    Trackers,
 		InfoHash:    ts.InfoHash,
 		DisplayName: snapshotName,
 		Storage:     storage.NewFileWithCompletion(cli.snapshotsDir, pc),
 		InfoBytes:   ts.InfoBytes,
+		ChunkSize:   DefaultChunkSize,
 	})
 	if err != nil {
 		return err
@@ -97,12 +97,11 @@ func (cli *Client) AddTorrent(ctx context.Context, db ethdb.Database, snapshotNa
 		} else {
 			log.Info("Loaded from db", "snapshot", snapshotName)
 		}
-
+		fmt.Println("NumPieces",t.NumPieces(), t.Length(), t.Info().PieceLength, DefaultChunkSize)
 	case <-ctx.Done():
 		log.Warn("Init failure", "snapshot", snapshotName, "err", ctx.Err())
 		return ctx.Err()
 	}
-	t.VerifyData()
 	t.DisallowDataDownload()
 	return nil
 }
@@ -151,6 +150,7 @@ func (cli *Client) Run(db ethdb.Database) error {
 			for {
 				if t.Info().TotalLength()-t.BytesCompleted() == 0 {
 					log.Info("Dowloaded", "snapshot", t.Name(), "t", time.Since(tt))
+					t.VerifyData()
 					break dwn
 				} else {
 					stats := t.Stats()
@@ -246,12 +246,10 @@ func BuildInfoBytesForLMDBSnapshot(root string) (metainfo.Info, error) {
 	info := metainfo.Info{
 		Name:        filepath.Base(root),
 		PieceLength: DefaultChunkSize,
-		Length:      fi.Size(),
 		Files: []metainfo.FileInfo{
 			{
 				Length:   fi.Size(),
 				Path:     []string{relPath},
-				PathUTF8: nil,
 			},
 		},
 	}

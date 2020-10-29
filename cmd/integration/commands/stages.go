@@ -45,6 +45,18 @@ var cmdStageExec = &cobra.Command{
 		return nil
 	},
 }
+var cmdUnwindExec = &cobra.Command{
+	Use:   "unwind_stage_exec",
+	Short: "",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := utils.RootContext()
+		if err := stageExec(ctx); err != nil {
+			log.Error("Error", "err", err)
+			return err
+		}
+		return nil
+	},
+}
 
 var cmdStageIHash = &cobra.Command{
 	Use:   "stage_ih",
