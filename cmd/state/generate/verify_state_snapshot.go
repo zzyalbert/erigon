@@ -7,6 +7,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/ledgerwatch/turbo-geth/turbo/torrent"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -22,6 +23,23 @@ func VerifyStateSnapshot(dbPath, snapshotPath string, block uint64) error {
 	}()
 
 	db:=ethdb.MustOpen(dbPath)
+	snapshotDir:= "/media/b00ris/nvme/snapshotsync/tg/snapshots"
+	snapshotMode:="hb"
+	kv:=db.KV()
+	var err error
+	if snapshotDir != "" {
+		var mode torrent.SnapshotMode
+		mode, err = torrent.SnapshotModeFromString(snapshotMode)
+		if err != nil {
+			return err
+		}
+
+		kv, err = torrent.WrapBySnapshots(kv, snapshotDir, mode)
+		if err != nil {
+			return err
+		}
+	}
+	db.SetKV(kv)
 	snkv := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 		return dbutils.BucketsCfg{
 			dbutils.PlainStateBucket:       dbutils.BucketConfigItem{},
