@@ -43,6 +43,7 @@ func GenerateStateSnapshot(dbPath, snapshotPath string, toBlock uint64, snapshot
 	snkv := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 		return dbutils.BucketsCfg{
 		dbutils.PlainStateBucket:       dbutils.BucketConfigItem{},
+		dbutils.CodeBucket:       dbutils.BucketConfigItem{},
 		dbutils.SnapshotInfoBucket: dbutils.BucketConfigItem{},
 	}
 	}).Path(snapshotPath).MustOpen()
@@ -73,6 +74,7 @@ func GenerateStateSnapshot(dbPath, snapshotPath string, toBlock uint64, snapshot
 	i:=0
 	t:=time.Now()
 	tt:=time.Now()
+	//st:=0
 	err = state.WalkAsOf(tx, dbutils.PlainStateBucket,dbutils.AccountsHistoryBucket, []byte{},0,toBlock+1, func(k []byte, v []byte) (bool, error) {
 		i++
 		if i%100000==0 {
@@ -103,23 +105,34 @@ func GenerateStateSnapshot(dbPath, snapshotPath string, toBlock uint64, snapshot
 			innerErr = state.WalkAsOf(tx2, dbutils.PlainStateBucket, dbutils.StorageHistoryBucket, storagePrefix, 8*(common.AddressLength+common.IncarnationLength), toBlock+1, func(kk []byte, vv []byte) (bool, error) {
 				innerErr=mt.Put(dbutils.PlainStateBucket, dbutils.PlainGenerateCompositeStorageKey(common.BytesToAddress(kk[:common.AddressLength]),acc.Incarnation, common.BytesToHash(kk[common.AddressLength:])), common.CopyBytes(vv))
 				if innerErr!=nil {
+					fmt.Println("mt.Put", innerErr)
 					return false, innerErr
 				}
 				return true, nil
 			})
 			if innerErr!=nil {
+				fmt.Println("mt.Put", innerErr)
 				return false, innerErr
 			}
 
+			code,err:=tx.Get(dbutils.CodeBucket, acc.CodeHash.Bytes())
+			if err!=nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
+				fmt.Println("1")
+				return false, err
+			}
+			if err := mt.Put(dbutils.CodeBucket, acc.CodeHash.Bytes(), code); err != nil {
+				fmt.Println("2")
+				return false, err
+			}
 		}
 		if mt.BatchSize() >= mt.IdealBatchSize() {
 			ttt:=time.Now()
 			innerErr = mt.CommitAndBegin(context.Background())
 			if innerErr!=nil {
+				fmt.Println("mt.BatchSize", innerErr)
 				return false, innerErr
 			}
 			fmt.Println("Commited", time.Since(ttt))
-
 		}
 		return true, nil
 	})

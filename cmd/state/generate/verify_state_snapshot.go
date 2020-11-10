@@ -34,6 +34,9 @@ func VerifyStateSnapshot(dbPath, snapshotPath string, block uint64) error {
 		return err
 	}
 	tmpDB:=ethdb.NewLMDB().Path(tmpPath).MustOpen()
+	defer os.RemoveAll(tmpPath)
+	defer tmpDB.Close()
+
 	snkv=ethdb.NewSnapshotKV().SnapshotDB(snkv).DB(tmpDB).For(dbutils.PlainStateBucket).MustOpen()
 	sndb:=ethdb.NewObjectDatabase(snkv)
 	tx,err:=sndb.Begin(context.Background())
