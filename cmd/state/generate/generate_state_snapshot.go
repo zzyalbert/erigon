@@ -81,7 +81,7 @@ func GenerateStateSnapshot(dbPath, snapshotPath string, toBlock uint64, snapshot
 	//var emptyCodeHash = crypto.Keccak256Hash(nil)
 	err = state.WalkAsOf(tx, dbutils.PlainStateBucket,dbutils.AccountsHistoryBucket, []byte{},0,toBlock+1, func(k []byte, v []byte) (bool, error) {
 		i++
-		if i%10000==0 {
+		if i%1000==0 {
 			fmt.Println(i, common.Bytes2Hex(k),"batch", time.Since(tt))
 			tt=time.Now()
 			select {
@@ -95,19 +95,25 @@ func GenerateStateSnapshot(dbPath, snapshotPath string, toBlock uint64, snapshot
 			fmt.Println("ln", len(k))
 			return true, nil
 		}
+		addrHash,_:=common.HashData(k)
+
 		var acc accounts.Account
 		if err = acc.DecodeForStorage(v); err != nil {
 			return false, fmt.Errorf("decoding %x for %x: %v", v, k, err)
 		}
 
 		if acc.Incarnation>0 {
+			fmt.Println("Contract", common.Bytes2Hex(k), len(k), acc.Incarnation)
+			fmt.Println("Before Root", acc.Root.String(), acc.CodeHash.String())
 			t := trie.New(common.Hash{})
 
 			storagePrefix := dbutils.PlainGenerateStoragePrefix(k, acc.Incarnation)
-			innerErr := state.WalkAsOf(tx2, dbutils.PlainStateBucket, dbutils.StorageHistoryBucket, storagePrefix, 8*(common.AddressLength+common.IncarnationLength), toBlock+1, func(kk []byte, vv []byte) (bool, error) {
+			j:=0
+			innerErr := state.WalkAsOf(tx2, dbutils.PlainStateBucket, dbutils.StorageHistoryBucket, storagePrefix, 8*(common.AddressLength), toBlock+1, func(kk []byte, vv []byte) (bool, error) {
 				if !bytes.Equal(kk[:common.AddressLength], k) {
 					fmt.Println("k", common.Bytes2Hex(k), "kk",common.Bytes2Hex(k))
 				}
+				j++
 				innerErr1:=mt.Put(dbutils.PlainStateBucket, dbutils.PlainGenerateCompositeStorageKey(common.BytesToAddress(kk[:common.AddressLength]),acc.Incarnation, common.BytesToHash(kk[common.AddressLength:])), common.CopyBytes(vv))
 				if innerErr1!=nil {
 					fmt.Println("mt.Put", innerErr1)
@@ -129,25 +135,47 @@ func GenerateStateSnapshot(dbPath, snapshotPath string, toBlock uint64, snapshot
 			if err != nil && err != ethdb.ErrKeyNotFound {
 				return false, fmt.Errorf("getting code hash for %x: %v", k, err)
 			}
-			err:=mt.Put(dbutils.PlainContractCodeBucket, storagePrefix, codeHash)
-			if err!=nil {
-				return false, err
+			codeHash2, err := tx2.Get(dbutils.ContractCodeBucket, dbutils.GenerateStoragePrefix(addrHash[:], acc.Incarnation))
+			if err != nil && err != ethdb.ErrKeyNotFound {
+				return false, fmt.Errorf("getting code hash for %x: %v", k, err)
+			}
+			if !bytes.Equal(codeHash, codeHash2) {
+				fmt.Println("plain&hashed not equal", common.Bytes2Hex(codeHash),"2:", common.Bytes2Hex(codeHash2), "3:", acc.CodeHash.String())
 			}
 
-			if len(codeHash)>0 {
-				var code []byte
-				if code, err = tx2.Get(dbutils.CodeBucket, codeHash); err != nil {
-					fmt.Println("tx.Get(dbutils.CodeBucket")
-					return false, err
-				}
-				if err := mt.Put(dbutils.CodeBucket, codeHash, code); err != nil {
-					fmt.Println("mt.Put(dbutils.CodeBucket")
+			if !bytes.Equal(codeHash, acc.CodeHash.Bytes()) {
+				fmt.Println("Wrong code hash. Acc", common.Bytes2Hex(k), "1:",common.Bytes2Hex(codeHash), "2:", acc.CodeHash.String())
+				err:=mt.Put(dbutils.PlainContractCodeBucket, storagePrefix, codeHash)
+				if err!=nil {
 					return false, err
 				}
 
+				var code []byte
+				if len(codeHash)>0 {
+					if code, err = tx2.Get(dbutils.CodeBucket, codeHash); err != nil {
+						fmt.Println("tx.Get(dbutils.CodeBucket")
+						return false, err
+					}
+					if err := mt.Put(dbutils.CodeBucket, codeHash, code); err != nil {
+						fmt.Println("mt.Put(dbutils.CodeBucket")
+						return false, err
+					}
+				}
+
+				if acc.CodeHash!=(common.Hash{}) {
+					if code, err = tx2.Get(dbutils.CodeBucket, acc.CodeHash.Bytes()); err != nil {
+						fmt.Println("tx.Get(dbutils.CodeBucket")
+						return false, err
+					}
+					if err := mt.Put(dbutils.CodeBucket, acc.CodeHash.Bytes(), code); err != nil {
+						fmt.Println("mt.Put(dbutils.CodeBucket")
+						return false, err
+					}
+				}
 			}
 
 			acc.Root = t.Hash()
+			fmt.Println("After Root", acc.Root.String(), "code hash", common.Bytes2Hex(codeHash), "num of elements", j)
 		}
 		newAcc:=make([]byte, acc.EncodingLengthForStorage())
 		acc.EncodeForStorage(newAcc)
