@@ -215,7 +215,7 @@ func MultiPut(tx Tx, tuples ...[]byte) error {
 			default:
 			case <-logEvery.C:
 				progress := fmt.Sprintf("%.1fM/%.1fM", float64(count)/1_000_000, total/1_000_000)
-				log.Info("Write to db", "progress", progress, "current table", bucketName)
+				log.Info("Write to db", "progress", progress, "current Table", bucketName)
 			}
 		}
 

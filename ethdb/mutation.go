@@ -31,18 +31,18 @@ type mutation struct {
 }
 
 type MutationItem struct {
-	table string
-	key   []byte
-	value []byte
+	Table string
+	Key   []byte
+	Value []byte
 }
 
 func (mi *MutationItem) Less(than btree.Item) bool {
 	i := than.(*MutationItem)
-	c := strings.Compare(mi.table, i.table)
+	c := strings.Compare(mi.Table, i.Table)
 	if c != 0 {
 		return c < 0
 	}
-	return bytes.Compare(mi.key, i.key) < 0
+	return bytes.Compare(mi.Key, i.Key) < 0
 }
 
 func (m *mutation) KV() KV {
@@ -55,13 +55,13 @@ func (m *mutation) KV() KV {
 func (m *mutation) getMem(table string, key []byte) ([]byte, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	m.searchItem.table = table
-	m.searchItem.key = key
+	m.searchItem.Table = table
+	m.searchItem.Key = key
 	i := m.puts.Get(&m.searchItem)
 	if i == nil {
 		return nil, false
 	}
-	return i.(*MutationItem).value, true
+	return i.(*MutationItem).Value, true
 }
 
 func (m *mutation) Sequence(bucket string, amount uint64) (res uint64, err error) {
@@ -100,8 +100,8 @@ func (m *mutation) GetIndexChunk(table string, key []byte, timestamp uint64) ([]
 func (m *mutation) hasMem(table string, key []byte) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	m.searchItem.table = table
-	m.searchItem.key = key
+	m.searchItem.Table = table
+	m.searchItem.Key = key
 	return m.puts.Has(&m.searchItem)
 }
 
@@ -130,12 +130,12 @@ func (m *mutation) Put(table string, key []byte, value []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	newMi := &MutationItem{table: table, key: key, value: value}
+	newMi := &MutationItem{Table: table, Key: key, Value: value}
 	i := m.puts.ReplaceOrInsert(newMi)
 	m.size += int(unsafe.Sizeof(newMi)) + len(key) + len(value)
 	if i != nil {
 		oldMi := i.(*MutationItem)
-		m.size -= (int(unsafe.Sizeof(oldMi)) + len(oldMi.key) + len(oldMi.value))
+		m.size -= (int(unsafe.Sizeof(oldMi)) + len(oldMi.Key) + len(oldMi.Value))
 	}
 	return nil
 }
@@ -149,12 +149,12 @@ func (m *mutation) MultiPut(tuples ...[]byte) (uint64, error) {
 	defer m.mu.Unlock()
 	l := len(tuples)
 	for i := 0; i < l; i += 3 {
-		newMi := &MutationItem{table: string(tuples[i]), key: tuples[i+1], value: tuples[i+2]}
+		newMi := &MutationItem{Table: string(tuples[i]), Key: tuples[i+1], Value: tuples[i+2]}
 		i := m.puts.ReplaceOrInsert(newMi)
-		m.size += int(unsafe.Sizeof(newMi)) + len(newMi.key) + len(newMi.value)
+		m.size += int(unsafe.Sizeof(newMi)) + len(newMi.Key) + len(newMi.Value)
 		if i != nil {
 			oldMi := i.(*MutationItem)
-			m.size -= (int(unsafe.Sizeof(oldMi)) + len(oldMi.key) + len(oldMi.value))
+			m.size -= (int(unsafe.Sizeof(oldMi)) + len(oldMi.Key) + len(oldMi.Value))
 		}
 	}
 	return 0, nil
@@ -187,7 +187,7 @@ func (m *mutation) Delete(table string, k, v []byte) error {
 	if v != nil {
 		return m.db.Delete(table, k, v) // TODO: mutation to support DupSort deletes
 	}
-	//m.puts.Delete(table, k)
+	//m.puts.Delete(Table, k)
 	return m.Put(table, k, nil)
 }
 
@@ -213,13 +213,13 @@ func (m *mutation) doCommit(tx Tx) error {
 
 	m.puts.Ascend(func(i btree.Item) bool {
 		mi := i.(*MutationItem)
-		if mi.table != prevTable {
+		if mi.Table != prevTable {
 			if c != nil {
 				c.Close()
 			}
-			c = tx.Cursor(mi.table)
-			prevTable = mi.table
-			firstKey, _, err := c.Seek(mi.key)
+			c = tx.Cursor(mi.Table)
+			prevTable = mi.Table
+			firstKey, _, err := c.Seek(mi.Key)
 			if err != nil {
 				innerErr = err
 				return false
@@ -227,19 +227,19 @@ func (m *mutation) doCommit(tx Tx) error {
 			isEndOfBucket = firstKey == nil
 		}
 		if isEndOfBucket {
-			if len(mi.value) > 0 {
-				if err := c.Append(mi.key, mi.value); err != nil {
+			if len(mi.Value) > 0 {
+				if err := c.Append(mi.Key, mi.Value); err != nil {
 					innerErr = err
 					return false
 				}
 			}
-		} else if len(mi.value) == 0 {
-			if err := c.Delete(mi.key, nil); err != nil {
+		} else if len(mi.Value) == 0 {
+			if err := c.Delete(mi.Key, nil); err != nil {
 				innerErr = err
 				return false
 			}
 		} else {
-			if err := c.Put(mi.key, mi.value); err != nil {
+			if err := c.Put(mi.Key, mi.Value); err != nil {
 				innerErr = err
 				return false
 			}
@@ -251,7 +251,7 @@ func (m *mutation) doCommit(tx Tx) error {
 		default:
 		case <-logEvery.C:
 			progress := fmt.Sprintf("%.1fM/%.1fM", float64(count)/1_000_000, total/1_000_000)
-			log.Info("Write to db", "progress", progress, "current table", mi.table)
+			log.Info("Write to db", "progress", progress, "current Table", mi.Table)
 		}
 		return true
 	})
@@ -295,7 +295,7 @@ func (m *mutation) Keys() ([][]byte, error) {
 	var innerErr error
 	m.puts.Ascend(func(i btree.Item) bool {
 		mi := i.(*MutationItem)
-		if err := tuples.Append([]byte(mi.table), mi.key); err != nil {
+		if err := tuples.Append([]byte(mi.Table), mi.Key); err != nil {
 			innerErr = err
 			return false
 		}

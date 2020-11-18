@@ -904,7 +904,7 @@ func (c *LmdbCursor) Seek(seek []byte) (k, v []byte, err error) {
 		if lmdb.IsNotFound(err) {
 			return nil, nil, nil
 		}
-		err = fmt.Errorf("failed LmdbKV cursor.Seek(): %w, bucket: %s,  key: %x", err, c.bucketName, seek)
+		err = fmt.Errorf("failed LmdbKV cursor.Seek(): %w, bucket: %s,  Key: %x", err, c.bucketName, seek)
 		return []byte{}, nil, err
 	}
 	if c.prefix != nil && !bytes.HasPrefix(k, c.prefix) {
@@ -1038,7 +1038,7 @@ func (c *LmdbCursor) Prev() (k, v []byte, err error) {
 	return k, v, nil
 }
 
-// Current - return key/data at current cursor position
+// Current - return Key/data at current cursor position
 func (c *LmdbCursor) Current() ([]byte, []byte, error) {
 	if c.c == nil {
 		if err := c.initCursor(); err != nil {
@@ -1101,7 +1101,7 @@ func (c *LmdbCursor) Delete(k, v []byte) error {
 	return c.delCurrent()
 }
 
-// DeleteCurrent This function deletes the key/data pair to which the cursor refers.
+// DeleteCurrent This function deletes the Key/data pair to which the cursor refers.
 // This does not invalidate the cursor, so operations such as MDB_NEXT
 // can still be used on it.
 // Both MDB_NEXT and MDB_GET_CURRENT will return the same record after
@@ -1130,12 +1130,12 @@ func (c *LmdbCursor) deleteDupSort(key []byte) error {
 	b := c.bucketCfg
 	from, to := b.DupFromLen, b.DupToLen
 	if len(key) != from && len(key) >= to {
-		return fmt.Errorf("dupsort bucket: %s, can have keys of len==%d and len<%d. key: %x", c.bucketName, from, to, key)
+		return fmt.Errorf("dupsort bucket: %s, can have keys of len==%d and len<%d. Key: %x", c.bucketName, from, to, key)
 	}
 
 	if len(key) == from {
 		_, v, err := c.getBothRange(key[:to], key[to:])
-		if err != nil { // if key not found, or found another one - then nothing to delete
+		if err != nil { // if Key not found, or found another one - then nothing to delete
 			if lmdb.IsNotFound(err) {
 				return nil
 			}
@@ -1197,7 +1197,7 @@ func (c *LmdbCursor) putDupSort(key []byte, value []byte) error {
 	b := c.bucketCfg
 	from, to := b.DupFromLen, b.DupToLen
 	if len(key) != from && len(key) >= to {
-		return fmt.Errorf("dupsort bucket: %s, can have keys of len==%d and len<%d. key: %x", c.bucketName, from, to, key)
+		return fmt.Errorf("dupsort bucket: %s, can have keys of len==%d and len<%d. Key: %x", c.bucketName, from, to, key)
 	}
 
 	if len(key) != from {
@@ -1214,7 +1214,7 @@ func (c *LmdbCursor) putDupSort(key []byte, value []byte) error {
 	value = append(key[to:], value...)
 	key = key[:to]
 	_, v, err := c.getBothRange(key, value[:from-to])
-	if err != nil { // if key not found, or found another one - then just insert
+	if err != nil { // if Key not found, or found another one - then just insert
 		if lmdb.IsNotFound(err) {
 			return c.put(key, value)
 		}
@@ -1303,7 +1303,7 @@ func (c *LmdbCursor) Append(k []byte, v []byte) error {
 	if b.AutoDupSortKeysConversion {
 		from, to := b.DupFromLen, b.DupToLen
 		if len(k) != from && len(k) >= to {
-			return fmt.Errorf("dupsort bucket: %s, can have keys of len==%d and len<%d. key: %x", c.bucketName, from, to, k)
+			return fmt.Errorf("dupsort bucket: %s, can have keys of len==%d and len<%d. Key: %x", c.bucketName, from, to, k)
 		}
 
 		if len(k) == from {
@@ -1356,8 +1356,8 @@ func (c *LmdbDupSortCursor) initCursor() error {
 	return c.LmdbCursor.initCursor()
 }
 
-// Warning! this method doesn't check order of keys, it means you can insert key in wrong place of bucket
-//	The key parameter must still be provided, and must match it.
+// Warning! this method doesn't check order of keys, it means you can insert Key in wrong place of bucket
+//	The Key parameter must still be provided, and must match it.
 //	If using sorted duplicates (#MDB_DUPSORT) the data item must still
 //	sort into the same place. This is intended to be used when the
 //	new data is the same size as the old. Otherwise it will simply
@@ -1375,7 +1375,7 @@ func (c *LmdbDupSortCursor) DeleteExact(k1, k2 []byte) error {
 	}
 
 	_, _, err := c.getBoth(k1, k2)
-	if err != nil { // if key not found, or found another one - then nothing to delete
+	if err != nil { // if Key not found, or found another one - then nothing to delete
 		if lmdb.IsNotFound(err) {
 			return nil
 		}
@@ -1435,7 +1435,7 @@ func (c *LmdbDupSortCursor) FirstDup() ([]byte, error) {
 	return v, nil
 }
 
-// NextDup - iterate only over duplicates of current key
+// NextDup - iterate only over duplicates of current Key
 func (c *LmdbDupSortCursor) NextDup() ([]byte, []byte, error) {
 	if c.c == nil {
 		if err := c.initCursor(); err != nil {
@@ -1548,7 +1548,7 @@ func (c *LmdbDupSortCursor) PutNoDupData(key, value []byte) error {
 	return nil
 }
 
-// DeleteCurrentDuplicates - delete all of the data items for the current key.
+// DeleteCurrentDuplicates - delete all of the data items for the current Key.
 func (c *LmdbDupSortCursor) DeleteCurrentDuplicates() error {
 	if c.c == nil {
 		if err := c.initCursor(); err != nil {
@@ -1561,7 +1561,7 @@ func (c *LmdbDupSortCursor) DeleteCurrentDuplicates() error {
 	return nil
 }
 
-// Count returns the number of duplicates for the current key. See mdb_cursor_count
+// Count returns the number of duplicates for the current Key. See mdb_cursor_count
 func (c *LmdbDupSortCursor) CountDuplicates() (uint64, error) {
 	if c.c == nil {
 		if err := c.initCursor(); err != nil {

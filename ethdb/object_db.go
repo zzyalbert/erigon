@@ -148,7 +148,7 @@ func (db *ObjectDatabase) Sequence(bucket string, amount uint64) (res uint64, er
 	return res, err
 }
 
-// Get returns the value for a given key if it's present.
+// Get returns the Value for a given Key if it's present.
 func (db *ObjectDatabase) Get(bucket string, key []byte) ([]byte, error) {
 	var dat []byte
 	if err := db.kv.View(context.Background(), func(tx Tx) error {
@@ -188,7 +188,7 @@ func (db *ObjectDatabase) Last(bucket string) ([]byte, []byte, error) {
 }
 
 // GetIndexChunk returns proper index chunk or return error if index is not created.
-// key must contain inverted block number in the end
+// Key must contain inverted block number in the end
 func (db *ObjectDatabase) GetIndexChunk(bucket string, key []byte, timestamp uint64) ([]byte, error) {
 	var dat []byte
 	err := db.kv.View(context.Background(), func(tx Tx) error {
@@ -234,7 +234,7 @@ func (db *ObjectDatabase) MultiWalk(bucket string, startkeys [][]byte, fixedbits
 	})
 }
 
-// Delete deletes the key from the queue and database
+// Delete deletes the Key from the queue and database
 func (db *ObjectDatabase) Delete(bucket string, k, v []byte) error {
 	// Execute the actual operation
 	err := db.kv.Update(context.Background(), func(tx Tx) error {
@@ -400,7 +400,7 @@ func (db *ObjectDatabase) Reserve(bucket string, key []byte, i int) ([]byte, err
 	panic("supported only by TxDb")
 }
 
-// Type which expecting sequence of triplets: dbi, key, value, ....
+// Type which expecting sequence of triplets: dbi, Key, Value, ....
 // It sorts entries by dbi name, then inside dbi clusters sort by keys
 type MultiPutTuples [][]byte
 
@@ -426,7 +426,7 @@ func (t MultiPutTuples) Swap(i, j int) {
 }
 
 func Get(tx Tx, bucket string, key []byte) ([]byte, error) {
-	// Retrieve the key and increment the miss counter if not found
+	// Retrieve the Key and increment the miss counter if not found
 	var dat []byte
 	v, err := tx.GetOne(bucket, key)
 	if err != nil {

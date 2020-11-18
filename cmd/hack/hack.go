@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/btree"
 	"github.com/holiman/uint256"
 	radix2 "github.com/jayloop/radix"
 	"github.com/ledgerwatch/lmdb-go/lmdb"
@@ -2053,13 +2054,17 @@ func artCmp(chaindata string) error {
 	defer logEvery.Stop()
 
 	tree := art.New()
+	btree := btree.New(32)
 	trie2 := radix2.NewTree(&radix2.Options{NumAllocators: 1})
 	_ = trie2
 
 	total := 0
+	values := 0
 	_ = db.Walk(dbutils.PlainStateBucket, nil, 0, func(k, v []byte) (bool, error) {
 		total += len(k) + len(v)
-		tree.Insert(k, v)
+		values += len(v)
+		btree.ReplaceOrInsert(&ethdb.MutationItem{Table: dbutils.PlainStateBucket, Key: k, Value: v})
+		//tree.Insert(common.CopyBytes(k), common.CopyBytes(v))
 		//found, op := trie2.PrepareUpdate(k)
 		//if found {
 		//	op.Match = false
@@ -2089,8 +2094,9 @@ func artCmp(chaindata string) error {
 
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	log.Info("Progress", "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys), "total", common.StorageSize(total))
-
+	log.Info("Progress", "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys), "total", common.StorageSize(total), "values", common.StorageSize(values))
+	btree.Get(&ethdb.MutationItem{Table: dbutils.PlainStateBucket, Key: []byte{1}, Value: nil})
+	tree.Search([]byte{1})
 	return nil
 }
 

@@ -23,8 +23,8 @@ import (
 
 // DESCRIBED: For info on database buckets see docs/programmers_guide/db_walkthrough.MD
 
-// ErrKeyNotFound is returned when key isn't found in the database.
-var ErrKeyNotFound = errors.New("db: key not found")
+// ErrKeyNotFound is returned when Key isn't found in the database.
+var ErrKeyNotFound = errors.New("db: Key not found")
 
 // Putter wraps the database write operations.
 type Putter interface {
@@ -34,14 +34,14 @@ type Putter interface {
 
 // Getter wraps the database read operations.
 type Getter interface {
-	// Get returns the value for a given key if it's present.
+	// Get returns the Value for a given Key if it's present.
 	Get(bucket string, key []byte) ([]byte, error)
 
 	// Get returns prober chunk of index or error if index is not created.
 	// Key must contain 8byte inverted block number in the end.
 	GetIndexChunk(bucket string, key []byte, timestamp uint64) ([]byte, error)
 
-	// Has indicates whether a key exists in the database.
+	// Has indicates whether a Key exists in the database.
 	Has(bucket string, key []byte) (bool, error)
 
 	// Walk iterates over entries with keys greater or equal to startkey.

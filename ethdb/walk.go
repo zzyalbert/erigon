@@ -22,19 +22,19 @@ import (
 
 // splitCursor implements cursor with two keys
 // it is used to ignore incarnations in the middle
-// of composite storage key, but without
-// reconstructing the key
-// Instead, the key is split into two parts and
+// of composite storage Key, but without
+// reconstructing the Key
+// Instead, the Key is split into two parts and
 // functions `Seek` and `Next` deliver both
-// parts as well as the corresponding value
+// parts as well as the corresponding Value
 type splitCursor struct {
 	c          Cursor // Unlerlying cursor
-	startkey   []byte // Starting key (also contains bits that need to be preserved)
+	startkey   []byte // Starting Key (also contains bits that need to be preserved)
 	matchBytes int
 	mask       uint8
-	part1end   int // Position in the key where the first part ends
-	part2start int // Position in the key where the second part starts
-	part3start int // Position in the key where the third part starts
+	part1end   int // Position in the Key where the first part ends
+	part2start int // Position in the Key where the second part starts
+	part3start int // Position in the Key where the third part starts
 }
 
 func NewSplitCursor(c Cursor, startkey []byte, matchBits int, part1end, part2start, part3start int) *splitCursor {

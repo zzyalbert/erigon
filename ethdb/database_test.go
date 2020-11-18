@@ -72,7 +72,7 @@ func testPutGet(db MinDatabase, t *testing.T) {
 	//	}
 	//}
 
-	_, err := db.Get(testBucket, []byte("non-exist-key"))
+	_, err := db.Get(testBucket, []byte("non-exist-Key"))
 	if err == nil {
 		t.Fatalf("expect to return a not found error")
 	}
@@ -137,7 +137,7 @@ func testPutGet(db MinDatabase, t *testing.T) {
 	for _, v := range testValues {
 		_, err := db.Get(testBucket, []byte(v))
 		if err == nil {
-			t.Fatalf("got deleted value %q", v)
+			t.Fatalf("got deleted Value %q", v)
 		}
 	}
 }

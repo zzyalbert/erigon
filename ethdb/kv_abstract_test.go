@@ -357,11 +357,11 @@ func testMultiCursor(t *testing.T, db ethdb.KV, bucket1, bucket2 string) {
 //					require.NoError(t, c2.Put([]byte{i}, []byte{i}))
 //				}
 //
-//				// delete from first bucket key 5, then will seek on it and expect to see key 6
+//				// delete from first bucket Key 5, then will seek on it and expect to see Key 6
 //				if err := c.Delete([]byte{5}, nil); err != nil {
 //					return err
 //				}
-//				// delete non-existing key
+//				// delete non-existing Key
 //				if err := c.Delete([]byte{6, 1}, nil); err != nil {
 //					return err
 //				}
@@ -378,7 +378,7 @@ func testMultiCursor(t *testing.T, db ethdb.KV, bucket1, bucket2 string) {
 //		msg := fmt.Sprintf("%T", db)
 //		t.Run("MultipleBuckets "+msg, func(t *testing.T) {
 //			counter2, counter := 0, 0
-//			var key, value []byte
+//			var Key, Value []byte
 //			err := db.View(ctx, func(tx ethdb.Tx) error {
 //				c := tx.Cursor(dbutils.Buckets[0])
 //				for k, _, err := c.First(); k != nil; k, _, err = c.Next() {
@@ -401,16 +401,16 @@ func testMultiCursor(t *testing.T, db ethdb.KV, bucket1, bucket2 string) {
 //				if err != nil {
 //					return err
 //				}
-//				key = common.CopyBytes(k)
-//				value = common.CopyBytes(v)
+//				Key = common.CopyBytes(k)
+//				Value = common.CopyBytes(v)
 //
 //				return nil
 //			})
 //			require.NoError(t, err)
 //			assert.Equal(t, 9, counter)
 //			assert.Equal(t, 12, counter2)
-//			assert.Equal(t, []byte{6}, key)
-//			assert.Equal(t, []byte{6}, value)
+//			assert.Equal(t, []byte{6}, Key)
+//			assert.Equal(t, []byte{6}, Value)
 //		})
 //	}
 //}
@@ -454,7 +454,7 @@ func testMultiCursor(t *testing.T, db ethdb.KV, bucket1, bucket2 string) {
 //					require.NoError(t, err)
 //					require.Nil(t, v)
 //
-//					require.NoError(t, c2.Delete([]byte{255}, nil)) // delete non-existing key
+//					require.NoError(t, c2.Delete([]byte{255}, nil)) // delete non-existing Key
 //				}
 //
 //				return nil
@@ -475,7 +475,7 @@ func testMultiCursor(t *testing.T, db ethdb.KV, bucket1, bucket2 string) {
 //					require.Equal(t, []byte{i}, v)
 //				}
 //
-//				require.NoError(t, c3.Delete([]byte{255}, nil)) // delete non-existing key
+//				require.NoError(t, c3.Delete([]byte{255}, nil)) // delete non-existing Key
 //				return nil
 //			}); err != nil {
 //				t.Error(err)

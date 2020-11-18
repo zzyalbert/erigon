@@ -123,10 +123,10 @@ func (opts remoteOpts) Open(certFile, keyFile, caCert string) (KV, Backend, erro
 				return nil, nil, err
 			}
 		} else {
-			// load peer cert/key, ca cert
+			// load peer cert/Key, ca cert
 			peerCert, err := tls.LoadX509KeyPair(certFile, keyFile)
 			if err != nil {
-				log.Error("load peer cert/key error:%v", err)
+				log.Error("load peer cert/Key error:%v", err)
 				return nil, nil, err
 			}
 			caCert, err := ioutil.ReadFile(caCert)
@@ -565,7 +565,7 @@ func (tx *remoteTx) closeGrpcStream() {
 	if tx.streamingRequested {
 		// if streaming is in progress, can't use `CloseSend` - because
 		// server will not read it right not - it busy with streaming data
-		// TODO: set flag 'tx.streamingRequested' to false when got terminator from server (nil key or os.EOF)
+		// TODO: set flag 'tx.streamingRequested' to false when got terminator from server (nil Key or os.EOF)
 		tx.streamCancelFn()
 	} else {
 		// try graceful close stream

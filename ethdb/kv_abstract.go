@@ -77,7 +77,7 @@ type Tx interface {
 	// Otherwise - object of interface Cursor created
 	//
 	// Cursor, also provides a grain of magic - it can use a declarative configuration - and automatically break
-	// long keys into DupSort key/values. See docs for `bucket.go:BucketConfigItem`
+	// long keys into DupSort Key/values. See docs for `bucket.go:BucketConfigItem`
 	Cursor(bucket string) Cursor
 	CursorDupSort(bucket string) CursorDupSort   // CursorDupSort - can be used if bucket has lmdb.DupSort flag
 	CursorDupFixed(bucket string) CursorDupFixed // CursorDupSort - can be used if bucket has lmdb.DupFixed flag
@@ -93,8 +93,8 @@ type Tx interface {
 	Cmp(bucket string, a, b []byte) int
 	DCmp(bucket string, a, b []byte) int
 
-	// Allows to create a linear sequence of unique positive integers for each table.
-	// Can be called for a read transaction to retrieve the current sequence value, and the increment must be zero.
+	// Allows to create a linear sequence of unique positive integers for each Table.
+	// Can be called for a read transaction to retrieve the current sequence Value, and the increment must be zero.
 	// Sequence changes become visible outside the current write transaction after it is committed, and discarded on abort.
 	// Starts from 0.
 	Sequence(bucket string, amount uint64) (uint64, error)
@@ -112,7 +112,7 @@ type BucketMigrator interface {
 // Cursor - class for navigating through a database
 // CursorDupSort and CursorDupFixed are inherit this class
 //
-// If methods (like First/Next/Seek) return error, then returned key SHOULD not be nil (can be []byte{} for example).
+// If methods (like First/Next/Seek) return error, then returned Key SHOULD not be nil (can be []byte{} for example).
 // Then looping code will look as:
 // c := kv.Cursor(bucketName)
 // for k, v, err := c.First(); k != nil; k, v, err = c.Next() {
@@ -125,26 +125,26 @@ type Cursor interface {
 	Prefix(v []byte) Cursor // Prefix returns only keys with given prefix, useful RemoteKV - because filtering done by server
 	Prefetch(v uint) Cursor // Prefetch enables data streaming - used only by RemoteKV
 
-	First() ([]byte, []byte, error)               // First - position at first key/data item
-	Seek(seek []byte) ([]byte, []byte, error)     // Seek - position at first key greater than or equal to specified key
-	SeekExact(key []byte) ([]byte, []byte, error) // SeekExact - position at first key greater than or equal to specified key
-	Next() ([]byte, []byte, error)                // Next - position at next key/value (can iterate over DupSort key/values automatically)
-	Prev() ([]byte, []byte, error)                // Prev - position at previous key
-	Last() ([]byte, []byte, error)                // Last - position at last key and last possible value
-	Current() ([]byte, []byte, error)             // Current - return key/data at current cursor position
+	First() ([]byte, []byte, error)               // First - position at first Key/data item
+	Seek(seek []byte) ([]byte, []byte, error)     // Seek - position at first Key greater than or equal to specified Key
+	SeekExact(key []byte) ([]byte, []byte, error) // SeekExact - position at first Key greater than or equal to specified Key
+	Next() ([]byte, []byte, error)                // Next - position at next Key/Value (can iterate over DupSort Key/values automatically)
+	Prev() ([]byte, []byte, error)                // Prev - position at previous Key
+	Last() ([]byte, []byte, error)                // Last - position at last Key and last possible Value
+	Current() ([]byte, []byte, error)             // Current - return Key/data at current cursor position
 
 	Put(k, v []byte) error           // Put - based on order
-	Append(k []byte, v []byte) error // Append - append the given key/data pair to the end of the database. This option allows fast bulk loading when keys are already known to be in the correct order.
+	Append(k []byte, v []byte) error // Append - append the given Key/data pair to the end of the database. This option allows fast bulk loading when keys are already known to be in the correct order.
 	Delete(k, v []byte) error        // Delete - short version of SeekExact+DeleteCurrent or SeekBothExact+DeleteCurrent
 
-	// DeleteCurrent This function deletes the key/data pair to which the cursor refers.
+	// DeleteCurrent This function deletes the Key/data pair to which the cursor refers.
 	// This does not invalidate the cursor, so operations such as MDB_NEXT
 	// can still be used on it.
 	// Both MDB_NEXT and MDB_GET_CURRENT will return the same record after
 	// this operation.
 	DeleteCurrent() error
 
-	// PutNoOverwrite(key, value []byte) error
+	// PutNoOverwrite(Key, Value []byte) error
 	Reserve(k []byte, n int) ([]byte, error)
 
 	// PutCurrent - replace the item at the current cursor position.
@@ -159,19 +159,19 @@ type CursorDupSort interface {
 	Cursor
 
 	// SeekBothExact -
-	// second parameter can be nil only if searched key has no duplicates, or return error
+	// second parameter can be nil only if searched Key has no duplicates, or return error
 	SeekBothExact(key, value []byte) ([]byte, []byte, error)
 	SeekBothRange(key, value []byte) ([]byte, []byte, error)
-	FirstDup() ([]byte, error)          // FirstDup - position at first data item of current key
-	NextDup() ([]byte, []byte, error)   // NextDup - position at next data item of current key
-	NextNoDup() ([]byte, []byte, error) // NextNoDup - position at first data item of next key
-	LastDup(k []byte) ([]byte, error)   // LastDup - position at last data item of current key
+	FirstDup() ([]byte, error)          // FirstDup - position at first data item of current Key
+	NextDup() ([]byte, []byte, error)   // NextDup - position at next data item of current Key
+	NextNoDup() ([]byte, []byte, error) // NextNoDup - position at first data item of next Key
+	LastDup(k []byte) ([]byte, error)   // LastDup - position at last data item of current Key
 
-	CountDuplicates() (uint64, error)  // CountDuplicates - number of duplicates for the current key
-	DeleteCurrentDuplicates() error    // DeleteCurrentDuplicates - deletes all of the data items for the current key
+	CountDuplicates() (uint64, error)  // CountDuplicates - number of duplicates for the current Key
+	DeleteCurrentDuplicates() error    // DeleteCurrentDuplicates - deletes all of the data items for the current Key
 	AppendDup(key, value []byte) error // AppendDup - same as Append, but for sorted dup data
 
-	//PutIfNoDup()      // Store the key-value pair only if key is not present
+	//PutIfNoDup()      // Store the Key-Value pair only if Key is not present
 }
 
 // CursorDupFixed - has methods valid for buckets with lmdb.DupFixed flag
