@@ -33,7 +33,7 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-stack/stack v1.8.0
 	github.com/golang/protobuf v1.4.2
-	github.com/golang/snappy v0.0.2-0.20200707131729-196ae77b8a26
+	github.com/golang/snappy v0.0.2
 	github.com/google/btree v1.0.0
 	github.com/google/gofuzz v1.1.1-0.20200604201612-c04b05f3adfa
 	github.com/gorilla/websocket v1.4.2
@@ -45,6 +45,7 @@ require (
 	github.com/huin/goupnp v1.0.0
 	github.com/influxdata/influxdb v1.8.2
 	github.com/jackpal/go-nat-pmp v1.0.2
+	github.com/jayloop/radix v0.0.0-20201023145830-292b242c1059
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9
 	github.com/kevinburke/go-bindata v3.21.0+incompatible
@@ -58,6 +59,7 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/petar/GoLLRB v0.0.0-20190514000832-33fb24c13b99
 	github.com/peterh/liner v1.2.0
+	github.com/plar/go-adaptive-radix-tree v1.0.4
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/tsdb v0.10.0
 	github.com/rs/cors v1.7.0

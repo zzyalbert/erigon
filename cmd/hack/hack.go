@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/holiman/uint256"
+	radix2 "github.com/jayloop/radix"
 	"github.com/ledgerwatch/lmdb-go/lmdb"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/changeset"
@@ -42,6 +43,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/rlp"
 	"github.com/ledgerwatch/turbo-geth/turbo/stages/headerdownload"
 	"github.com/ledgerwatch/turbo-geth/turbo/trie"
+	"github.com/plar/go-adaptive-radix-tree"
 	"github.com/valyala/gozstd"
 	"github.com/wcharczuk/go-chart"
 	"github.com/wcharczuk/go-chart/util"
@@ -2044,6 +2046,54 @@ func receiptSizes(chaindata string) error {
 	return nil
 }
 
+func artCmp(chaindata string) error {
+	db := ethdb.MustOpen(chaindata)
+	defer db.Close()
+	logEvery := time.NewTicker(30 * time.Second)
+	defer logEvery.Stop()
+
+	tree := art.New()
+	trie2 := radix2.NewTree(&radix2.Options{})
+	_ = trie2
+
+	total := 0
+	db.Walk(dbutils.PlainStateBucket, nil, 0, func(k, v []byte) (bool, error) {
+		total += len(k) + len(v)
+		tree.Insert(k, v)
+		//found, op := trie2.PrepareUpdate(k)
+		//if found {
+		//	op.Match = false
+		//	op.FetchedKey = v
+		//	//if string(key) == string(op.FetchedKey) {
+		//	//	// this is an update
+		//	//	// do some update logic or abort if we only wanted to insert
+		//	//	op.Match = true
+		//	//} else {
+		//	//	// this is an insert
+		//	//	// do some insert logic or abort if we only wanted to update
+		//	//}
+		//}
+		//if !op.Finalize(3) {
+		//	// write conflict, we need to restart with a new PrepareUpdate
+		//}
+		select {
+		default:
+		case <-logEvery.C:
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			log.Info("Progress", "k", fmt.Sprintf("%x", k), "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys))
+		}
+		return true, nil
+	})
+	runtime.GC()
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	log.Info("Progress", "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys), "total", common.StorageSize(total))
+
+	return nil
+}
+
 func dupSz(chaindata string) error {
 	db := ethdb.MustOpen(chaindata)
 	defer db.Close()
@@ -2065,7 +2115,7 @@ func dupSz(chaindata string) error {
 		total += len(k) + len(v) + 8
 		for k, v, err := c.NextDup(); k != nil; k, v, err = c.NextDup() {
 			check(err)
-			total += len(v) + 8
+			total += len(v)
 			//fmt.Printf("\t%x\n", v)
 		}
 	}
@@ -2239,6 +2289,11 @@ func main() {
 	}
 	if *action == "dupSz" {
 		if err := dupSz(*chaindata); err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+	}
+	if *action == "artCmp" {
+		if err := artCmp(*chaindata); err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
