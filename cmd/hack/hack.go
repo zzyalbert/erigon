@@ -2053,11 +2053,11 @@ func artCmp(chaindata string) error {
 	defer logEvery.Stop()
 
 	tree := art.New()
-	trie2 := radix2.NewTree(&radix2.Options{})
+	trie2 := radix2.NewTree(&radix2.Options{NumAllocators: 1})
 	_ = trie2
 
 	total := 0
-	db.Walk(dbutils.PlainStateBucket, nil, 0, func(k, v []byte) (bool, error) {
+	_ = db.Walk(dbutils.PlainStateBucket, nil, 0, func(k, v []byte) (bool, error) {
 		total += len(k) + len(v)
 		tree.Insert(k, v)
 		//found, op := trie2.PrepareUpdate(k)
