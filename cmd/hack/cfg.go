@@ -41,22 +41,22 @@ func testGenCfg() {
 	}
 
 	if *mode == "test" {
-		absIntTestSimple00()
-		absIntTestRequires00()
-		absIntTestCall01()
-		absIntTestDiv00()
-		absIntTestEcrecoverLoop02()
-		absIntTestStorageVar03()
-		absIntTestStaticLoop00()
-		absIntTestPrivateFunction01()
-		absIntTestPrivateFunction02()
-		absIntTestStaticLoop01()
-		absIntTestDepositContract()
+		//absIntTestSimple00()
+		//absIntTestRequires00()
+		//absIntTestCall01()
+	//	absIntTestDiv00()
+		//absIntTestEcrecoverLoop02()
+		//absIntTestStorageVar03()
+		//absIntTestStaticLoop00()
+		//absIntTestPrivateFunction01()
+		//absIntTestPrivateFunction02()
+		//absIntTestStaticLoop01()
+		//absIntTestDepositContract()
 		absIntTestPanic00()
-		absIntTestSmallImprecision()
+		/*absIntTestSmallImprecision()
 		absIntTestSmallInvalidJumpDest()
 		absIntTestSmallImprecision2()
-		absIntAndJumpImprecision()
+		absIntAndJumpImprecision()*/
 		return
 	}
 }
@@ -71,6 +71,7 @@ func worker(code []byte) {
 		cfg, _ := vm.GenCfg(code, maxAnlyCounterLimit, maxStackLen, maxStackCount, &metrics)
 		if cfg.Metrics.Valid {
 			proof := cfg.GenerateProof()
+			vm.StorageFlowAnalysis(code, proof)
 			cfg.ProofSerialized = proof.Serialize()
 			dproof := vm.DeserializeCfgProof(cfg.ProofSerialized)
 			check := vm.CheckCfg(code, dproof)
@@ -497,7 +498,9 @@ func runCfgAnly(testName string, code string) {
 			cfg.GetCoverageStats().Epilogue)
 
 		proof := cfg.GenerateProof()
-
+		fmt.Printf("%v\n", proof.ToString())
+		vm.StorageFlowAnalysis(decoded, proof)
+/*
 		cfg.ProofSerialized = proof.Serialize()
 		fmt.Printf("Proof:\n%+v\n", string(cfg.ProofSerialized))
 
@@ -508,7 +511,7 @@ func runCfgAnly(testName string, code string) {
 			fmt.Printf("Proof checker successfully checked proof")
 		} else {
 			fmt.Printf("Proof checker failed to check proof")
-		}
+		}*/
 	}
 }
 

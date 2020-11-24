@@ -230,7 +230,7 @@ func resolve(cfg *Cfg, pc0 int) ([]edge, error) {
 			if stack.hasIndices(0) {
 				jumpDest := stack.values[0]
 				if jumpDest.kind == InvalidValue {
-					//program terminates, don't add edges
+					cfg.JumpsToInvalid[pc0] = true
 				} else if jumpDest.kind == TopValue {
 					isBadJump = true
 					cfg.Metrics.BadJumpImprecision = true
@@ -238,6 +238,8 @@ func resolve(cfg *Cfg, pc0 int) ([]edge, error) {
 					if cfg.Program.isJumpDest(jumpDest.value) {
 						pc1 := int(jumpDest.value.Uint64())
 						edges = append(edges, edge{pc0, stmt, pc1, true})
+					} else {
+						cfg.JumpsToInvalid[pc0] = true
 					}
 				}
 			}
@@ -433,6 +435,7 @@ type Cfg struct {
 	D               map[int]*astate
 	Metrics         *CfgMetrics
 	ProofSerialized []byte
+	JumpsToInvalid	map[int]bool
 }
 
 type CfgCoverageStats struct {
@@ -640,6 +643,7 @@ func GenCfg(code []byte, anlyCounterLimit int, maxStackLen int, maxStackCount in
 	cfg.Metrics = metrics
 	cfg.Program = program
 	cfg.PrevEdgeMap = make(map[int]map[int]bool)
+	cfg.JumpsToInvalid = make(map[int]bool)
 
 	startPC := 0
 	codeLen := len(program.Code)
@@ -647,7 +651,7 @@ func GenCfg(code []byte, anlyCounterLimit int, maxStackLen int, maxStackCount in
 	for pc := 0; pc < codeLen; pc++ {
 		cfg.D[pc] = emptyState()
 	}
-	cfg.D[startPC] = botState()
+	cfg.D[startPC] = initState()
 
 	var workList []edge
 
@@ -793,6 +797,7 @@ func (cfg *Cfg) GenerateProof() *CfgProof {
 		block := CfgProofBlock{}
 		block.Entry = &CfgProofState{pc0, StringifyAState(cfg.D[pc0])}
 		block.Exit = &CfgProofState{pc1, StringifyAState(cfg.D[pc1])}
+		block.IsInvalidJump = cfg.JumpsToInvalid[pc1]
 		proof.Blocks = append(proof.Blocks, &block)
 	}
 

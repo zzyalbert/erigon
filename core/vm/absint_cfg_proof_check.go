@@ -7,65 +7,7 @@ import (
 	"reflect"
 )
 
-type CfgOpSem struct {
-	reverts  bool
-	halts    bool
-	isPush   bool
-	isDup    bool
-	isSwap   bool
-	numBytes int
-	opNum    int
-	numPush  int
-	numPop   int
-}
 
-type CfgAbsSem map[OpCode]*CfgOpSem
-
-func NewCfgAbsSem() *CfgAbsSem {
-	jt := newIstanbulInstructionSet()
-
-	sem := CfgAbsSem{}
-
-	for opcode, op := range jt {
-		if op == nil {
-			continue
-		}
-		opsem := CfgOpSem{}
-		opsem.reverts = op.reverts
-		opsem.halts = op.halts
-		opsem.isPush = op.isPush
-		opsem.isDup = op.isDup
-		opsem.isSwap = op.isSwap
-		opsem.opNum = op.opNum
-		opsem.numPush = op.numPush
-		opsem.numPop = op.numPop
-
-		if opsem.isPush {
-			opsem.numBytes = op.opNum + 1
-		} else {
-			opsem.numBytes = 1
-
-		}
-		sem[OpCode(opcode)] = &opsem
-	}
-
-	return &sem
-}
-
-func getPushValue(code []byte, pc int, opsem0 *CfgOpSem) uint256.Int {
-	pushByteSize := opsem0.opNum
-	startMin := pc + 1
-	if startMin >= len(code) {
-		startMin = len(code)
-	}
-	endMin := startMin + pushByteSize
-	if startMin+pushByteSize >= len(code) {
-		endMin = len(code)
-	}
-	integer := new(uint256.Int)
-	integer.SetBytes(code[startMin:endMin])
-	return *integer
-}
 
 func isJumpDest(code []byte, value *uint256.Int) bool {
 	if !value.IsUint64() {
@@ -142,7 +84,7 @@ func postCheck(sem *CfgAbsSem, code []byte, st0 *astate, pc0 int, pc1 int, isJum
 		stack1 := stack0.Copy()
 
 		if opsem0.isPush {
-			pushValue := getPushValue(code, pc0, opsem0)
+			pushValue := opsem0.getPushValue(code, pc0)
 			if isJumpDest(code, &pushValue) || isFF(&pushValue) {
 				stack1.Push(AbsValueConcrete(pushValue))
 			} else {
@@ -261,7 +203,7 @@ func CheckCfg(code []byte, proof *CfgProof) bool {
 
 		var inferredEntry *astate
 		if block.Entry.Pc == 0 {
-			inferredEntry = botState()
+			inferredEntry = initState()
 		} else {
 			lub := emptyState()
 			for _, preSt := range preLub[block.Entry.Pc] {

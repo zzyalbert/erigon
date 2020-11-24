@@ -1,12 +1,9 @@
 package vm
 
 import (
-	"bytes"
-	"compress/zlib"
 	"encoding/json"
 	"fmt"
 	"github.com/holiman/uint256"
-	"io/ioutil"
 	"log"
 	"strconv"
 	"strings"
@@ -19,10 +16,12 @@ const (
 	TopValue
 	InvalidValue
 	ConcreteValue
+	TaintValue
+
 )
 
 func (d AbsValueKind) String() string {
-	return [...]string{"⊥", "⊤", "x", "AbsValue"}[d]
+	return [...]string{"⊥", "⊤", "x", "c", "#"}[d]
 }
 
 func (d AbsValueKind) hash() uint64 {
@@ -230,7 +229,7 @@ func (state *astate) Copy() *astate {
 	return newState
 }
 
-func botState() *astate {
+func initState() *astate {
 	st := emptyState()
 
 	botStack := newStack()
@@ -301,10 +300,11 @@ type CfgProofState struct {
 }
 
 type CfgProofBlock struct {
-	Entry *CfgProofState
-	Exit  *CfgProofState
-	Preds []int
-	Succs []int
+	Entry         *CfgProofState
+	Exit          *CfgProofState
+	Preds         []int
+	Succs         []int
+	IsInvalidJump bool
 }
 
 type CfgProof struct {
@@ -313,7 +313,8 @@ type CfgProof struct {
 
 func DeserializeCfgProof(proofBytes []byte) *CfgProof {
 	proof := CfgProof{}
-	err := json.Unmarshal(DecompressProof(proofBytes), &proof)
+	//proofBytes = DecompressProof(proofBytes)
+	err := json.Unmarshal(proofBytes, &proof)
 	if err != nil {
 		log.Fatal("Cannot deserialize proof")
 	}
@@ -325,9 +326,9 @@ func (proof *CfgProof) Serialize() []byte {
 	if err != nil {
 		log.Fatal("Cannot serialize proof")
 	}
-	return CompressProof(res)
+	return res//CompressProof(res)
 }
-
+/*
 func CompressProof(in []byte) []byte {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
@@ -354,7 +355,7 @@ func DecompressProof(in []byte) []byte {
 		log.Fatal("cannot read")
 	}
 	return res
-}
+}*/
 
 func (proof *CfgProof) ToString() string {
 	return string(proof.Serialize())
