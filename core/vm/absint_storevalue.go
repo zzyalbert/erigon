@@ -56,7 +56,6 @@ func (p prog) print(instr2state map[*instr]*astate) {
 			succsstr := ""
 			if instr.sem.isJump {
 				succsstr = fmt.Sprintf("%v", succPcs)
-
 			}
 
 			ststr := instr2state[instr].String(true)
@@ -173,7 +172,14 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) {
 	}
 
 	instr2state := make(map[*instr]*astate)
+	iterCount := 0
 	for len(worklist) > 0 {
+		if iterCount > 1000 {
+			break
+		}
+
+		fmt.Printf("worklist size: %v %v\n", len(worklist), iterCount)
+
 		block := worklist[0]
 		worklist = worklist[1:]
 
@@ -193,11 +199,15 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) {
 		}
 
 		if !Eq(st, exit[block]) {
+			fmt.Printf("%v\n", st.String(true))
+			fmt.Printf("%v\n", exit[block].String(true))
 			exit[block] = st
 			for _, succ := range block.succs {
 				worklist = append(worklist, succ)
 			}
 		}
+
+		iterCount++
 	}
 
 	prog.print(instr2state)

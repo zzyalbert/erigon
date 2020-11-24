@@ -49,14 +49,14 @@ func testGenCfg() {
 		//absIntTestStorageVar03()
 		//absIntTestStaticLoop00()
 		//absIntTestPrivateFunction01()
-		//absIntTestPrivateFunction02()
+		//absIntTestPrivateFunction02()*/
 		//absIntTestStaticLoop01()
-		//absIntTestDepositContract()
-		absIntTestPanic00()
-		/*absIntTestSmallImprecision()
-		absIntTestSmallInvalidJumpDest()
-		absIntTestSmallImprecision2()
-		absIntAndJumpImprecision()*/
+		absIntTestDepositContract()
+		/*absIntTestPanic00()
+		//absIntTestSmallImprecision()
+		//absIntTestSmallInvalidJumpDest()
+		//absIntTestSmallImprecision2()
+		//absIntAndJumpImprecision()*/
 		return
 	}
 }

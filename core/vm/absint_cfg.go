@@ -33,6 +33,8 @@ func (d AbsValueKind) hash() uint64 {
 		return 2
 	} else if d == ConcreteValue {
 		return 3
+	} else if d == TaintValue {
+		return 4
 	} else {
 		panic("no hash found")
 	}
@@ -47,7 +49,9 @@ type AbsValue struct {
 }
 
 func (c0 AbsValue) String(abbrev bool) string {
-	if c0.kind == InvalidValue {
+	if c0.kind == TaintValue {
+		return c0.kind.String()
+	} else if c0.kind == InvalidValue {
 		return c0.kind.String()
 	} else if c0.kind == BotValue {
 		return c0.kind.String()
@@ -68,6 +72,10 @@ func AbsValueTop(pc int) AbsValue {
 
 func AbsValueInvalid() AbsValue {
 	return AbsValue{kind: InvalidValue}
+}
+
+func AbsValueTaint() AbsValue {
+	return AbsValue{kind: TaintValue}
 }
 
 func AbsValueConcrete(value uint256.Int) AbsValue {
@@ -97,7 +105,7 @@ func (c0 AbsValue) hash() uint64 {
 }
 
 func (c0 AbsValue) Stringify() string {
-	if c0.kind == InvalidValue || c0.kind == TopValue {
+	if c0.kind == InvalidValue || c0.kind == TopValue || c0.kind == TaintValue {
 		return c0.kind.String()
 	} else if c0.kind == ConcreteValue {
 		b, err := c0.value.MarshalText()
@@ -116,7 +124,9 @@ func AbsValueDestringify(s string) AbsValue {
 		return AbsValueTop(-1)
 	} else if s == "x" {
 		return AbsValueInvalid()
-	} else if strings.HasPrefix(s, "0x") {
+	} else if s == "#" {
+		return AbsValueTaint()
+	}else if strings.HasPrefix(s, "0x") {
 		var i uint256.Int
 		err := i.UnmarshalText([]byte(s))
 		if err != nil {
