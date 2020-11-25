@@ -16,7 +16,7 @@ const (
 	TopValue
 	InvalidValue
 	ConcreteValue
-	TaintValue
+	StaticValue
 
 )
 
@@ -33,7 +33,7 @@ func (d AbsValueKind) hash() uint64 {
 		return 2
 	} else if d == ConcreteValue {
 		return 3
-	} else if d == TaintValue {
+	} else if d == StaticValue {
 		return 4
 	} else {
 		panic("no hash found")
@@ -49,7 +49,7 @@ type AbsValue struct {
 }
 
 func (c0 AbsValue) String(abbrev bool) string {
-	if c0.kind == TaintValue {
+	if c0.kind == StaticValue {
 		return c0.kind.String()
 	} else if c0.kind == InvalidValue {
 		return c0.kind.String()
@@ -70,16 +70,32 @@ func AbsValueTop(pc int) AbsValue {
 	return AbsValue{kind: TopValue, pc: pc}
 }
 
+func AbsValueBot(pc int) AbsValue {
+	return AbsValue{kind: BotValue, pc: pc}
+}
+
 func AbsValueInvalid() AbsValue {
 	return AbsValue{kind: InvalidValue}
 }
 
-func AbsValueTaint() AbsValue {
-	return AbsValue{kind: TaintValue}
+func AbsValueStatic() AbsValue {
+	return AbsValue{kind: StaticValue}
 }
 
 func AbsValueConcrete(value uint256.Int) AbsValue {
 	return AbsValue{kind: ConcreteValue, value: &value}
+}
+
+func AbsValueLub(v1 AbsValue, v2 AbsValue) AbsValue {
+	if v1.kind == v2.kind {
+		return v1
+	} else if v1.kind == BotValue {
+		return v2
+	} else if v2.kind == BotValue {
+		return v1
+	} else  {
+		return AbsValueTop(0)
+	}
 }
 
 func (c0 AbsValue) Eq(c1 AbsValue) bool {
@@ -105,7 +121,7 @@ func (c0 AbsValue) hash() uint64 {
 }
 
 func (c0 AbsValue) Stringify() string {
-	if c0.kind == InvalidValue || c0.kind == TopValue || c0.kind == TaintValue {
+	if c0.kind == InvalidValue || c0.kind == TopValue || c0.kind == StaticValue {
 		return c0.kind.String()
 	} else if c0.kind == ConcreteValue {
 		b, err := c0.value.MarshalText()
@@ -124,8 +140,8 @@ func AbsValueDestringify(s string) AbsValue {
 		return AbsValueTop(-1)
 	} else if s == "x" {
 		return AbsValueInvalid()
-	} else if s == "#" {
-		return AbsValueTaint()
+	} else if s == "s" {
+		return AbsValueStatic()
 	}else if strings.HasPrefix(s, "0x") {
 		var i uint256.Int
 		err := i.UnmarshalText([]byte(s))

@@ -42,6 +42,7 @@ func testGenCfg() {
 
 	if *mode == "test" {
 		//absIntTestSimple00()
+		absIntTestStoreDynamic00()
 		//absIntTestRequires00()
 		//absIntTestCall01()
 	//	absIntTestDiv00()
@@ -51,7 +52,7 @@ func testGenCfg() {
 		//absIntTestPrivateFunction01()
 		//absIntTestPrivateFunction02()*/
 		//absIntTestStaticLoop01()
-		absIntTestDepositContract()
+		//absIntTestDepositContract()
 		/*absIntTestPanic00()
 		//absIntTestSmallImprecision()
 		//absIntTestSmallInvalidJumpDest()
@@ -406,6 +407,23 @@ func absIntTestRequires00() {
 	runCfgAnly("Requires00", s)
 }
 
+func absIntTestStoreDynamic00() {
+	/*
+	pragma solidity 0.4.24;
+
+	contract storedyn00 {
+	    mapping(address => uint256) public map;
+	    address owner;
+
+		function getOwnerValue() view public returns (uint256) {
+		    return map[owner];
+		}
+	}
+	*/
+	const s = "60806040526004361061004c576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063b721ef6e14610051578063c9885b76146100a8575b600080fd5b34801561005d57600080fd5b50610092600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506100d3565b6040518082815260200191505060405180910390f35b3480156100b457600080fd5b506100bd6100eb565b6040518082815260200191505060405180910390f35b60006020528060005260406000206000915090505481565b6000806000600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050905600a165627a7a723058207f1ae32c16e4c5cd09e96a557c0a8dac77b64918f77fd7ba93223b2ae189d97a0029"
+	runCfgAnly("StoreDynamic00", s)
+}
+
 func absIntTestCall01() {
 	/*
 		pragma solidity 0.5.0;
@@ -499,19 +517,21 @@ func runCfgAnly(testName string, code string) {
 
 		proof := cfg.GenerateProof()
 		fmt.Printf("%v\n", proof.ToString())
-		vm.StorageFlowAnalysis(decoded, proof)
-/*
-		cfg.ProofSerialized = proof.Serialize()
-		fmt.Printf("Proof:\n%+v\n", string(cfg.ProofSerialized))
+		sfa := vm.StorageFlowAnalysis(decoded, proof)
+		fmt.Printf("ssa? %v", sfa.IsStaticStateAccess)
 
-		dproof := vm.DeserializeCfgProof(cfg.ProofSerialized)
+		/*
+				cfg.ProofSerialized = proof.Serialize()
+				fmt.Printf("Proof:\n%+v\n", string(cfg.ProofSerialized))
 
-		check := vm.CheckCfg(decoded, dproof)
-		if check {
-			fmt.Printf("Proof checker successfully checked proof")
-		} else {
-			fmt.Printf("Proof checker failed to check proof")
-		}*/
+				dproof := vm.DeserializeCfgProof(cfg.ProofSerialized)
+
+				check := vm.CheckCfg(decoded, dproof)
+				if check {
+					fmt.Printf("Proof checker successfully checked proof")
+				} else {
+					fmt.Printf("Proof checker failed to check proof")
+				}*/
 	}
 }
 

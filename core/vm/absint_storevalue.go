@@ -27,6 +27,10 @@ type prog struct {
 	blocks map[int]*block	//entry block always first
 }
 
+type StorageFlowResult struct {
+	IsStaticStateAccess   bool
+}
+
 func (p prog) print(instr2state map[*instr]*astate) {
 	blockList := make([]*block, 0)
 	for _, block := range p.blocks {
@@ -58,7 +62,10 @@ func (p prog) print(instr2state map[*instr]*astate) {
 				succsstr = fmt.Sprintf("%v", succPcs)
 			}
 
-			ststr := instr2state[instr].String(true)
+			var ststr string
+			if instr2state[instr] != nil {
+				ststr = instr2state[instr].String(true)
+			}
 
 			fmt.Printf("%3v %-25v %-10v %v\n", aurora.Yellow(instr.pc), aurora.Green(vstr), aurora.Magenta(succsstr), ststr)
 		}
@@ -121,8 +128,7 @@ func apply(st0 *astate, x *instr) *astate {
 		}
 
 		if x.sem.isPush {
-			pushValue := *x.value
-			stack1.Push(AbsValueConcrete(pushValue))
+			stack1.Push(AbsValueStatic())
 		} else if x.sem.isDup {
 			if !stack0.hasIndices(x.sem.opNum - 1) {
 				continue
@@ -159,7 +165,35 @@ func apply(st0 *astate, x *instr) *astate {
 	return st1
 }
 
-func StorageFlowAnalysis(code []byte, proof *CfgProof) {
+func flatten(st *astate) *astate {
+	stf := emptyState()
+	stf.stackset = append(stf.stackset, newStack())
+
+	i := 0
+	for true {
+		lubv := AbsValueBot(0)
+
+		foundStackElement := false
+		for _, stack := range st.stackset {
+			if i < len(stack.values) {
+				v := stack.values[i]
+				lubv = AbsValueLub(lubv, v)
+				foundStackElement = true
+			}
+		}
+
+		if !foundStackElement {
+			break
+		}
+
+		stf.stackset[0].values = append(stf.stackset[0].values, lubv)
+		i++
+	}
+
+	return stf
+}
+
+func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 	prog := toProg(code, proof)
 
 	entry := make(map[*block]*astate)
@@ -173,12 +207,10 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) {
 
 	instr2state := make(map[*instr]*astate)
 	iterCount := 0
+	result := StorageFlowResult{}
+	isDynamic := false
 	for len(worklist) > 0 {
-		if iterCount > 1000 {
-			break
-		}
-
-		fmt.Printf("worklist size: %v %v\n", len(worklist), iterCount)
+		//fmt.Printf("worklist size: %v %v\n", len(worklist), iterCount)
 
 		block := worklist[0]
 		worklist = worklist[1:]
@@ -190,17 +222,24 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) {
 			st = emptyState()
 			for _, prev := range block.prevs {
 				st = Lub(st, exit[prev])
+				st = flatten(st)
 			}
 		}
 
 		for _, instr := range block.instrs  {
 			instr2state[instr] = st
+			if isDynamicAccess(st, instr) {
+				isDynamic = true
+				break
+			}
 			st = apply(st, instr)
 		}
 
 		if !Eq(st, exit[block]) {
-			fmt.Printf("%v\n", st.String(true))
-			fmt.Printf("%v\n", exit[block].String(true))
+			//print("----------------")
+			//fmt.Printf("%v\n", st.String(true))
+			//fmt.Printf("%v\n", exit[block].String(true))
+			//print("----------------")
 			exit[block] = st
 			for _, succ := range block.succs {
 				worklist = append(worklist, succ)
@@ -211,4 +250,23 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) {
 	}
 
 	prog.print(instr2state)
+
+	if !isDynamic {
+		result.IsStaticStateAccess = true
+	}
+
+	return result
+}
+
+func isDynamicAccess(st *astate, instr * instr) bool {
+	if instr.opcode == SLOAD {
+		for _, stack := range st.stackset {
+			if len(stack.values) > 0 {
+				if  stack.values[0] != AbsValueStatic() {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
