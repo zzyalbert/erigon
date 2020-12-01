@@ -1,51 +1,26 @@
 package stagedsync
 
 import (
-	"encoding/binary"
+	"context"
 
-	"github.com/ledgerwatch/turbo-geth/common"
-	"github.com/ledgerwatch/turbo-geth/common/dbutils"
-	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/ledgerwatch/turbo-geth/turbo/cetl"
 )
-
-func extractHeaders(k []byte, v []byte, next etl.ExtractNextFunc) error {
-	// We only want to extract entries composed by Block Number + Header Hash
-	if len(k) != 40 {
-		return nil
-	}
-	return next(k, common.CopyBytes(k[8:]), common.CopyBytes(k[:8]))
-}
 
 func SpawnBlockHashStage(s *StageState, stateDB ethdb.Database, tmpdir string, quit <-chan struct{}) error {
 	headHash := rawdb.ReadHeadHeaderHash(stateDB)
 	headNumber := rawdb.ReadHeaderNumber(stateDB, headHash)
-	if s.BlockNumber == *headNumber {
+	if *headNumber == s.BlockNumber {
 		s.Done()
 		return nil
 	}
-
-	startKey := make([]byte, 8)
-	binary.BigEndian.PutUint64(startKey, s.BlockNumber)
-	endKey := dbutils.HeaderKey(*headNumber, headHash) // Make sure we stop at head
-
-	logPrefix := s.state.LogPrefix()
-	if err := etl.Transform(
-		logPrefix,
-		stateDB,
-		dbutils.HeaderPrefix,
-		dbutils.HeaderNumberPrefix,
-		tmpdir,
-		extractHeaders,
-		etl.IdentityLoadFunc,
-		etl.TransformArgs{
-			ExtractStartKey: startKey,
-			ExtractEndKey:   endKey,
-			Quit:            quit,
-		},
-	); err != nil {
+	tx, err := stateDB.Begin(context.Background(), ethdb.RW)
+	defer tx.Rollback()
+	if err != nil {
 		return err
 	}
+	cetl.TransformBlockHashes(tx.(ethdb.HasTx).Tx(), s.BlockNumber)
+	tx.Commit()
 	return s.DoneAndUpdate(stateDB, *headNumber)
 }
