@@ -204,7 +204,10 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 		}
 
 		stack1.updateHash()
-		st1.Add(stack1)
+
+		if len(stack1.values) <= 1024 {
+			st1.Add(stack1)
+		}
 	}
 
 	return st1
@@ -278,7 +281,7 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 			st = emptyState()
 			for _, prev := range block.prevs {
 				st = Lub(st, exit[prev][block])
-				st = flatten(st)
+				//st = flatten(st)
 			}
 		}
 
@@ -303,9 +306,11 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 
 				filtered := emptyState()
 				for _, stack := range prevst.stackset {
-					elm0 := stack.values[0]
-					if elm0.kind == ConcreteValue && elm0.value.IsUint64() && int(elm0.value.Uint64()) == succ.beginPc {
-						filtered.Add(stack)
+					if len(stack.values) > 0 {
+						elm0 := stack.values[0]
+						if elm0.kind == ConcreteValue && elm0.value.IsUint64() && int(elm0.value.Uint64()) == succ.beginPc {
+							filtered.Add(stack)
+						}
 					}
 				}
 				st = apply(prog, prevst, block.lastInstr())
