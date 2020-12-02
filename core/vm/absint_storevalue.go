@@ -15,23 +15,33 @@ type instr struct {
 }
 
 type block struct {
-	instrs  []*instr
-	succs   []*block
-	prevs   []*block
-	beginPc int
-	endPc   int
-	isExit  bool
+	instrs  		[]*instr
+	succs   		[]*block
+	prevs   		[]*block
+	beginPc 		int
+	endPc   		int
+	isExit  		bool
+	fallThruSucc 	*block
+}
+
+func (b *block) lastInstr() *instr {
+	return b.instrs[len(b.instrs)-1]
 }
 
 type prog struct {
-	blocks map[int]*block	//entry block always first
+	blocks 		map[int]*block	//entry block always first
+	jumpDestPcs map[int]bool
 }
 
 type StorageFlowResult struct {
 	IsStaticStateAccess   bool
 }
 
-func (p prog) print(instr2state map[*instr]*astate) {
+func (p *prog) isJumpDest(x *uint256.Int) bool {
+	return x.IsUint64() && p.jumpDestPcs[int(x.Uint64())]
+}
+
+func (p *prog) print(instr2state map[*instr]*astate) {
 	blockList := make([]*block, 0)
 	for _, block := range p.blocks {
 		blockList = append(blockList, block)
@@ -77,7 +87,11 @@ func (p prog) print(instr2state map[*instr]*astate) {
 func toProg(code []byte, proof *CfgProof) *prog {
 	sem := NewCfgAbsSem()
 
-	prog := prog{blocks: make(map[int]*block)}
+	prog := prog{
+		blocks: make(map[int]*block),
+		jumpDestPcs: make(map[int]bool),
+	}
+
 	for _, prfblk := range proof.Blocks {
 		block := block{beginPc: prfblk.Entry.Pc, endPc: prfblk.Exit.Pc}
 		prog.blocks[block.beginPc] = &block
@@ -99,6 +113,10 @@ func toProg(code []byte, proof *CfgProof) *prog {
 				instr.value = &value
 			}
 
+			if instr.opcode == JUMPDEST {
+				prog.jumpDestPcs[instr.pc] = true
+			}
+
 			pc += instr.sem.numBytes
 		}
 	}
@@ -109,6 +127,10 @@ func toProg(code []byte, proof *CfgProof) *prog {
 			succblk := prog.blocks[succ]
 			block.succs = append(block.succs, succblk)
 			succblk.prevs = append(succblk.prevs, block)
+
+			if block.endPc + 1 == succblk.beginPc {
+				block.fallThruSucc = succblk
+			}
 		}
 		block.isExit = len(block.succs) == 0 || prfblk.IsInvalidJump
 	}
@@ -117,7 +139,7 @@ func toProg(code []byte, proof *CfgProof) *prog {
 }
 
 
-func apply(st0 *astate, x *instr) *astate {
+func apply(prog *prog, st0 *astate, x *instr) *astate {
 	st1 := emptyState()
 
 	for _, stack0 := range st0.stackset {
@@ -128,7 +150,11 @@ func apply(st0 *astate, x *instr) *astate {
 		}
 
 		if x.sem.isPush {
-			stack1.Push(AbsValueStatic())
+			if prog.isJumpDest(x.value) || isFF(x.value) {
+				stack1.Push(AbsValueConcrete(*x.value))
+			} else {
+				stack1.Push(AbsValueStatic())
+			}
 		} else if x.sem.isDup {
 			if !stack0.hasIndices(x.sem.opNum - 1) {
 				continue
@@ -148,6 +174,25 @@ func apply(st0 *astate, x *instr) *astate {
 			stack1.values[0] = b
 			stack1.values[opNum] = a
 
+		} else if x.opcode == AND {
+			if !stack0.hasIndices(0, 1) {
+				continue
+			}
+
+			a := stack1.Pop(0)
+			b := stack1.Pop(0)
+
+			if a.kind == ConcreteValue && b.kind == ConcreteValue {
+				v := uint256.NewInt()
+				v.And(a.value, b.value)
+				stack1.Push(AbsValueConcrete(*v))
+			} else {
+				stack1.Push(AbsValueTop(0))
+			}
+		} else if x.opcode == PC {
+			v := uint256.NewInt()
+			v.SetUint64(uint64(x.pc))
+			stack1.Push(AbsValueConcrete(*v))
 		} else {
 			for i := 0; i < x.sem.numPop; i++ {
 				stack1.Pop(0)
@@ -197,20 +242,31 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 	prog := toProg(code, proof)
 
 	entry := make(map[*block]*astate)
-	exit := make(map[*block]*astate)
-	worklist := make([]*block, 0)
-	for _, block := range prog.blocks {
-		entry[block] = emptyState()
-		exit[block] = emptyState()
-		worklist = append(worklist, block)
-	}
-
+	exit := make(map[*block]map[*block]*astate)
 	instr2state := make(map[*instr]*astate)
+
+	worklist := make([]*block, 0)
+	for _, blk := range prog.blocks {
+		entry[blk] = emptyState()
+		worklist = append(worklist, blk)
+
+		exit[blk] = make(map[*block]*astate)
+		for _, succ := range blk.succs {
+			exit[blk][succ] = emptyState()
+		}
+
+		for _, instr := range blk.instrs {
+			instr2state[instr] = emptyState()
+		}
+ 	}
+
 	iterCount := 0
 	result := StorageFlowResult{}
 	isDynamic := false
 	for len(worklist) > 0 {
-		//fmt.Printf("worklist size: %v %v\n", len(worklist), iterCount)
+		/*if iterCount % 1000 == 0 {
+			prog.print(instr2state)
+		}*/
 
 		block := worklist[0]
 		worklist = worklist[1:]
@@ -221,28 +277,44 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 		} else {
 			st = emptyState()
 			for _, prev := range block.prevs {
-				st = Lub(st, exit[prev])
+				st = Lub(st, exit[prev][block])
 				st = flatten(st)
 			}
 		}
 
-		for _, instr := range block.instrs  {
+		for i := 0; i < len(block.instrs); i++ {
+			instr := block.instrs[i]
 			instr2state[instr] = st
 			if isDynamicAccess(st, instr) {
 				isDynamic = true
 				break
 			}
-			st = apply(st, instr)
+			st = apply(prog, st, instr)
 		}
 
-		if !Eq(st, exit[block]) {
-			//print("----------------")
-			//fmt.Printf("%v\n", st.String(true))
-			//fmt.Printf("%v\n", exit[block].String(true))
-			//print("----------------")
-			exit[block] = st
-			for _, succ := range block.succs {
-				worklist = append(worklist, succ)
+		for _, succ := range block.succs {
+			if block.fallThruSucc == succ {
+				if !Eq(st, exit[block][succ]) {
+					exit[block][succ] = st
+					worklist = append(worklist, succ)
+				}
+			} else {
+				prevst := instr2state[block.lastInstr()]
+
+				filtered := emptyState()
+				for _, stack := range prevst.stackset {
+					elm0 := stack.values[0]
+					if elm0.kind == ConcreteValue && elm0.value.IsUint64() && int(elm0.value.Uint64()) == succ.beginPc {
+						filtered.Add(stack)
+					}
+				}
+				st = apply(prog, prevst, block.lastInstr())
+				//fmt.Printf("jump: %v->%v\n\tprevst: %v\n\tfilt: %v\n\tst: %v\n", block.endPc, succ.beginPc, prevst.String(true), filtered.String(true), st.String(true))
+
+				if !Eq(st, exit[block][succ]) {
+					exit[block][succ] = st
+					worklist = append(worklist, succ)
+				}
 			}
 		}
 
