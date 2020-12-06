@@ -31,6 +31,7 @@ func (b *block) lastInstr() *instr {
 type prog struct {
 	blocks 		map[int]*block	//entry block always first
 	jumpDestPcs map[int]bool
+	blockList 	[]*block
 }
 
 type StorageFlowResult struct {
@@ -42,15 +43,8 @@ func (p *prog) isJumpDest(x *uint256.Int) bool {
 }
 
 func (p *prog) print(instr2state map[*instr]*astate) {
-	blockList := make([]*block, 0)
-	for _, block := range p.blocks {
-		blockList = append(blockList, block)
-	}
-	sort.SliceStable(blockList, func(i, j int) bool {
-		return blockList[i].beginPc < blockList[j].beginPc
-	})
 
-	for _, block := range blockList {
+	for _, block := range p.blockList {
 		succPcs := make([]int, 0)
 		for _, succblk := range block.succs {
 			succPcs = append(succPcs, succblk.beginPc)
@@ -73,6 +67,9 @@ func (p *prog) print(instr2state map[*instr]*astate) {
 			}
 
 			var ststr string
+			/*if (block.instrs[0] == instr || block.lastInstr() == instr) && instr2state[instr] != nil {
+				ststr = "\n" + instr2state[instr].StringFull()
+			}*/
 			if instr2state[instr] != nil {
 				ststr = instr2state[instr].String(true)
 			}
@@ -91,6 +88,7 @@ func toProg(code []byte, proof *CfgProof) *prog {
 		blocks: make(map[int]*block),
 		jumpDestPcs: make(map[int]bool),
 	}
+
 
 	for _, prfblk := range proof.Blocks {
 		block := block{beginPc: prfblk.Entry.Pc, endPc: prfblk.Exit.Pc}
@@ -127,13 +125,22 @@ func toProg(code []byte, proof *CfgProof) *prog {
 			succblk := prog.blocks[succ]
 			block.succs = append(block.succs, succblk)
 			succblk.prevs = append(succblk.prevs, block)
+			succblk.prevs = append(succblk.prevs, block)
 
-			if block.endPc + 1 == succblk.beginPc {
+			if block.endPc + block.lastInstr().sem.numBytes == succblk.beginPc {
 				block.fallThruSucc = succblk
 			}
 		}
 		block.isExit = len(block.succs) == 0 || prfblk.IsInvalidJump
 	}
+
+	prog.blockList = make([]*block, 0)
+	for _, block := range prog.blocks {
+		prog.blockList = append(prog.blockList, block)
+	}
+	sort.SliceStable(prog.blockList, func(i, j int) bool {
+		return prog.blockList[i].beginPc < prog.blockList[j].beginPc
+	})
 
 	return &prog
 }
@@ -205,9 +212,7 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 
 		stack1.updateHash()
 
-		if len(stack1.values) <= 1024 {
-			st1.Add(stack1)
-		}
+		st1.Add(stack1)
 	}
 
 	return st1
@@ -244,14 +249,13 @@ func flatten(st *astate) *astate {
 func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 	prog := toProg(code, proof)
 
-	entry := make(map[*block]*astate)
 	exit := make(map[*block]map[*block]*astate)
 	instr2state := make(map[*instr]*astate)
 
 	worklist := make([]*block, 0)
 	for _, blk := range prog.blocks {
-		entry[blk] = emptyState()
 		worklist = append(worklist, blk)
+
 
 		exit[blk] = make(map[*block]*astate)
 		for _, succ := range blk.succs {
@@ -267,9 +271,6 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 	result := StorageFlowResult{}
 	isDynamic := false
 	for len(worklist) > 0 {
-		/*if iterCount % 1000 == 0 {
-			prog.print(instr2state)
-		}*/
 
 		block := worklist[0]
 		worklist = worklist[1:]
@@ -278,11 +279,14 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 		if len(block.prevs) == 0 {
 			st = initState()
 		} else {
+			//fmt.Printf("\nblock %v\n", block.beginPc)
 			st = emptyState()
 			for _, prev := range block.prevs {
 				st = Lub(st, exit[prev][block])
+			//	fmt.Printf("prev %v=%v\n", prev.beginPc, exit[prev][block].StringFull())
 				//st = flatten(st)
 			}
+			//fmt.Printf("lub=%v\n", st.StringFull())
 		}
 
 		for i := 0; i < len(block.instrs); i++ {
@@ -290,7 +294,7 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 			instr2state[instr] = st
 			if isDynamicAccess(st, instr) {
 				isDynamic = true
-				break
+				//break
 			}
 			st = apply(prog, st, instr)
 		}
@@ -310,10 +314,17 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 						elm0 := stack.values[0]
 						if elm0.kind == ConcreteValue && elm0.value.IsUint64() && int(elm0.value.Uint64()) == succ.beginPc {
 							filtered.Add(stack)
+						} else if elm0.kind == TopValue {
+							prog.print(instr2state)
+							fmt.Printf("jump to top: %v\n", block.beginPc)
+							panic("error")
 						}
 					}
 				}
-				st = apply(prog, prevst, block.lastInstr())
+
+
+
+				st = apply(prog, filtered, block.lastInstr())
 				//fmt.Printf("jump: %v->%v\n\tprevst: %v\n\tfilt: %v\n\tst: %v\n", block.endPc, succ.beginPc, prevst.String(true), filtered.String(true), st.String(true))
 
 				if !Eq(st, exit[block][succ]) {

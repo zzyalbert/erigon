@@ -53,7 +53,7 @@ func testGenCfg() {
 		//absIntTestPrivateFunction01()
 		//absIntTestPrivateFunction02()
 		//absIntTestStaticLoop01()
-		//absIntTestDepositContract()
+		absIntTestDepositContract()
 		/*absIntTestPanic00()
 		//absIntTestSmallImprecision()
 		//absIntTestSmallInvalidJumpDest()

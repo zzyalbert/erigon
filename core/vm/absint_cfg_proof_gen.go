@@ -721,6 +721,8 @@ func GenCfg(code []byte, anlyCounterLimit int, maxStackLen int, maxStackCount in
 
 	cfg.Metrics.Valid = true
 
+	cfg.PrintAnlyState()
+
 	return cfg, nil
 }
 

@@ -273,6 +273,18 @@ func ExistsIn(values []AbsValue, value AbsValue) bool {
 	return false
 }
 
+func (state *astate) StringFull() string {
+	var lines []string
+
+	lines = append(lines, fmt.Sprintf("|%v|", len(state.stackset)))
+
+	for _, stack := range state.stackset {
+		lines = append(lines, stack.String(true))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func (state *astate) String(abbrev bool) string {
 	maxStackLen := 0
 	for _, stack := range state.stackset {
