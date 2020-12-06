@@ -73,12 +73,14 @@ func worker(code []byte) {
 		cfg, _ := vm.GenCfg(code, maxAnlyCounterLimit, maxStackLen, maxStackCount, &metrics)
 		if cfg.Metrics.Valid {
 			proof := cfg.GenerateProof()
-			vm.StorageFlowAnalysis(code, proof)
+			sfa := vm.StorageFlowAnalysis(code, proof)
+
 			cfg.ProofSerialized = proof.Serialize()
 			dproof := vm.DeserializeCfgProof(cfg.ProofSerialized)
 			check := vm.CheckCfg(code, dproof)
 			metrics.CheckerFailed = !check
 			metrics.ProofSizeBytes = len(cfg.ProofSerialized)
+			metrics.IsStaticStateAccess = sfa.IsStaticStateAccess
 		}
 
 		mon <- 0
@@ -222,6 +224,7 @@ func batchServer() {
 		"MemUsed (MB)",
 		"Checker",
 		"ProofSize (bytes)",
+		"SSA?",
 		"Bytecode"}
 	_, err = resultsFile.WriteString(strings.Join(headers, "|") + "\n")
 	check(err)
@@ -246,6 +249,7 @@ func batchServer() {
 			sui64(result.metrics.MemUsedMBs),
 			sb(result.metrics.Checker),
 			si(result.metrics.ProofSizeBytes),
+			sb(result.metrics.IsStaticStateAccess),
 			hex.EncodeToString(result.job.code)}
 
 		_, err = resultsFile.WriteString(strings.Join(line, "|") + "\n")
@@ -665,10 +669,11 @@ type CfgEval struct {
 	numOOM               int
 	numCheckerFailed     int
 	maxProofSizeBytes    int
+	numStaticStateAccess int
 }
 
 func (eval *CfgEval) printStats() {
-	fmt.Printf("ProgramsPass=%v ProgramsAnalyzed=%v Programs=%v ProgramsPassRate=%v Timeouts=%v Panic=%v CounterLimit=%v ShortStack=%v StackCountLimit=%v Unresolved=%v Imprecision=%v InvalidOp=%v InvalidJumpDest=%v DeadCode=%v OOM=%v CheckerFailed=%v MaxProofSize=%v\n",
+	fmt.Printf("ProgramsPass=%v ProgramsAnalyzed=%v Programs=%v ProgramsPassRate=%v Timeouts=%v Panic=%v CounterLimit=%v ShortStack=%v StackCountLimit=%v Unresolved=%v Imprecision=%v InvalidOp=%v InvalidJumpDest=%v DeadCode=%v OOM=%v CheckerFailed=%v MaxProofSize=%v SSA=%v PercentSSA=%v\n",
 		eval.numProgramsPassed,
 		eval.numProgramsAnalyzed,
 		eval.numPrograms,
@@ -685,7 +690,10 @@ func (eval *CfgEval) printStats() {
 		eval.numLowCoverage,
 		eval.numOOM,
 		eval.numCheckerFailed,
-		eval.maxProofSizeBytes)
+		eval.maxProofSizeBytes,
+		eval.numStaticStateAccess,
+		percent(eval.numStaticStateAccess, eval.numProgramsAnalyzed),
+	)
 }
 
 func (eval *CfgEval) update(result *cfgJobResult, count int) {
@@ -736,6 +744,9 @@ func (eval *CfgEval) update(result *cfgJobResult, count int) {
 	}
 	if metrics.CheckerFailed {
 		eval.numCheckerFailed++
+	}
+	if metrics.IsStaticStateAccess {
+		eval.numStaticStateAccess++
 	}
 	if eval.maxProofSizeBytes < metrics.ProofSizeBytes {
 		eval.maxProofSizeBytes = metrics.ProofSizeBytes

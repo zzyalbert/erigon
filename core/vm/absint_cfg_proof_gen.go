@@ -426,6 +426,7 @@ type CfgMetrics struct {
 	ProofSizeBytes         int
 	Time                   time.Duration
 	MemUsedMBs             uint64
+	IsStaticStateAccess    bool
 }
 
 type Cfg struct {
