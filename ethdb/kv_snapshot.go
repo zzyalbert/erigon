@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"unsafe"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
@@ -31,6 +32,10 @@ func (s *snapshotTX) CursorDupSort(bucket string) CursorDupSort {
 	return s.dbTX.CursorDupSort(bucket)
 }
 
+func (s *snapshotTX) Sequence(bucket string, amount uint64) (uint64, error) {
+	return s.dbTX.Sequence(bucket, amount)
+}
+
 func (s *snapshotTX) CursorDupFixed(bucket string) CursorDupFixed {
 	return s.dbTX.CursorDupFixed(bucket)
 }
@@ -47,11 +52,19 @@ func (s *snapshotTX) DCmp(bucket string, a, b []byte) int {
 	return s.dbTX.DCmp(bucket, a, b)
 }
 
+func (s *snapshotTX) CHandle() unsafe.Pointer {
+	return s.dbTX.CHandle()
+}
+
 func (v *lazyTx) CursorDupSort(bucket string) CursorDupSort {
 	panic("implement me")
 }
 
 func (v *lazyTx) CursorDupFixed(bucket string) CursorDupFixed {
+	panic("implement me")
+}
+
+func (v *lazyTx) Sequence(bucket string, amount uint64) (uint64, error) {
 	panic("implement me")
 }
 
@@ -64,6 +77,10 @@ func (v *lazyTx) Cmp(bucket string, a, b []byte) int {
 }
 
 func (v *lazyTx) DCmp(bucket string, a, b []byte) int {
+	panic("implement me")
+}
+
+func (v *lazyTx) CHandle() unsafe.Pointer {
 	panic("implement me")
 }
 
@@ -490,15 +507,15 @@ func (s *snapshotCursor) Append(key []byte, value []byte) error {
 	return s.dbCursor.Append(key, value)
 }
 
-func (s *snapshotCursor) SeekExact(key []byte) ([]byte, error) {
-	v, err := s.dbCursor.SeekExact(key)
+func (s *snapshotCursor) SeekExact(key []byte) ([]byte, []byte, error) {
+	k, v, err := s.dbCursor.SeekExact(key)
 	if err != nil {
-		return nil, err
+		return []byte{}, nil, err
 	}
 	if v == nil {
 		return s.snCursor.SeekExact(key)
 	}
-	return v, err
+	return k, v, err
 }
 
 func (s *snapshotCursor) Last() ([]byte, []byte, error) {

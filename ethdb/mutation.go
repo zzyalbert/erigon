@@ -3,6 +3,8 @@ package ethdb
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -13,6 +15,7 @@ import (
 	"github.com/c2h5oh/datasize"
 	"github.com/google/btree"
 	"github.com/ledgerwatch/turbo-geth/common"
+	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/metrics"
 )
@@ -62,6 +65,28 @@ func (m *mutation) getMem(table string, key []byte) ([]byte, bool) {
 		return nil, false
 	}
 	return i.(*MutationItem).value, true
+}
+
+func (m *mutation) Sequence(bucket string, amount uint64) (res uint64, err error) {
+	v, ok := m.getMem(dbutils.Sequence, []byte(bucket))
+	if !ok && m.db != nil {
+		v, err = m.db.Get(dbutils.Sequence, []byte(bucket))
+		if err != nil && !errors.Is(err, ErrKeyNotFound) {
+			return 0, err
+		}
+	}
+	var currentV uint64 = 0
+	if len(v) > 0 {
+		currentV = binary.BigEndian.Uint64(v)
+	}
+
+	newVBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(newVBytes, currentV+amount)
+	if err = m.Put(dbutils.Sequence, []byte(bucket), newVBytes); err != nil {
+		return 0, err
+	}
+
+	return currentV, nil
 }
 
 // Can only be called from the worker thread
@@ -140,6 +165,10 @@ func (m *mutation) Append(table string, key []byte, value []byte) error {
 	return m.Put(table, key, value)
 }
 
+func (m *mutation) AppendDup(table string, key []byte, value []byte) error {
+	return m.Put(table, key, value)
+}
+
 func (m *mutation) MultiPut(tuples ...[]byte) (uint64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -181,7 +210,7 @@ func (m *mutation) MultiWalk(table string, startkeys [][]byte, fixedbits []int, 
 
 func (m *mutation) Delete(table string, k, v []byte) error {
 	if v != nil {
-		return fmt.Errorf("mutation doesn't implement dupsort values deletion yet")
+		return m.db.Delete(table, k, v) // TODO: mutation to support DupSort deletes
 	}
 	//m.puts.Delete(table, k)
 	return m.Put(table, k, nil)

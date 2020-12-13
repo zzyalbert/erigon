@@ -2,13 +2,12 @@ package stagedsync
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
-	"github.com/ledgerwatch/turbo-geth/core"
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync/stages"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUnwindExecutionStagePlainStatic(t *testing.T) {
@@ -70,7 +69,6 @@ func TestUnwindExecutionStagePlainWithIncarnationChanges(t *testing.T) {
 	if err != nil {
 		t.Errorf("error while saving progress: %v", err)
 	}
-	core.UsePlainStateExecution = true
 	u := &UnwindState{Stage: stages.Execution, UnwindPoint: 50}
 	s := &StageState{Stage: stages.Execution, BlockNumber: 100}
 	err = UnwindExecutionStage(u, s, tx2, true)

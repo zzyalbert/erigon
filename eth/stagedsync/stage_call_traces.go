@@ -11,10 +11,8 @@ import (
 	"time"
 
 	"github.com/RoaringBitmap/roaring"
-	"github.com/VictoriaMetrics/fastcache"
 	"github.com/c2h5oh/datasize"
 	"github.com/ledgerwatch/turbo-geth/common"
-	"github.com/ledgerwatch/turbo-geth/common/changeset"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/ledgerwatch/turbo-geth/core"
@@ -26,20 +24,13 @@ import (
 	"github.com/ledgerwatch/turbo-geth/ethdb/bitmapdb"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/params"
+	"github.com/ledgerwatch/turbo-geth/turbo/shards"
 )
-
-const (
-	callIndicesMemLimit       = 256 * datasize.MB
-	callIndicesCheckSizeEvery = 30 * time.Second
-)
-
-type StateAccessBuilder func(db ethdb.Database, blockNumber uint64,
-	accountCache, storageCache, codeCache, codeSizeCache *fastcache.Cache) (state.StateReader, state.WriterWithChangeSets)
 
 type CallTracesStageParams struct {
-	ToBlock       uint64 // not setting this params means no limit
-	AccessBuilder StateAccessBuilder
-	PresetChanges bool // Whether to use changesets to pre-set values in the cache
+	ToBlock   uint64 // not setting this params means no limit
+	BatchSize int
+	CacheSize int
 }
 
 func SpawnCallTraces(s *StageState, db ethdb.Database, chainConfig *params.ChainConfig, chainContext core.ChainContext, tmpdir string, quit <-chan struct{}, params CallTracesStageParams) error {
@@ -70,7 +61,7 @@ func SpawnCallTraces(s *StageState, db ethdb.Database, chainConfig *params.Chain
 		return nil
 	}
 
-	if err := promoteCallTraces(logPrefix, tx, s.BlockNumber+1, endBlock, chainConfig, chainContext, tmpdir, quit, params); err != nil {
+	if err := promoteCallTraces(logPrefix, tx, s.BlockNumber+1, endBlock, chainConfig, chainContext, bitmapsBufLimit, bitmapsFlushEvery, tmpdir, quit, params); err != nil {
 		return err
 	}
 
@@ -86,7 +77,7 @@ func SpawnCallTraces(s *StageState, db ethdb.Database, chainConfig *params.Chain
 	return nil
 }
 
-func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock uint64, chainConfig *params.ChainConfig, chainContext core.ChainContext, tmpdir string, quit <-chan struct{}, params CallTracesStageParams) error {
+func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock uint64, chainConfig *params.ChainConfig, chainContext core.ChainContext, bufLimit datasize.ByteSize, flushEvery time.Duration, tmpdir string, quit <-chan struct{}, params CallTracesStageParams) error {
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
 
@@ -95,42 +86,13 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 	collectorFrom := etl.NewCollector(tmpdir, etl.NewSortableBuffer(etl.BufferOptimalSize))
 	collectorTo := etl.NewCollector(tmpdir, etl.NewSortableBuffer(etl.BufferOptimalSize))
 
-	accountChangesCursor := tx.(ethdb.HasTx).Tx().Cursor(dbutils.PlainAccountChangeSetBucket)
-	defer accountChangesCursor.Close()
-	storageChangesCursor := tx.(ethdb.HasTx).Tx().Cursor(dbutils.PlainStorageChangeSetBucket)
-	checkFlushEvery := time.NewTicker(callIndicesCheckSizeEvery)
+	checkFlushEvery := time.NewTicker(flushEvery)
 	defer checkFlushEvery.Stop()
 	engine := chainContext.Engine()
 
-	var caching = endBlock-startBlock > 100
-	var accountCache *fastcache.Cache
-	var storageCache *fastcache.Cache
-	var codeCache *fastcache.Cache
-	var codeSizeCache *fastcache.Cache
-	// Caching is not worth it for small runs of blocks
-	if caching {
-		// Caching is not worth it for small runs of blocks
-		accountCache = fastcache.New(2 * 1024 * 1024 * 1024) // 2 Gb
-		storageCache = fastcache.New(2 * 1024 * 1024 * 1024) // 2 Gb
-		codeCache = fastcache.New(512 * 1024 * 1024)         // 512 Mb
-		codeSizeCache = fastcache.New(32 * 1024 * 1024)      // 32 Mb (the minimum)
-	}
+	var cache = shards.NewStateCache(32, params.CacheSize)
 
 	prev := startBlock
-	var accountCsKey, accountCsVal []byte
-	var errAcc error
-	var storageCsKey, storageCsVal []byte
-	var errSt error
-	if params.PresetChanges {
-		accountCsKey, accountCsVal, errAcc = accountChangesCursor.Seek(dbutils.EncodeTimestamp(startBlock))
-		if errAcc != nil {
-			return fmt.Errorf("%s: seeking in account changeset cursor: %v", logPrefix, errAcc)
-		}
-		storageCsKey, storageCsVal, errSt = storageChangesCursor.Seek(dbutils.EncodeTimestamp(startBlock))
-		if errSt != nil {
-			return fmt.Errorf("%s: seeking in storage changeset cursor: %v", logPrefix, errSt)
-		}
-	}
 	for blockNum := startBlock; blockNum <= endBlock; blockNum++ {
 		if err := common.Stopped(quit); err != nil {
 			return err
@@ -153,30 +115,30 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 			prev = blockNum
 
 			log.Info(fmt.Sprintf("[%s] Progress", logPrefix), "number", blockNum, dbutils.CallFromIndex, common.StorageSize(sz), dbutils.CallToIndex, common.StorageSize(sz2),
-				"blk/second", speed,
+				"blk/second", speed, "cache writes", common.StorageSize(cache.WriteSize()), "cache read", common.StorageSize(cache.ReadSize()),
 				"alloc", common.StorageSize(m.Alloc),
 				"sys", common.StorageSize(m.Sys),
 				"numGC", int(m.NumGC))
 		case <-checkFlushEvery.C:
-			if needFlush(froms, callIndicesMemLimit) {
+			if needFlush(froms, bufLimit) {
 				if err := flushBitmaps(collectorFrom, froms); err != nil {
-					return err
+					return fmt.Errorf("[%s] %w", logPrefix, err)
 				}
 
 				froms = map[string]*roaring.Bitmap{}
 			}
 
-			if needFlush(tos, callIndicesMemLimit) {
+			if needFlush(tos, bufLimit) {
 				if err := flushBitmaps(collectorTo, tos); err != nil {
-					return err
+					return fmt.Errorf("[%s] %w", logPrefix, err)
 				}
 
 				tos = map[string]*roaring.Bitmap{}
 			}
 		}
-		blockHash, err := rawdb.ReadCanonicalHash(tx, blockNum)
-		if err != nil {
-			return fmt.Errorf("%s: getting canonical blockhadh for block %d: %v", logPrefix, blockNum, err)
+		blockHash, err2 := rawdb.ReadCanonicalHash(tx, blockNum)
+		if err2 != nil {
+			return fmt.Errorf("%s: getting canonical blockhadh for block %d: %v", logPrefix, blockNum, err2)
 		}
 		block := rawdb.ReadBlock(tx, blockHash, blockNum)
 		if block == nil {
@@ -187,71 +149,13 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 
 		var stateReader state.StateReader
 		var stateWriter state.WriterWithChangeSets
-		if params.AccessBuilder != nil {
-			reader, writer := params.AccessBuilder(tx, blockNum-1, accountCache, storageCache, codeCache, codeSizeCache)
-			stateReader = reader
-			stateWriter = writer
-		} else {
-			reader := state.NewPlainDBState(tx.(ethdb.HasTx).Tx(), blockNum-1)
-			writer := state.NewCacheStateWriter()
-			if caching {
-				reader.SetAccountCache(accountCache)
-				reader.SetStorageCache(storageCache)
-				reader.SetCodeCache(codeCache)
-				reader.SetCodeSizeCache(codeSizeCache)
-				writer.SetAccountCache(accountCache)
-				writer.SetStorageCache(storageCache)
-				writer.SetCodeCache(codeCache)
-				writer.SetCodeSizeCache(codeSizeCache)
-			}
-			stateReader = reader
-			stateWriter = writer
-		}
-		if params.PresetChanges && accountCsKey != nil {
-			accountCsBlockNum, _ := dbutils.DecodeTimestamp(accountCsKey)
-			if accountCsBlockNum == blockNum {
-				cs := changeset.AccountChangeSetPlainBytes(accountCsVal)
-				accountCsKey, accountCsVal, errAcc = accountChangesCursor.Next()
-				if errAcc != nil {
-					return fmt.Errorf("%s: seeking in account changeset cursor: %v", logPrefix, errAcc)
-				}
-				if errAcc = cs.Walk(func(k, v []byte) error {
-					if len(v) == 0 {
-						accountCache.Set(k, nil)
-					} else {
-						accountCache.Set(k, v)
-					}
-					return nil
-				}); errAcc != nil {
-					return fmt.Errorf("%s: walking in account changeset: %v", logPrefix, errAcc)
-				}
-			}
-		}
-		if params.PresetChanges && storageCsKey != nil {
-			storageCsBlockNum, _ := dbutils.DecodeTimestamp(storageCsKey)
-			if storageCsBlockNum == blockNum {
-				cs := changeset.StorageChangeSetPlainBytes(storageCsVal)
-				storageCsKey, storageCsVal, errSt = storageChangesCursor.Next()
-				if errSt != nil {
-					return fmt.Errorf("%s: seeking in storage changeset cursor: %v", logPrefix, errSt)
-				}
-				if errSt = cs.Walk(func(k, v []byte) error {
-					if len(v) == 0 {
-						storageCache.Set(k, nil)
-					} else {
-						storageCache.Set(k, v)
-					}
-					return nil
-				}); errSt != nil {
-					return fmt.Errorf("%s: walking in storage changeset: %v", logPrefix, errSt)
-				}
-			}
-		}
-
+		reader := state.NewPlainDBState(tx.(ethdb.HasTx).Tx(), blockNum-1)
+		stateReader = state.NewCachedReader(reader, cache)
+		stateWriter = state.NewCachedWriter(state.NewNoopWriter(), cache)
 		tracer := NewCallTracer()
 		vmConfig := &vm.Config{Debug: true, NoReceipts: true, ReadOnly: false, Tracer: tracer}
-		if _, err = core.ExecuteBlockEphemerally(chainConfig, vmConfig, chainContext, engine, block, stateReader, stateWriter); err != nil {
-			return err
+		if _, err := core.ExecuteBlockEphemerally(chainConfig, vmConfig, chainContext, engine, block, stateReader, stateWriter); err != nil {
+			return fmt.Errorf("[%s] %w", logPrefix, err)
 		}
 		for addr := range tracer.froms {
 			m, ok := froms[string(addr[:])]
@@ -271,13 +175,21 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 			}
 			m.Add(uint32(blockNum))
 		}
+		if cache.WriteSize() >= params.BatchSize {
+			start := time.Now()
+			writes := cache.PrepareWrites()
+			log.Info("PrepareWrites", "in", time.Since(start))
+			start = time.Now()
+			cache.TurnWritesToReads(writes)
+			log.Info("TurnWritesToReads", "in", time.Since(start))
+		}
 	}
 
 	if err := flushBitmaps(collectorFrom, froms); err != nil {
-		return err
+		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 	if err := flushBitmaps(collectorTo, tos); err != nil {
-		return err
+		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 
 	var currentBitmap = roaring.New()
@@ -303,42 +215,30 @@ func promoteCallTraces(logPrefix string, tx ethdb.Database, startBlock, endBlock
 			return err
 		}
 		currentBitmap.Or(lastChunk) // merge last existing chunk from db - next loop will overwrite it
-		nextChunk := bitmapdb.ChunkIterator(currentBitmap, bitmapdb.ChunkLimit)
-		for chunk := nextChunk(); chunk != nil; chunk = nextChunk() {
+		if err := bitmapdb.WalkChunkWithKeys(k, currentBitmap, bitmapdb.ChunkLimit, func(chunkKey []byte, chunk *roaring.Bitmap) error {
 			buf.Reset()
 			if _, err := chunk.WriteTo(buf); err != nil {
 				return err
 			}
-			chunkKey := make([]byte, len(k)+4)
-			copy(chunkKey, k)
-			if currentBitmap.GetCardinality() == 0 {
-				binary.BigEndian.PutUint32(chunkKey[len(k):], ^uint32(0))
-				if err := next(k, chunkKey, common.CopyBytes(buf.Bytes())); err != nil {
-					return err
-				}
-				break
-			}
-			binary.BigEndian.PutUint32(chunkKey[len(k):], chunk.Maximum())
-			if err := next(k, chunkKey, common.CopyBytes(buf.Bytes())); err != nil {
-				return err
-			}
+			return next(k, chunkKey, buf.Bytes())
+		}); err != nil {
+			return err
 		}
-
 		currentBitmap.Clear()
 		return nil
 	}
 
 	if err := collectorFrom.Load(logPrefix, tx, dbutils.CallFromIndex, loaderFunc, etl.TransformArgs{Quit: quit}); err != nil {
-		return err
+		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 
 	if err := collectorTo.Load(logPrefix, tx, dbutils.CallToIndex, loaderFunc, etl.TransformArgs{Quit: quit}); err != nil {
-		return err
+		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 	return nil
 }
 
-func UnwindCallTraces(u *UnwindState, s *StageState, db ethdb.Database, chainConfig *params.ChainConfig, chainContext core.ChainContext, quitCh <-chan struct{}) error {
+func UnwindCallTraces(u *UnwindState, s *StageState, db ethdb.Database, chainConfig *params.ChainConfig, chainContext core.ChainContext, quitCh <-chan struct{}, params CallTracesStageParams) error {
 	var tx ethdb.DbWithPendingMutations
 	var useExternalTx bool
 	if hasTx, ok := db.(ethdb.HasTx); ok && hasTx.Tx() != nil {
@@ -354,8 +254,8 @@ func UnwindCallTraces(u *UnwindState, s *StageState, db ethdb.Database, chainCon
 	}
 
 	logPrefix := s.state.LogPrefix()
-	if err := unwindCallTraces(logPrefix, tx, s.BlockNumber, u.UnwindPoint, chainConfig, chainContext, quitCh); err != nil {
-		return fmt.Errorf("unwindCallTraces fail: %w", err)
+	if err := unwindCallTraces(logPrefix, tx, s.BlockNumber, u.UnwindPoint, chainConfig, chainContext, quitCh, params); err != nil {
+		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 
 	if err := u.Done(tx); err != nil {
@@ -364,14 +264,14 @@ func UnwindCallTraces(u *UnwindState, s *StageState, db ethdb.Database, chainCon
 
 	if !useExternalTx {
 		if _, err := tx.Commit(); err != nil {
-			return err
+			return fmt.Errorf("[%s] %w", logPrefix, err)
 		}
 	}
 
 	return nil
 }
 
-func unwindCallTraces(logPrefix string, db rawdb.DatabaseReader, from, to uint64, chainConfig *params.ChainConfig, chainContext core.ChainContext, quitCh <-chan struct{}) error {
+func unwindCallTraces(logPrefix string, db ethdb.Database, from, to uint64, chainConfig *params.ChainConfig, chainContext core.ChainContext, quitCh <-chan struct{}, params CallTracesStageParams) error {
 	froms := map[string]struct{}{}
 	tos := map[string]struct{}{}
 	tx := db.(ethdb.HasTx).Tx()
@@ -379,6 +279,7 @@ func unwindCallTraces(logPrefix string, db rawdb.DatabaseReader, from, to uint64
 
 	tracer := NewCallTracer()
 	vmConfig := &vm.Config{Debug: true, NoReceipts: true, Tracer: tracer}
+	var cache = shards.NewStateCache(32, params.CacheSize)
 	for blockNum := to + 1; blockNum <= from; blockNum++ {
 		if err := common.Stopped(quitCh); err != nil {
 			return err
@@ -395,14 +296,19 @@ func unwindCallTraces(logPrefix string, db rawdb.DatabaseReader, from, to uint64
 		senders := rawdb.ReadSenders(db, blockHash, blockNum)
 		block.Body().SendersToTxs(senders)
 
-		var stateReader state.StateReader
-		var stateWriter state.WriterWithChangeSets
-
-		stateReader = state.NewPlainDBState(tx, blockNum-1)
-		stateWriter = state.NewCacheStateWriter()
+		stateReader := state.NewCachedReader(state.NewPlainDBState(tx, blockNum-1), cache)
+		stateWriter := state.NewCachedWriter(state.NewNoopWriter(), cache)
 
 		if _, err = core.ExecuteBlockEphemerally(chainConfig, vmConfig, chainContext, engine, block, stateReader, stateWriter); err != nil {
 			return fmt.Errorf("exec block: %w", err)
+		}
+		if cache.WriteSize() >= params.BatchSize {
+			start := time.Now()
+			writes := cache.PrepareWrites()
+			log.Info("PrepareWrites", "in", time.Since(start))
+			start = time.Now()
+			cache.TurnWritesToReads(writes)
+			log.Info("TurnWritesToReads", "in", time.Since(start))
 		}
 	}
 	for addr := range tracer.froms {
@@ -414,10 +320,10 @@ func unwindCallTraces(logPrefix string, db rawdb.DatabaseReader, from, to uint64
 		tos[string(a[:])] = struct{}{}
 	}
 
-	if err := truncateBitmaps(db.(ethdb.HasTx).Tx(), dbutils.CallFromIndex, froms, to+1, from+1); err != nil {
+	if err := truncateBitmaps(db, dbutils.CallFromIndex, froms, to); err != nil {
 		return err
 	}
-	if err := truncateBitmaps(db.(ethdb.HasTx).Tx(), dbutils.CallToIndex, tos, to+1, from+1); err != nil {
+	if err := truncateBitmaps(db, dbutils.CallToIndex, tos, to); err != nil {
 		return err
 	}
 	return nil

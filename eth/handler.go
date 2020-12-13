@@ -104,6 +104,7 @@ type ProtocolManager struct {
 
 	mode          downloader.SyncMode // Sync mode passed from the command line
 	tmpdir        string
+	cacheSize     int
 	batchSize     int
 	currentHeight uint64 // Atomic variable to contain chain height
 }
@@ -173,10 +174,11 @@ func (pm *ProtocolManager) SetTmpDir(tmpdir string) {
 	}
 }
 
-func (pm *ProtocolManager) SetBatchSize(batchSize int) {
+func (pm *ProtocolManager) SetBatchSize(cacheSize, batchSize int) {
+	pm.cacheSize = cacheSize
 	pm.batchSize = batchSize
 	if pm.downloader != nil {
-		pm.downloader.SetBatchSize(batchSize)
+		pm.downloader.SetBatchSize(cacheSize, batchSize)
 	}
 }
 
@@ -191,7 +193,7 @@ func initPm(manager *ProtocolManager, engine consensus.Engine, chainConfig *para
 	}
 	manager.downloader = downloader.New(manager.checkpointNumber, chaindb, manager.eventMux, chainConfig, blockchain, nil, manager.removePeer, sm)
 	manager.downloader.SetTmpDir(manager.tmpdir)
-	manager.downloader.SetBatchSize(manager.batchSize)
+	manager.downloader.SetBatchSize(manager.cacheSize, manager.batchSize)
 	manager.downloader.SetStagedSync(manager.stagedSync)
 
 	// Construct the fetcher (short sync)
@@ -431,7 +433,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// Register the peer locally
 	if err := pm.peers.Register(p, pm.removePeer); err != nil {
 		p.Log().Error("Ethereum peer registration failed", "err", err)
-		p.HandshakeOrderMux.Lock()
+		p.HandshakeOrderMux.Unlock()
 		return err
 	}
 	defer pm.removePeer(p.id)
@@ -452,15 +454,17 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		return err
 	}
 
+	// Allow to handle transaction ordering
+	// Unlocking needs to happen before we start waiting for the response to the peer head hash
+	// Otherwise, if the peer does not response, it will eventually fill up the tx broadcast
+	// channels and the whole system will block
+	p.HandshakeOrderMux.Unlock()
+
 	// Handle one message to prevent two peers deadlocking each other
 	if err := pm.handleMsg(p); err != nil {
 		p.Log().Debug("Ethereum message handling failed", "err", err)
-		p.HandshakeOrderMux.Unlock()
 		return err
 	}
-
-	// Allow to handle transaction ordering
-	p.HandshakeOrderMux.Unlock()
 
 	pm.syncTransactions(p)
 

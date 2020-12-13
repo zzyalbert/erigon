@@ -167,8 +167,9 @@ func (b *SimulatedBackend) Commit() {
 	//fmt.Printf("---- Start committing block %d\n", b.pendingBlock.NumberU64())
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	//nolint:errcheck
-	stagedsync.InsertBlockInStages(b.database, b.config, b.blockchain.Engine(), b.pendingBlock, b.blockchain)
+	if _, err := stagedsync.InsertBlockInStages(b.database, b.config, &vm.Config{}, b.blockchain.Engine(), b.pendingBlock, false /* checkRoot */); err != nil {
+		panic(err)
+	}
 	//nolint:prealloc
 	var allLogs []*types.Log
 	for _, r := range b.pendingReceipts {
@@ -636,7 +637,7 @@ func (b *SimulatedBackend) callContract(_ context.Context, call ethereum.CallMsg
 	vmEnv := vm.NewEVM(evmContext, statedb, b.config, vm.Config{})
 	gasPool := new(core.GasPool).AddGas(math.MaxUint64)
 
-	return core.NewStateTransition(vmEnv, msg, gasPool).TransitionDb()
+	return core.NewStateTransition(vmEnv, msg, gasPool).TransitionDb(true /* refunds */)
 }
 
 // SendTransaction updates the pending block to include the given transaction.

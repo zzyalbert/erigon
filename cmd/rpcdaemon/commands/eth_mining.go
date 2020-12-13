@@ -21,12 +21,14 @@ func (api *APIImpl) Coinbase(_ context.Context) (common.Address, error) {
 
 // Hashrate implements eth_hashrate. Returns the number of hashes per second that the node is mining with.
 func (api *APIImpl) Hashrate(_ context.Context) (uint64, error) {
-	return 0, fmt.Errorf(NotImplemented, "eth_hashRate")
+	return 0, fmt.Errorf(NotImplemented, "eth_hashrate")
 }
 
 // Mining implements eth_mining. Returns true if client is actively mining new blocks.
 func (api *APIImpl) Mining(_ context.Context) (bool, error) {
-	return false, fmt.Errorf(NotImplemented, "eth_mining")
+	// ethstats needs this method, and even though we don't support mining,
+	// we can easily say that we don't do that.
+	return false, nil
 }
 
 // GetWork implements eth_getWork. Returns the hash of the current block, the seedHash, and the boundary condition to be met ('target').
@@ -42,5 +44,5 @@ func (api *APIImpl) SubmitWork(_ context.Context, nonce rpc.BlockNumber, powHash
 
 // SubmitHashrate implements eth_submitHashrate. Submit the mining hashrate to the blockchain.
 func (api *APIImpl) SubmitHashrate(_ context.Context, hashRate common.Hash, id string) (bool, error) {
-	return false, fmt.Errorf(NotImplemented, "eth_sumitHashrate")
+	return false, fmt.Errorf(NotImplemented, "eth_submitHashrate")
 }

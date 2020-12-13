@@ -20,12 +20,12 @@ package ethdb
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/btree"
+	"github.com/ledgerwatch/lmdb-go/lmdb"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/common/debug"
@@ -82,7 +82,7 @@ func Open(path string, readOnly bool) (*ObjectDatabase, error) {
 	default:
 		opts := NewLMDB().Path(path)
 		if readOnly {
-			opts = opts.ReadOnly()
+			opts = opts.Flags(func(flags uint) uint { return flags | lmdb.Readonly })
 		}
 		kv, err = opts.Open()
 	}
@@ -105,6 +105,14 @@ func (db *ObjectDatabase) Put(bucket string, key []byte, value []byte) error {
 func (db *ObjectDatabase) Append(bucket string, key []byte, value []byte) error {
 	err := db.kv.Update(context.Background(), func(tx Tx) error {
 		return tx.Cursor(bucket).Append(key, value)
+	})
+	return err
+}
+
+// AppendDup appends a single entry to the end of the bucket.
+func (db *ObjectDatabase) AppendDup(bucket string, key []byte, value []byte) error {
+	err := db.kv.Update(context.Background(), func(tx Tx) error {
+		return tx.CursorDupSort(bucket).AppendDup(key, value)
 	})
 	return err
 }
@@ -139,6 +147,21 @@ func (db *ObjectDatabase) DiskSize(ctx context.Context) (uint64, error) {
 		return 0, nil
 	}
 	return casted.DiskSize(ctx)
+}
+
+func (db *ObjectDatabase) Sequence(bucket string, amount uint64) (res uint64, err error) {
+	if amount == 0 {
+		err = db.kv.View(context.Background(), func(tx Tx) error {
+			res, err = tx.Sequence(bucket, amount)
+			return err
+		})
+		return res, err
+	}
+	err = db.kv.Update(context.Background(), func(tx Tx) error {
+		res, err = tx.Sequence(bucket, amount)
+		return err
+	})
+	return res, err
 }
 
 // Get returns the value for a given key if it's present.
@@ -203,13 +226,15 @@ func (db *ObjectDatabase) GetIndexChunk(bucket string, key []byte, timestamp uin
 	return dat, err
 }
 
-func GetChangeSetByBlock(db Getter, storage bool, timestamp uint64) ([]byte, error) {
-	key := dbutils.EncodeTimestamp(timestamp)
-	v, err := db.Get(dbutils.ChangeSetByIndexBucket(storage), key)
-	if err != nil && !errors.Is(ErrKeyNotFound, err) {
-		return nil, err
-	}
-	return v, nil
+func WalkChangeSetByBlock(db Getter, storage bool, timestamp uint64, f func(kk, k, v []byte) error) error {
+	bucket, keySize := dbutils.ChangeSetByIndexBucket(storage)
+	return db.Walk(bucket, dbutils.EncodeBlockNumber(timestamp), 8*8, func(k, v []byte) (bool, error) {
+		err := f(k, v[:keySize], v[keySize:])
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
 }
 
 func (db *ObjectDatabase) Walk(bucket string, startkey []byte, fixedbits int, walker func(k, v []byte) (bool, error)) error {

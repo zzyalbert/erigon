@@ -50,6 +50,10 @@ func (m *TxDb) Begin(ctx context.Context, flags TxFlags) (DbWithPendingMutations
 	return batch, nil
 }
 
+func (m *TxDb) Sequence(bucket string, amount uint64) (res uint64, err error) {
+	return m.tx.Sequence(bucket, amount)
+}
+
 func (m *TxDb) Put(bucket string, key []byte, value []byte) error {
 	if metrics.Enabled {
 		if bucket == dbutils.PlainStateBucket {
@@ -67,12 +71,12 @@ func (m *TxDb) Reserve(bucket string, key []byte, i int) ([]byte, error) {
 
 func (m *TxDb) Append(bucket string, key []byte, value []byte) error {
 	m.len += uint64(len(key) + len(value))
-	switch c := m.cursors[bucket].(type) {
-	case CursorDupSort:
-		return c.AppendDup(key, value)
-	default:
-		return c.Append(key, value)
-	}
+	return m.cursors[bucket].Append(key, value)
+}
+
+func (m *TxDb) AppendDup(bucket string, key []byte, value []byte) error {
+	m.len += uint64(len(key) + len(value))
+	return m.cursors[bucket].(CursorDupSort).AppendDup(key, value)
 }
 
 func (m *TxDb) Delete(bucket string, k, v []byte) error {
@@ -119,7 +123,7 @@ func (m *TxDb) Get(bucket string, key []byte) ([]byte, error) {
 		defer dbGetTimer.UpdateSince(time.Now())
 	}
 
-	v, err := m.cursors[bucket].SeekExact(key)
+	_, v, err := m.cursors[bucket].SeekExact(key)
 	if err != nil {
 		return nil, err
 	}

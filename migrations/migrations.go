@@ -66,6 +66,11 @@ var migrations = []Migration{
 	resetIHBucketToRecoverDB,
 	receiptsCborEncode,
 	receiptsOnePerTx,
+	accChangeSetDupSort,
+	storageChangeSetDupSort,
+	transactionsTable,
+	historyAccBitmap,
+	historyStorageBitmap,
 }
 
 type Migration struct {

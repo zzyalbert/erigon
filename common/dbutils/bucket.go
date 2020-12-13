@@ -107,14 +107,15 @@ var (
 	DatabaseVerisionKey = "DatabaseVersion"
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
-	HeaderPrefix       = "h"         // headerPrefix + num (uint64 big endian) + hash -> header
-	HeaderTDSuffix     = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
-	HeaderHashSuffix   = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	HeaderPrefix       = "h"         // block_num_u64 + hash -> header
+	HeaderTDSuffix     = []byte("t") // block_num_u64 + hash + headerTDSuffix -> td
+	HeaderHashSuffix   = []byte("n") // block_num_u64 + headerHashSuffix -> hash
 	HeaderNumberPrefix = "H"         // headerNumberPrefix + hash -> num (uint64 big endian)
 
-	BlockBodyPrefix     = "b"   // blockBodyPrefix + num (uint64 big endian) + hash -> block body
-	BlockReceiptsPrefix = "r"   // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
-	Log                 = "log" // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
+	BlockBodyPrefix     = "b"      // block_num_u64 + hash -> block body
+	EthTx               = "eth_tx" // tbl_sequence_u64 -> rlp(tx)
+	BlockReceiptsPrefix = "r"      // block_num_u64 + hash -> block receipts
+	Log                 = "log"    // block_num_u64 + hash -> block receipts
 
 	// Stores bitmap indices - in which block numbers saw logs of given 'address' or 'topic'
 	// [addr or topic] + [2 bytes inverted shard number] -> bitmap(blockN)
@@ -167,11 +168,13 @@ var (
 	// it stores stages progress to understand in which context was executed migration
 	// in case of bug-report developer can ask content of this bucket
 	Migrations = "migrations"
+
+	Sequence = "sequence" // tbl_name -> seq_u64
 )
 
 // Keys
 var (
-	// last block that was pruned
+	// last  block that was pruned
 	// it's saved one in 5 minutes
 	LastPrunedBlockKey = []byte("LastPrunedBlock")
 	//StorageModeHistory - does node save history.
@@ -240,6 +243,8 @@ var Buckets = []string{
 	CallFromIndex,
 	CallToIndex,
 	Log,
+	Sequence,
+	EthTx,
 }
 
 // DeprecatedBuckets - list of buckets which can be programmatically deleted - for example after migration
@@ -311,6 +316,18 @@ var BucketsConfigs = BucketsCfg{
 		AutoDupSortKeysConversion: true,
 		DupFromLen:                72,
 		DupToLen:                  40,
+	},
+	PlainAccountChangeSetBucket: {
+		Flags: DupSort,
+	},
+	PlainStorageChangeSetBucket: {
+		Flags: DupSort,
+	},
+	AccountChangeSetBucket: {
+		Flags: DupSort,
+	},
+	StorageChangeSetBucket: {
+		Flags: DupSort,
 	},
 	PlainStateBucket: {
 		Flags:                     DupSort,

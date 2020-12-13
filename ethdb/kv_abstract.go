@@ -3,9 +3,11 @@ package ethdb
 import (
 	"context"
 	"errors"
+	"unsafe"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
+	"github.com/ledgerwatch/turbo-geth/ethdb/remote"
 )
 
 var (
@@ -62,11 +64,10 @@ type KV interface {
 type TxFlags uint
 
 const (
-	RW         TxFlags = 0x00 // default
-	RO         TxFlags = 0x02
-	Try        TxFlags = 0x04
-	NoMetaSync TxFlags = 0x08
-	NoSync     TxFlags = 0x10
+	RW     TxFlags = 0x00 // default
+	RO     TxFlags = 0x02
+	Try    TxFlags = 0x04
+	NoSync TxFlags = 0x08
 )
 
 type Tx interface {
@@ -91,6 +92,14 @@ type Tx interface {
 	Comparator(bucket string) dbutils.CmpFunc
 	Cmp(bucket string, a, b []byte) int
 	DCmp(bucket string, a, b []byte) int
+
+	// Allows to create a linear sequence of unique positive integers for each table.
+	// Can be called for a read transaction to retrieve the current sequence value, and the increment must be zero.
+	// Sequence changes become visible outside the current write transaction after it is committed, and discarded on abort.
+	// Starts from 0.
+	Sequence(bucket string, amount uint64) (uint64, error)
+
+	CHandle() unsafe.Pointer // Pointer to the underlying C transaction handle (e.g. *C.MDB_txn)
 }
 
 // Interface used for buckets migration, don't use it in usual app code
@@ -118,13 +127,13 @@ type Cursor interface {
 	Prefix(v []byte) Cursor // Prefix returns only keys with given prefix, useful RemoteKV - because filtering done by server
 	Prefetch(v uint) Cursor // Prefetch enables data streaming - used only by RemoteKV
 
-	First() ([]byte, []byte, error)           // First - position at first key/data item
-	Seek(seek []byte) ([]byte, []byte, error) // Seek - position at first key greater than or equal to specified key
-	SeekExact(key []byte) ([]byte, error)     // SeekExact - position at first key greater than or equal to specified key
-	Next() ([]byte, []byte, error)            // Next - position at next key/value (can iterate over DupSort key/values automatically)
-	Prev() ([]byte, []byte, error)            // Prev - position at previous key
-	Last() ([]byte, []byte, error)            // Last - position at last key and last possible value
-	Current() ([]byte, []byte, error)         // Current - return key/data at current cursor position
+	First() ([]byte, []byte, error)               // First - position at first key/data item
+	Seek(seek []byte) ([]byte, []byte, error)     // Seek - position at first key greater than or equal to specified key
+	SeekExact(key []byte) ([]byte, []byte, error) // SeekExact - position at first key greater than or equal to specified key
+	Next() ([]byte, []byte, error)                // Next - position at next key/value (can iterate over DupSort key/values automatically)
+	Prev() ([]byte, []byte, error)                // Prev - position at previous key
+	Last() ([]byte, []byte, error)                // Last - position at last key and last possible value
+	Current() ([]byte, []byte, error)             // Current - return key/data at current cursor position
 
 	Put(k, v []byte) error           // Put - based on order
 	Append(k []byte, v []byte) error // Append - append the given key/data pair to the end of the database. This option allows fast bulk loading when keys are already known to be in the correct order.
@@ -192,6 +201,7 @@ type Backend interface {
 	AddLocal([]byte) ([]byte, error)
 	Etherbase() (common.Address, error)
 	NetVersion() (uint64, error)
+	Subscribe(func(*remote.SubscribeReply)) error
 }
 
 type DbProvider uint8
