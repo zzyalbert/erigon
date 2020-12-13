@@ -158,11 +158,13 @@ func AbsValueDestringify(s string) AbsValue {
 //////////////////////////////////////////////////
 type astack struct {
 	values []AbsValue
+	memory AbsValue
 	hash   uint64
 }
 
 func newStack() *astack {
 	st := &astack{}
+	st.memory = AbsValueBot(0)
 	st.updateHash()
 	return st
 }
@@ -170,6 +172,7 @@ func newStack() *astack {
 func (s *astack) Copy() *astack {
 	newStack := &astack{}
 	newStack.values = append(newStack.values, s.values...)
+	newStack.memory = s.memory
 	newStack.hash = s.hash
 	return newStack
 }
@@ -183,6 +186,7 @@ func (s *astack) updateHash() {
 	for k, e := range s.values {
 		s.hash += uint64(k) * e.hash()
 	}
+	s.hash += s.memory.hash()
 }
 
 func (s *astack) Push(value AbsValue) {
@@ -196,7 +200,6 @@ func (s *astack) Push(value AbsValue) {
 func (s *astack) Pop(pc int) AbsValue {
 	res := s.values[0]
 	s.values = s.values[1:len(s.values)]
-	//s.values = append(s.values, AbsValueTop(pc, true))
 	s.updateHash()
 	return res
 }
@@ -206,6 +209,7 @@ func (s *astack) String(abbrev bool) string {
 	for _, c := range s.values {
 		strs = append(strs, c.String(abbrev))
 	}
+	strs = append(strs, "mem: ", s.memory.String(abbrev))
 	return strings.Join(strs, " ")
 }
 
@@ -223,6 +227,11 @@ func (s *astack) Eq(s1 *astack) bool {
 			return false
 		}
 	}
+
+	if !s.memory.Eq(s1.memory) {
+		return false
+	}
+
 	return true
 }
 
@@ -316,7 +325,22 @@ func (state *astate) String(abbrev bool) string {
 		elms = append(elms, e)
 	}
 
-	elms = append(elms, fmt.Sprintf("%v%v%v", "|", len(state.stackset), "|"))
+	var mems []AbsValue
+	var memsstr []string
+	for _, stack := range state.stackset {
+		if !ExistsIn(mems, stack.memory) {
+			mems = append(mems, stack.memory)
+			memsstr = append(memsstr, stack.memory.String(true))
+		}
+	}
+	var e string
+	if len(memsstr) > 1 {
+		e = fmt.Sprintf("{%v}", strings.Join(memsstr, ","))
+	} else {
+		e = fmt.Sprintf("%v", strings.Join(memsstr, ","))
+	}
+
+	elms = append(elms, fmt.Sprintf("|%v| m=%v", len(state.stackset), e))
 	return strings.Join(elms, " ")
 }
 

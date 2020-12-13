@@ -60,6 +60,12 @@ func (p *prog) print(instr2state map[*instr]*astate) {
 			} else {
 				vstr = fmt.Sprintf("%v", instr.opcode)
 			}
+			var vcolor aurora.Value
+			if instr.opcode == SLOAD || instr.opcode == MSTORE || instr.opcode == MSTORE8 || instr.opcode == MLOAD || instr.opcode == SHA3 {
+				vcolor = aurora.Cyan(vstr)
+			} else {
+				vcolor = aurora.Green(vstr)
+			}
 
 			succsstr := ""
 			if instr.sem.isJump {
@@ -74,12 +80,17 @@ func (p *prog) print(instr2state map[*instr]*astate) {
 				ststr = instr2state[instr].String(true)
 			}
 
-			fmt.Printf("%3v %-25v %-10v %v\n", aurora.Yellow(instr.pc), aurora.Green(vstr), aurora.Magenta(succsstr), ststr)
+			fmt.Printf("%3v %-25v %-10v %v\n", aurora.Yellow(instr.pc), vcolor, aurora.Magenta(succsstr), ststr)
 		}
 
 		fmt.Printf("\n")
 	}
 }
+
+func isAtMostStatic(kind AbsValueKind) bool {
+	return kind == ConcreteValue || kind == BotValue || kind == StaticValue
+}
+
 
 func toProg(code []byte, proof *CfgProof) *prog {
 	sem := NewCfgAbsSem()
@@ -156,6 +167,10 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 			continue
 		}
 
+		if !stack0.hasIndices(x.sem.stackReadIndices...) {
+			continue
+		}
+
 		if x.sem.isPush {
 			if prog.isJumpDest(x.value) || isFF(x.value) {
 				stack1.Push(AbsValueConcrete(*x.value))
@@ -163,18 +178,10 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 				stack1.Push(AbsValueStatic())
 			}
 		} else if x.sem.isDup {
-			if !stack0.hasIndices(x.sem.opNum - 1) {
-				continue
-			}
-
 			value := stack1.values[x.sem.opNum-1]
 			stack1.Push(value)
 		} else if x.sem.isSwap {
 			opNum := x.sem.opNum
-
-			if !stack0.hasIndices(0, opNum) {
-				continue
-			}
 
 			a := stack1.values[0]
 			b := stack1.values[opNum]
@@ -182,10 +189,6 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 			stack1.values[opNum] = a
 
 		} else if x.opcode == AND {
-			if !stack0.hasIndices(0, 1) {
-				continue
-			}
-
 			a := stack1.Pop(0)
 			b := stack1.Pop(0)
 
@@ -193,6 +196,8 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 				v := uint256.NewInt()
 				v.And(a.value, b.value)
 				stack1.Push(AbsValueConcrete(*v))
+			} else if isAtMostStatic(a.kind) && isAtMostStatic(b.kind) {
+				stack1.Push(AbsValueStatic())
 			} else {
 				stack1.Push(AbsValueTop(0))
 			}
@@ -200,13 +205,53 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 			v := uint256.NewInt()
 			v.SetUint64(uint64(x.pc))
 			stack1.Push(AbsValueConcrete(*v))
+		} else if x.opcode == SLOAD {
+			for i := 0; i < x.sem.numPop; i++ {
+				stack1.Pop(0)
+			}
+
+			stack1.Push(AbsValueTop(0))
+		} else if x.opcode == MSTORE || x.opcode == MSTORE8 {
+			isMemoryStatic := isAtMostStatic(stack1.values[1].kind) &&
+								isAtMostStatic(stack1.memory.kind)
+
+			for i := 0; i < x.sem.numPop; i++ {
+				stack1.Pop(0)
+			}
+
+			if isMemoryStatic {
+				stack1.memory = AbsValueStatic()
+			} else {
+				stack1.memory = AbsValueTop(0)
+			}
+		} else if x.opcode == MLOAD || x.opcode == SHA3 { //memory readers
+			for i := 0; i < x.sem.numPop; i++ {
+				stack1.Pop(0)
+			}
+
+			if isAtMostStatic(stack1.memory.kind) {
+				stack1.Push(AbsValueStatic())
+			} else {
+				stack1.Push(AbsValueTop(0))
+			}
 		} else {
+			allReadsStatic := true
+			for _, i := range x.sem.stackReadIndices {
+				if !isAtMostStatic(stack1.values[i].kind) {
+					allReadsStatic = false
+				}
+			}
+
 			for i := 0; i < x.sem.numPop; i++ {
 				stack1.Pop(0)
 			}
 
 			for i := 0; i < x.sem.numPush; i++ {
-				stack1.Push(AbsValueTop(0))
+				if allReadsStatic {
+					stack1.Push(AbsValueStatic())
+				} else {
+					stack1.Push(AbsValueTop(0))
+				}
 			}
 		}
 
@@ -216,34 +261,6 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 	}
 
 	return st1
-}
-
-func flatten(st *astate) *astate {
-	stf := emptyState()
-	stf.stackset = append(stf.stackset, newStack())
-
-	i := 0
-	for true {
-		lubv := AbsValueBot(0)
-
-		foundStackElement := false
-		for _, stack := range st.stackset {
-			if i < len(stack.values) {
-				v := stack.values[i]
-				lubv = AbsValueLub(lubv, v)
-				foundStackElement = true
-			}
-		}
-
-		if !foundStackElement {
-			break
-		}
-
-		stf.stackset[0].values = append(stf.stackset[0].values, lubv)
-		i++
-	}
-
-	return stf
 }
 
 func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
@@ -269,7 +286,7 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 
 	iterCount := 0
 	result := StorageFlowResult{}
-	isDynamic := false
+	var dynamicPcs []int
 	for len(worklist) > 0 {
 
 		block := worklist[0]
@@ -293,8 +310,7 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 			instr := block.instrs[i]
 			instr2state[instr] = st
 			if isDynamicAccess(st, instr) {
-				isDynamic = true
-				//break
+				dynamicPcs = append(dynamicPcs, instr.pc)
 			}
 			st = apply(prog, st, instr)
 		}
@@ -339,7 +355,9 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 
 	prog.print(instr2state)
 
-	if !isDynamic {
+	if len(dynamicPcs) > 0 {
+		//fmt.Printf("dynamic pcs: %v\n", dynamicPcs)
+	} else {
 		result.IsStaticStateAccess = true
 	}
 
@@ -350,11 +368,12 @@ func isDynamicAccess(st *astate, instr * instr) bool {
 	if instr.opcode == SLOAD {
 		for _, stack := range st.stackset {
 			if len(stack.values) > 0 {
-				if  stack.values[0] != AbsValueStatic() {
+				if !isAtMostStatic(stack.values[0].kind) {
 					return true
 				}
 			}
 		}
 	}
+
 	return false
 }

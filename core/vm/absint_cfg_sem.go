@@ -3,17 +3,18 @@ package vm
 import "github.com/holiman/uint256"
 
 type CfgOpSem struct {
-	reverts  bool
-	halts    bool
-	isPush   bool
-	isDup    bool
-	isSwap   bool
-	numBytes int
-	opNum    int
-	numPush  int
-	numPop   int
-	isJump   bool
-	opcode   OpCode
+	reverts          bool
+	halts            bool
+	isPush           bool
+	isDup            bool
+	isSwap           bool
+	numBytes         int
+	opNum            int
+	numPush          int
+	numPop           int
+	isJump           bool
+	opcode           OpCode
+	stackReadIndices []int
 }
 
 type CfgAbsSem map[OpCode]*CfgOpSem
@@ -44,8 +45,18 @@ func NewCfgAbsSem() *CfgAbsSem {
 			opsem.numBytes = op.opNum + 1
 		} else {
 			opsem.numBytes = 1
-
 		}
+
+		if opsem.isDup {
+			opsem.stackReadIndices = []int{opsem.opNum - 1}
+		} else if opsem.isSwap {
+			opsem.stackReadIndices = []int{0, opsem.opNum}
+		} else { // need to check if this is correct. using approximation for now
+			for i := 0; i < opsem.numPop; i++ {
+				opsem.stackReadIndices = append(opsem.stackReadIndices, i)
+			}
+		}
+
 		sem[opsem.opcode] = &opsem
 	}
 
