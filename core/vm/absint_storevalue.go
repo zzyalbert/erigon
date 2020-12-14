@@ -35,7 +35,9 @@ type prog struct {
 }
 
 type StorageFlowResult struct {
-	IsStaticStateAccess   bool
+	IsStaticStateAccess bool
+	Error               bool
+	ErrorJumpToTop      bool
 }
 
 func (p *prog) isJumpDest(x *uint256.Int) bool {
@@ -296,14 +298,10 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 		if len(block.prevs) == 0 {
 			st = initState()
 		} else {
-			//fmt.Printf("\nblock %v\n", block.beginPc)
 			st = emptyState()
 			for _, prev := range block.prevs {
 				st = Lub(st, exit[prev][block])
-			//	fmt.Printf("prev %v=%v\n", prev.beginPc, exit[prev][block].StringFull())
-				//st = flatten(st)
 			}
-			//fmt.Printf("lub=%v\n", st.StringFull())
 		}
 
 		for i := 0; i < len(block.instrs); i++ {
@@ -331,17 +329,13 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 						if elm0.kind == ConcreteValue && elm0.value.IsUint64() && int(elm0.value.Uint64()) == succ.beginPc {
 							filtered.Add(stack)
 						} else if elm0.kind == TopValue {
-							prog.print(instr2state)
-							fmt.Printf("jump to top: %v\n", block.beginPc)
-							panic("error")
+							result.Error = true
+							result.ErrorJumpToTop = true
 						}
 					}
 				}
 
-
-
 				st = apply(prog, filtered, block.lastInstr())
-				//fmt.Printf("jump: %v->%v\n\tprevst: %v\n\tfilt: %v\n\tst: %v\n", block.endPc, succ.beginPc, prevst.String(true), filtered.String(true), st.String(true))
 
 				if !Eq(st, exit[block][succ]) {
 					exit[block][succ] = st
@@ -353,10 +347,12 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 		iterCount++
 	}
 
-	prog.print(instr2state)
+	//prog.print(instr2state)
 
 	if len(dynamicPcs) > 0 {
 		//fmt.Printf("dynamic pcs: %v\n", dynamicPcs)
+	} else if result.Error {
+
 	} else {
 		result.IsStaticStateAccess = true
 	}
