@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/holiman/uint256"
 	"log"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -135,6 +137,10 @@ func (c0 AbsValue) Stringify() string {
 	return ""
 }
 
+func (c0 AbsValue) IsZero() bool {
+	return c0.kind == ConcreteValue && c0.value.IsZero()
+}
+
 func AbsValueDestringify(s string) AbsValue {
 	if s == "⊤" {
 		return AbsValueTop(-1)
@@ -158,13 +164,13 @@ func AbsValueDestringify(s string) AbsValue {
 //////////////////////////////////////////////////
 type astack struct {
 	values []AbsValue
-	memory AbsValue
+	memory map[uint64]AbsValue
 	hash   uint64
 }
 
 func newStack() *astack {
 	st := &astack{}
-	st.memory = AbsValueBot(0)
+	st.memory = make(map[uint64]AbsValue)
 	st.updateHash()
 	return st
 }
@@ -172,7 +178,14 @@ func newStack() *astack {
 func (s *astack) Copy() *astack {
 	newStack := &astack{}
 	newStack.values = append(newStack.values, s.values...)
-	newStack.memory = s.memory
+	if s.memory == nil {
+		newStack.memory = nil
+	} else {
+		newStack.memory = make(map[uint64]AbsValue)
+		for k,v := range s.memory {
+			newStack.memory[k] = v
+		}
+	}
 	newStack.hash = s.hash
 	return newStack
 }
@@ -186,7 +199,21 @@ func (s *astack) updateHash() {
 	for k, e := range s.values {
 		s.hash += uint64(k) * e.hash()
 	}
-	s.hash += s.memory.hash()
+	if s.memory != nil {
+		for k, e := range s.memory {
+			s.hash += k * e.hash()
+		}
+	}
+}
+
+func (s *astack) SetMemoryTop() {
+	s.memory = nil
+	s.updateHash()
+}
+
+func (s *astack) SetMemory(offset uint64, value AbsValue) {
+	s.memory[offset] = value
+	s.updateHash()
 }
 
 func (s *astack) Push(value AbsValue) {
@@ -209,7 +236,14 @@ func (s *astack) String(abbrev bool) string {
 	for _, c := range s.values {
 		strs = append(strs, c.String(abbrev))
 	}
-	strs = append(strs, "mem: ", s.memory.String(abbrev))
+	strs = append(strs, "mem: ")
+	if s.memory != nil {
+		for k, c := range s.memory {
+			strs = append(strs, fmt.Sprintf("%d->%s ", k, c.String(abbrev)))
+		}
+	} else {
+		strs = append(strs, "T")
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -228,7 +262,8 @@ func (s *astack) Eq(s1 *astack) bool {
 		}
 	}
 
-	if !s.memory.Eq(s1.memory) {
+
+	if !reflect.DeepEqual(s.memory, s1.memory) {
 		return false
 	}
 
@@ -325,23 +360,80 @@ func (state *astate) String(abbrev bool) string {
 		elms = append(elms, e)
 	}
 
-	var mems []AbsValue
-	var memsstr []string
+	isMemTop := false
+	addr2vals := make(map[uint64]map[AbsValue]bool)
 	for _, stack := range state.stackset {
-		if !ExistsIn(mems, stack.memory) {
-			mems = append(mems, stack.memory)
-			memsstr = append(memsstr, stack.memory.String(true))
+		if stack.memory == nil {
+			isMemTop = true
+		} else {
+			for addr, value := range stack.memory {
+				t := addr2vals[addr]
+				if t == nil {
+					t = make(map[AbsValue]bool)
+					addr2vals[addr] = t
+				}
+				t[value] = true
+			}
 		}
 	}
-	var e string
-	if len(memsstr) > 1 {
-		e = fmt.Sprintf("{%v}", strings.Join(memsstr, ","))
+
+	var memsstr []string
+	if isMemTop {
+		memsstr = append(memsstr, "T")
 	} else {
-		e = fmt.Sprintf("%v", strings.Join(memsstr, ","))
+		var addrList []uint64
+		for addr, _ := range addr2vals {
+			addrList = append(addrList, addr)
+		}
+
+		sort.SliceStable(addrList, func(i, j int) bool {
+			return addrList[i] < addrList[j]
+		})
+
+		addr2ValList := make(map[uint64][]AbsValue)
+		for _, addr := range addrList {
+			var vals []AbsValue
+			for val, _ := range addr2vals[addr] {
+				vals = append(vals, val)
+			}
+			addr2ValList[addr] = vals
+		}
+
+		for _, addr := range addrList {
+			vals := addr2ValList[addr]
+
+			if len(vals) == 1 && vals[0].IsZero()  {
+				continue
+			}
+
+			var valstrs []string
+			for _, v := range vals {
+				valstrs = append(valstrs, v.String(true))
+			}
+
+			memsstr = append(memsstr, fmt.Sprintf("%v->%v", addr, valstrs))
+		}
 	}
 
-	elms = append(elms, fmt.Sprintf("|%v| m=%v", len(state.stackset), e))
+	mem := fmt.Sprintf("%v", strings.Join(memsstr, ","))
+
+	elms = append(elms, fmt.Sprintf("|%v| m=%v", len(state.stackset), mem))
 	return strings.Join(elms, " ")
+}
+
+func isZero(vals map[AbsValue]bool) bool {
+	if len(vals) == 0 {
+		return true
+	} else if len(vals) == 1 {
+		for k, v := range vals {
+			if v && k.kind == ConcreteValue && k.value.IsZero() {
+				return true
+			}
+		}
+		return false
+	} else {
+		return false
+	}
 }
 
 func (state *astate) Add(stack *astack) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/holiman/uint256"
 	"github.com/logrusorgru/aurora"
+	"log"
 	"sort"
 )
 
@@ -174,7 +175,7 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 		}
 
 		if x.sem.isPush {
-			if prog.isJumpDest(x.value) || isFF(x.value) {
+			if true || prog.isJumpDest(x.value) || isFF(x.value) {
 				stack1.Push(AbsValueConcrete(*x.value))
 			} else {
 				stack1.Push(AbsValueStatic())
@@ -214,28 +215,109 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 
 			stack1.Push(AbsValueTop(0))
 		} else if x.opcode == MSTORE || x.opcode == MSTORE8 {
-			isMemoryStatic := isAtMostStatic(stack1.values[1].kind) &&
-								isAtMostStatic(stack1.memory.kind)
+			offset := stack1.values[0]
+			store := stack1.values[1]
 
 			for i := 0; i < x.sem.numPop; i++ {
 				stack1.Pop(0)
 			}
 
-			if isMemoryStatic {
-				stack1.memory = AbsValueStatic()
+
+			if stack1.memory == nil {
+				//memory stays top
+			} else if offset.kind != ConcreteValue { //offset is symbolic
+				//memory becomes top
+				stack1.SetMemoryTop()
 			} else {
-				stack1.memory = AbsValueTop(0)
+				if !offset.value.IsUint64() {
+					log.Fatal("high offset")
+				}
+
+				if x.opcode == MSTORE {
+					if store.kind == ConcreteValue {
+						for i, b := range store.value.Bytes32() {
+							bv := uint256.NewInt()
+							bv.SetBytes([]byte{b})
+							stack1.SetMemory(offset.value.Uint64()+uint64(i), AbsValueConcrete(*bv))
+						}
+					} else if store.kind == StaticValue {
+						for i := 0; i < 32; i++ {
+							stack1.SetMemory(offset.value.Uint64()+uint64(i), AbsValueStatic())
+						}
+					} else if store.kind == TopValue {
+						for i := 0; i < 32; i++ {
+							stack1.SetMemory(offset.value.Uint64()+uint64(i), AbsValueTop(0))
+						}
+					} else {
+						log.Fatal("invalid value")
+					}
+				} else if x.opcode == MSTORE8 {
+					bv := uint256.NewInt()
+					bv.SetBytes([]byte{store.value.Bytes32()[0]})
+					stack1.SetMemory(offset.value.Uint64(), AbsValueConcrete(*bv))
+				} else {
+					log.Fatal("bad opcode")
+				}
 			}
-		} else if x.opcode == MLOAD || x.opcode == SHA3 { //memory readers
+		} else if x.opcode == MLOAD { //memory readers
+			offset := stack1.values[0]
+
 			for i := 0; i < x.sem.numPop; i++ {
 				stack1.Pop(0)
 			}
 
-			if isAtMostStatic(stack1.memory.kind) {
-				stack1.Push(AbsValueStatic())
-			} else {
+			if stack1.memory == nil {
 				stack1.Push(AbsValueTop(0))
+			} else if offset.kind != ConcreteValue { //offset is symbolic
+				stack1.Push(AbsValueTop(0))
+			} else {
+				if !offset.value.IsUint64() {
+					log.Fatal("high offset")
+				}
+
+				var barr []byte
+				isTop := false
+				isStatic := false
+
+				fmt.Printf("state: %v\n", stack1.String(true))
+				for i := 0; i < 32; i++ {
+					offseti := offset.value.Uint64() + uint64(i)
+					av := stack1.memory[offseti]
+					fmt.Printf("lookup: %v=%v\n", offseti, av.String(true))
+					var b byte
+
+					if av.kind == BotValue {
+						b = 0
+					} else if av.kind == ConcreteValue {
+						b = av.value.Bytes32()[31]
+					} else if av.kind == StaticValue {
+						isStatic = true
+					} else if av.kind == TopValue {
+						isTop = true
+					} else {
+						log.Fatal("invalid value")
+					}
+					barr = append(barr, b)
+				}
+
+				if isTop {
+					stack1.Push(AbsValueTop(0))
+				} else if isStatic {
+					stack1.Push(AbsValueStatic())
+				} else {
+					iv := uint256.NewInt()
+					iv.SetBytes(barr)
+					stack1.Push(AbsValueConcrete(*iv))
+				}
 			}
+
+		} else if x.opcode == SHA3 {
+
+			for i := 0; i < x.sem.numPop; i++ {
+				stack1.Pop(0)
+			}
+
+			stack1.Push(AbsValueTop(0))
 		} else {
 			allReadsStatic := true
 			for _, i := range x.sem.stackReadIndices {
@@ -347,10 +429,10 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 		iterCount++
 	}
 
-	//prog.print(instr2state)
+	prog.print(instr2state)
 
 	if len(dynamicPcs) > 0 {
-		//fmt.Printf("dynamic pcs: %v\n", dynamicPcs)
+		fmt.Printf("dynamic pcs: %v\n", dynamicPcs)
 	} else if result.Error {
 
 	} else {
