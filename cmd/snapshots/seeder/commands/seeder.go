@@ -90,8 +90,6 @@ func Seed(ctx context.Context, datadir string) error {
 		if common.IsCanceled(ctx) {
 			return common.ErrStopped
 		}
-
-		torrents[i].VerifyData()
 	}
 
 	go func() {
