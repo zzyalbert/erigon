@@ -485,7 +485,7 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 
 		iterCount++
 
-		if iterCount % 70 == 0 {
+		if iterCount % 200 == 0 {
 			//prog.print(instr2state)
 			break
 		}

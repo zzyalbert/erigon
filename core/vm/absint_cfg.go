@@ -377,9 +377,9 @@ func (state *astate) String(abbrev bool) string {
 		}
 	}
 
-	var memsstr []string
+	var mem string
 	if isMemTop {
-		memsstr = append(memsstr, "T")
+		mem = "T"
 	} else {
 		var addrList []uint64
 		for addr, _ := range addr2vals {
@@ -408,26 +408,55 @@ func (state *astate) String(abbrev bool) string {
 			addr2ValList[addr] = vals
 		}
 
-		for _, addr := range addrList {
-			vals := addr2ValList[addr]
 
-			if len(vals) == 1 && vals[0].IsZero()  {
-				continue
+		if len(addrList) > 0 {
+			var memsstr []string
+			start := addrList[0]
+			end := addrList[0]
+			cur := toStringAbsValueSlice(addr2ValList[start])
+			for i := 1; i < len(addrList); i++ {
+				addr := addrList[i]
+				vals := addr2ValList[addr]
+				valstr := toStringAbsValueSlice(vals)
+
+				if addr == end + 1 && valstr == cur {
+					end++
+				} else {
+					if cur != "[0]" {
+						if start == end {
+							memsstr = append(memsstr, fmt.Sprintf("%v->%v", start, cur))
+						} else {
+							memsstr = append(memsstr, fmt.Sprintf("%v:%v->%v", start, end, cur))
+						}
+					}
+					start = addr
+					end = addr
+					cur = valstr
+				}
 			}
-
-			var valstrs []string
-			for _, v := range vals {
-				valstrs = append(valstrs, v.String(true))
+			if cur != "[0]" {
+				if start == end {
+					memsstr = append(memsstr, fmt.Sprintf("%v->%v", start, cur))
+				} else {
+					memsstr = append(memsstr, fmt.Sprintf("%v:%v->%v", start, end, cur))
+				}
 			}
-
-			memsstr = append(memsstr, fmt.Sprintf("%v->%v", addr, valstrs))
+			mem = fmt.Sprintf("%v", strings.Join(memsstr, ","))
+		} else {
+			mem = ""
 		}
 	}
 
-	mem := fmt.Sprintf("%v", strings.Join(memsstr, ","))
-
 	elms = append(elms, fmt.Sprintf("|%v| m=%v", len(state.stackset), mem))
 	return strings.Join(elms, " ")
+}
+
+func toStringAbsValueSlice(vals []AbsValue) string {
+	var valstrs []string
+	for _, v := range vals {
+		valstrs = append(valstrs, v.String(true))
+	}
+	return fmt.Sprintf("%v", valstrs)
 }
 
 func isZero(vals map[AbsValue]bool) bool {
