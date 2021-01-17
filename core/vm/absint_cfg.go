@@ -394,7 +394,16 @@ func (state *astate) String(abbrev bool) string {
 		for _, addr := range addrList {
 			var vals []AbsValue
 			for val, _ := range addr2vals[addr] {
-				vals = append(vals, val)
+				exists := false
+				for _, exval := range vals {
+					if val.Eq(exval) {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					vals = append(vals, val)
+				}
 			}
 			addr2ValList[addr] = vals
 		}

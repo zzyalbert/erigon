@@ -3,7 +3,9 @@ package vm
 import (
 	"fmt"
 	"github.com/holiman/uint256"
+	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/logrusorgru/aurora"
+	"golang.org/x/crypto/sha3"
 	"log"
 	"sort"
 )
@@ -191,13 +193,21 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 			stack1.values[0] = b
 			stack1.values[opNum] = a
 
-		} else if x.opcode == AND {
+		} else if x.opcode == AND || x.opcode == SUB || x.opcode == ADD {
 			a := stack1.Pop(0)
 			b := stack1.Pop(0)
 
 			if a.kind == ConcreteValue && b.kind == ConcreteValue {
 				v := uint256.NewInt()
-				v.And(a.value, b.value)
+				if x.opcode == AND {
+					v.And(a.value, b.value)
+				} else if x.opcode == SUB {
+					v.Sub(a.value, b.value)
+				} else if x.opcode == ADD {
+					v.Add(a.value, b.value)
+				} else {
+					log.Fatal("bad opcode")
+				}
 				stack1.Push(AbsValueConcrete(*v))
 			} else if isAtMostStatic(a.kind) && isAtMostStatic(b.kind) {
 				stack1.Push(AbsValueStatic())
@@ -252,9 +262,22 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 						log.Fatal("invalid value")
 					}
 				} else if x.opcode == MSTORE8 {
-					bv := uint256.NewInt()
-					bv.SetBytes([]byte{store.value.Bytes32()[0]})
-					stack1.SetMemory(offset.value.Uint64(), AbsValueConcrete(*bv))
+					if store.kind == ConcreteValue {
+						bv := uint256.NewInt()
+						if store.value == nil {
+							log.Fatal("store is nil")
+						}
+						stval := store.value.Bytes32()
+						stval0 := stval[0]
+						bv.SetBytes([]byte{stval0})
+						stack1.SetMemory(offset.value.Uint64(), AbsValueConcrete(*bv))
+					} else if store.kind == StaticValue {
+						stack1.SetMemory(offset.value.Uint64(), AbsValueStatic())
+					}else if store.kind == TopValue {
+						stack1.SetMemory(offset.value.Uint64(), AbsValueTop(0))
+					} else {
+						log.Fatal("invalid value")
+					}
 				} else {
 					log.Fatal("bad opcode")
 				}
@@ -279,11 +302,11 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 				isTop := false
 				isStatic := false
 
-				fmt.Printf("state: %v\n", stack1.String(true))
+				//fmt.Printf("state: %v\n", stack1.String(true))
 				for i := 0; i < 32; i++ {
 					offseti := offset.value.Uint64() + uint64(i)
 					av := stack1.memory[offseti]
-					fmt.Printf("lookup: %v=%v\n", offseti, av.String(true))
+					//fmt.Printf("lookup: %v=%v\n", offseti, av.String(true))
 					var b byte
 
 					if av.kind == BotValue {
@@ -312,12 +335,46 @@ func apply(prog *prog, st0 *astate, x *instr) *astate {
 			}
 
 		} else if x.opcode == SHA3 {
+			offset := stack1.values[0]
+			length := stack1.values[1]
 
 			for i := 0; i < x.sem.numPop; i++ {
 				stack1.Pop(0)
 			}
 
-			stack1.Push(AbsValueTop(0))
+			if offset.kind == ConcreteValue && length.kind == ConcreteValue && length.value.IsUint64() {
+				data := make([]byte, length.value.Uint64())
+				isConcrete := true
+				isStatic := true
+				for i := 0; i < len(data); i++ {
+					b := stack1.memory[uint64(i)]
+					if b.kind != ConcreteValue {
+						isConcrete = false
+					}
+					if b.kind != ConcreteValue && b.kind != StaticValue {
+						isStatic = false
+					}
+
+					if b.kind == ConcreteValue {
+						data[i] = b.value.Bytes32()[31]
+					}
+				}
+				if isConcrete {
+					buf := common.Hash{}
+					hasher := sha3.NewLegacyKeccak256().(keccakState)
+					hasher.Write(data)
+					hasher.Read(buf[:])
+					h := uint256.NewInt()
+					h.SetBytes(buf[:])
+					stack1.Push(AbsValueConcrete(*h))
+				} else if isStatic {
+					stack1.Push(AbsValueStatic())
+				} else {
+					stack1.Push(AbsValueTop(0))
+				}
+			} else {
+				stack1.Push(AbsValueTop(0))
+			}
 		} else {
 			allReadsStatic := true
 			for _, i := range x.sem.stackReadIndices {
@@ -427,6 +484,11 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 		}
 
 		iterCount++
+
+		if iterCount % 70 == 0 {
+			//prog.print(instr2state)
+			break
+		}
 	}
 
 	prog.print(instr2state)
