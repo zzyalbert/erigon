@@ -27,12 +27,12 @@ docker:
 docker-compose:
 	docker-compose up
 
-geth:
+geth: ethdb/mdbx/dist/mdbx-static.o
 	$(GOBUILD) -o $(GOBIN)/tg -tags "mdbx" -ldflags "-X main.gitCommit=${GIT_COMMIT}" ./cmd/tg
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/tg\" to launch turbo-geth."
 
-tg:
+tg: ethdb/mdbx/dist/mdbx-static.o
 	@echo "Building mdbx"
 	cd ethdb/mdbx/dist/ && make clean && make mdbx-static.o && cat config.h
 	$(GOBUILD) -o $(GOBIN)/tg -tags "mdbx" -ldflags "-X main.gitCommit=${GIT_COMMIT}" ./cmd/tg

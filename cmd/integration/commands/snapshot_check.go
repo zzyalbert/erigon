@@ -105,7 +105,7 @@ var cmdSnapshotCheck = &cobra.Command{
 }
 
 func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir string) (err error) {
-	var snapshotBlock uint64 = 11_000_000
+	var snapshotBlock uint64 = snapshotsync.SnapshotBlock
 	blockNum, err := stages.GetStageProgress(db, stages.Execution)
 	if err != nil {
 		return err

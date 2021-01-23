@@ -194,6 +194,7 @@ var (
 	SnapshotHeadersHeadNumber = "SnapshotLastHeaderNumber"
 	SnapshotHeadersHeadHash   = "SnapshotLastHeaderHash"
 	SnapshotBodyHeadNumber    = "SnapshotLastBodyNumber"
+	SnapshotBodyLastTxSeq     = "SnapshotBodyLastTxSeq"
 	SnapshotBodyHeadHash      = "SnapshotLastBodyHash"
 )
 

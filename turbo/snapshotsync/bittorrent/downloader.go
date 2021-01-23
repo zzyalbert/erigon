@@ -253,7 +253,7 @@ func (cli *Client) GetSnapshots(db ethdb.Database, networkID uint64) (map[snapsh
 			Type:          snapshotsync.SnapshotType(tp),
 			GotInfoByte:   gotInfo,
 			Readiness:     readiness,
-			SnapshotBlock: SnapshotBlock,
+			SnapshotBlock: snapshotsync.SnapshotBlock,
 			Dbpath:        filepath.Join(cli.snapshotsDir, t.Files()[0].Path()),
 		}
 		mp[snapshotsync.SnapshotType(tp)] = val
