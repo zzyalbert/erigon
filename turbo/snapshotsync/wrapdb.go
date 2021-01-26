@@ -1,10 +1,13 @@
 package snapshotsync
 
 import (
+	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ledgerwatch/lmdb-go/lmdb"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/log"
+	"path/filepath"
 )
 
 var (
@@ -26,7 +29,6 @@ var (
 			},
 			dbutils.PlainContractCodeBucket: dbutils.BucketConfigItem{},
 			dbutils.CodeBucket:              dbutils.BucketConfigItem{},
-			dbutils.StateSnapshotInfoBucket: dbutils.BucketConfigItem{},
 		},
 	}
 )
@@ -43,7 +45,7 @@ func WrapBySnapshotsFromDir(kv ethdb.KV, snapshotDir string, mode SnapshotMode) 
 			log.Error("Can't open body snapshot", "err", err)
 			return nil, err
 		} else { //nolint
-			snkv.SnapshotDB([]string{dbutils.BlockBodyPrefix, dbutils.BodiesSnapshotInfoBucket}, snapshotKV)
+			snkv = snkv.SnapshotDB([]string{dbutils.BlockBodyPrefix, dbutils.BodiesSnapshotInfoBucket}, snapshotKV)
 		}
 	}
 
@@ -77,7 +79,9 @@ func WrapBySnapshotsFromDownloader(kv ethdb.KV, snapshots map[SnapshotType]*Snap
 	for k, v := range snapshots {
 		log.Info("Wrap db by", "snapshot", k.String(), "dir", v.Dbpath)
 		cfg := bucketConfigs[k]
-		snapshotKV, err := ethdb.NewLMDB().Flags(func(flags uint) uint { return flags | lmdb.Readonly }).Path(v.Dbpath).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		fmt.Println("Wrap", filepath.Dir(v.Dbpath))
+		spew.Dump(cfg)
+		snapshotKV, err := ethdb.NewLMDB().Flags(func(flags uint) uint { return flags | lmdb.Readonly }).Path(filepath.Dir(v.Dbpath)).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 			return cfg
 		}).Open()
 
@@ -90,7 +94,7 @@ func WrapBySnapshotsFromDownloader(kv ethdb.KV, snapshots map[SnapshotType]*Snap
 				buckets = append(buckets, bucket)
 			}
 
-			snKV.SnapshotDB(buckets, snapshotKV)
+			snKV = snKV.SnapshotDB(buckets, snapshotKV)
 		}
 	}
 

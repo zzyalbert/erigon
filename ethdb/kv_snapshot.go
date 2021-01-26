@@ -45,7 +45,9 @@ func (opts snapshotOpts2) DB(db KV) snapshotOpts2 {
 
 func (opts snapshotOpts2) MustOpen() KV {
 	snapshots := make(map[string]snapshotData)
+	fmt.Println("MustOpen")
 	for i, v := range opts.snapshots {
+		fmt.Println(i, v)
 		for _, bucket := range v.buckets {
 			snapshots[bucket] = opts.snapshots[i]
 		}
@@ -201,6 +203,7 @@ func (s *sn2TX) GetOne(bucket string, key []byte) (val []byte, err error) {
 	}
 	return v, nil
 }
+
 func (s *sn2TX) getSnapshotTX(bucket string) (Tx, error) {
 	tx, ok := s.snTX[bucket]
 	if ok {
@@ -280,7 +283,20 @@ func (s *sn2TX) DCmp(bucket string, a, b []byte) int {
 }
 
 func (s *sn2TX) Sequence(bucket string, amount uint64) (uint64, error) {
-	panic("implement me")
+	sntx,err:=s.getSnapshotTX(bucket)
+	if err!=nil {
+		return 0, err
+	}
+	sntSeq,err:=sntx.Sequence(bucket,0)
+	if err!=nil {
+		return 0, err
+	}
+	dbseq,err:=s.dbTX.Sequence(bucket, amount)
+	if err!=nil {
+		return 0, err
+	}
+	return sntSeq+dbseq, nil
+
 }
 
 func (s *sn2TX) CHandle() unsafe.Pointer {

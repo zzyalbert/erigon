@@ -164,6 +164,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 
 	var torrentClient *bittorrent.Client
 	if config.SyncMode == downloader.StagedSync && config.SnapshotMode != (snapshotsync.SnapshotMode{}) && config.NetworkID == params.MainnetChainConfig.ChainID.Uint64() {
+		fmt.Println("config.ExternalSnapshotDownloaderAddr != \"\"", config.ExternalSnapshotDownloaderAddr != "")
 		if config.ExternalSnapshotDownloaderAddr != "" {
 			cli, cl, innerErr := snapshotsync.NewClient(config.ExternalSnapshotDownloaderAddr)
 			if innerErr != nil {
@@ -242,6 +243,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 				return nil, innerErr
 			}
 		} else {
+			fmt.Println("---------------Else-----------------")
 			var dbPath string
 			dbPath, err = stack.Config().ResolvePath("snapshots")
 			if err != nil {
@@ -259,12 +261,13 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 			err = torrentClient.AddSnapshotsTorrents(context.Background(), chainDb, config.NetworkID, config.SnapshotMode)
 			if err == nil {
 				torrentClient.Download()
-				snapshotKV := chainDb.KV()
+
 				mp, innerErr := torrentClient.GetSnapshots(chainDb, config.NetworkID)
 				if innerErr != nil {
 					return nil, innerErr
 				}
 
+				snapshotKV := chainDb.KV()
 				snapshotKV, innerErr = snapshotsync.WrapBySnapshotsFromDownloader(snapshotKV, mp)
 				if innerErr != nil {
 					return nil, innerErr

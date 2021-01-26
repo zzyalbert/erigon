@@ -17,6 +17,13 @@
 package eth
 
 import (
+	"fmt"
+	"github.com/ledgerwatch/turbo-geth/common"
+	"github.com/ledgerwatch/turbo-geth/common/dbutils"
+	"github.com/ledgerwatch/turbo-geth/core/rawdb"
+	"github.com/ledgerwatch/turbo-geth/core/types"
+	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/ledgerwatch/turbo-geth/rlp"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -63,4 +70,31 @@ func testFastSyncDisabling(t *testing.T, protocol int) {
 	if atomic.LoadUint32(&pmEmpty.fastSync) == 1 {
 		t.Fatalf("fast sync not disabled after successful synchronisation")
 	}
+}
+
+
+func TestDebug(t *testing.T) {
+	db, err:=ethdb.Open("/media/b00ris/nvme/fresh_sync/tg/chaindata/", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hash, err:=rawdb.ReadCanonicalHash(db, 11_000_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b:=rawdb.ReadHeaderRLP(db, hash, 11_000_000)
+	t.Log(hash.String(), len(b))
+	h:=new(types.Header)
+	err = rlp.DecodeBytes(b, h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("-----")
+	fmt.Println(common.Bytes2Hex(b))
+	fmt.Println("-----")
+	fmt.Println(db.Get(dbutils.HeaderPrefix, dbutils.HeaderTDKey(11_000_000, hash)))
+	//spew.Dump(h)
+
+
 }
