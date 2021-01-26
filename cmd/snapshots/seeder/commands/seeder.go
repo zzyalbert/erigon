@@ -34,9 +34,8 @@ func Seed(ctx context.Context, datadir string) error {
 
 	pathes := []string{
 		cfg.DataDir + "/headers",
-		//cfg.DataDir + "/bodies",
-		//cfg.DataDir + "/state",
-		//cfg.DataDir+"/receipts",
+		cfg.DataDir + "/bodies",
+		cfg.DataDir + "/state",
 	}
 
 	cl, err := torrent.NewClient(cfg)
