@@ -41,7 +41,7 @@ func GetAvailableSnapshotTypes(networkID uint64) []snapshotsync.SnapshotType {
 }
 
 var Trackers = [][]string{{
-	"https://35.189.110.210:80/announce",
+	"https://35.189.110.210:8080/announce",
 }}
 //var Trackers = [][]string{{
 //	"udp://tracker.openbittorrent.com:80",
