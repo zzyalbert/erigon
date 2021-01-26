@@ -29,6 +29,11 @@ var bytecode = flag.String("bytecode", "0x00", "Bytecode for cfg analysis")
 var quiet = flag.Bool("quiet", false, "Quiet for cfg analysis")
 
 func testGenCfg() {
+	if *mode == "sync" {
+		AbsIntTestStagedSync()
+		return
+	}
+
 	if *mode == "worker" {
 		code, _ := hex.DecodeString(*bytecode)
 		worker(code)

@@ -485,7 +485,7 @@ func StorageFlowAnalysis(code []byte, proof *CfgProof) StorageFlowResult {
 
 		iterCount++
 
-		if iterCount % 200 == 0 {
+		if iterCount % 100000 == 0 {
 			//prog.print(instr2state)
 			break
 		}
@@ -517,3 +517,5 @@ func isDynamicAccess(st *astate, instr * instr) bool {
 
 	return false
 }
+
+
