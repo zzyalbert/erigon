@@ -45,7 +45,7 @@ type LmdbOpts struct {
 func NewLMDB() LmdbOpts {
 	return LmdbOpts{
 		bucketsCfg: DefaultBucketConfigs,
-		flags:      lmdb.NoReadahead | lmdb.NoSync, // do call .Sync manually after commit to measure speed of commit and speed of fsync individually
+		flags:      lmdb.NoReadahead, // do call .Sync manually after commit to measure speed of commit and speed of fsync individually
 	}
 }
 
@@ -94,6 +94,10 @@ func DefaultBucketConfigs(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg 
 
 func (opts LmdbOpts) Open() (kv KV, err error) {
 	env, err := lmdb.NewEnv()
+	if err != nil {
+		return nil, err
+	}
+	err = env.SetMaxReaders(256)
 	if err != nil {
 		return nil, err
 	}
@@ -316,14 +320,18 @@ func (db *LmdbKV) DiskSize(_ context.Context) (uint64, error) {
 	return uint64(fileInfo.Size()), nil
 }
 
-func (db *LmdbKV) Begin(_ context.Context, parent Tx, flags TxFlags) (Tx, error) {
+func (db *LmdbKV) Begin(_ context.Context, parent Tx, flags TxFlags) (txn Tx, err error) {
 	if db.env == nil {
 		return nil, fmt.Errorf("db closed")
 	}
 	isSubTx := parent != nil
 	if !isSubTx {
 		runtime.LockOSThread()
-		db.wg.Add(1)
+		defer func() {
+			if err == nil {
+				db.wg.Add(1)
+			}
+		}()
 	}
 
 	nativeFlags := uint(0)
@@ -595,16 +603,16 @@ func (tx *lmdbTx) Commit(ctx context.Context) error {
 		log.Info("Batch", "commit", commitTook)
 	}
 
-	if !tx.isSubTx && tx.db.opts.flags&lmdb.Readonly == 0 && !tx.db.opts.inMem { // call fsync only after main transaction commit
-		fsyncTimer := time.Now()
-		if err := tx.db.env.Sync(tx.flags&NoSync == 0); err != nil {
-			log.Warn("fsync after commit failed", "err", err)
-		}
-		fsyncTook := time.Since(fsyncTimer)
-		if fsyncTook > 20*time.Second {
-			log.Info("Batch", "fsync", fsyncTook)
-		}
-	}
+	//if !tx.isSubTx && tx.db.opts.flags&lmdb.Readonly == 0 && !tx.db.opts.inMem { // call fsync only after main transaction commit
+	//	fsyncTimer := time.Now()
+	//	if err := tx.db.env.Sync(tx.flags&NoSync == 0); err != nil {
+	//		log.Warn("fsync after commit failed", "err", err)
+	//	}
+	//	fsyncTook := time.Since(fsyncTimer)
+	//	if fsyncTook > 20*time.Second {
+	//		log.Info("Batch", "fsync", fsyncTook)
+	//	}
+	//}
 	return nil
 }
 
@@ -1229,7 +1237,7 @@ func (c *LmdbCursor) putDupSort(key []byte, value []byte) error {
 		if lmdb.IsNotFound(err) {
 			return c.put(key, value)
 		}
-		return err
+		return fmt.Errorf("getBothRange bucket: %s, %w", c.bucketName, err)
 	}
 
 	if bytes.Equal(v[:from-to], value[:from-to]) {
@@ -1238,7 +1246,7 @@ func (c *LmdbCursor) putDupSort(key []byte, value []byte) error {
 		}
 		err = c.delCurrent()
 		if err != nil {
-			return err
+			return fmt.Errorf("delCurrent bucket: %s, %w", c.bucketName, err)
 		}
 	}
 

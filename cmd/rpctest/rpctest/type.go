@@ -2,6 +2,7 @@ package rpctest
 
 import (
 	"fmt"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
 	"github.com/ledgerwatch/turbo-geth/core/state"
@@ -32,10 +33,13 @@ type EthBalance struct {
 }
 
 type EthTransaction struct {
-	From common.Address  `json:"from"`
-	To   *common.Address `json:"to"` // Pointer because it might be missing
-	Hash string          `json:"hash"`
-	Gas  hexutil.Big     `json:"gas"`
+	From     common.Address  `json:"from"`
+	To       *common.Address `json:"to"` // Pointer because it might be missing
+	Hash     string          `json:"hash"`
+	Gas      hexutil.Big     `json:"gas"`
+	GasPrice hexutil.Big     `json:"gasPrice"`
+	Input    hexutil.Bytes   `json:"input"`
+	Value    hexutil.Big     `json:"value"`
 }
 
 type EthBlockByNumberResult struct {
@@ -73,6 +77,59 @@ type EthTxTraceResult struct {
 type EthTxTrace struct {
 	CommonResponse
 	Result EthTxTraceResult `json:"result"`
+}
+
+type TraceCall struct {
+	CommonResponse
+	Result TraceCallResult `json:"result"`
+}
+
+type TraceCallResult struct {
+	Output    hexutil.Bytes                         `json:"output"`
+	Trace     []TraceCallTrace                      `json:"trace"`
+	StateDiff map[common.Address]TraceCallStateDiff `json:"stateDiff"`
+}
+
+type TraceCallTrace struct {
+	Type         string                `json:"type"`
+	Action       TraceCallAction       `json:"action"`
+	Result       *TraceCallTraceResult `json:"result"`
+	Subtraces    int                   `json:"subtraces"`
+	TraceAddress []int                 `json:"traceAddress"`
+	Error        string                `json:"error"`
+}
+
+// TraceCallAction is superset of all possible action types
+type TraceCallAction struct {
+	From          common.Address `json:"from"`
+	To            common.Address `json:"to"`
+	Address       common.Address `json:"address"`
+	RefundAddress common.Address `json:"refundAddress"`
+	Gas           hexutil.Big    `json:"gas"`
+	Value         hexutil.Big    `json:"value"`
+	Balance       hexutil.Big    `json:"balance"`
+	Init          hexutil.Bytes  `json:"init"`
+	Input         hexutil.Bytes  `json:"input"`
+	CallType      string         `json:"callType"`
+}
+
+type TraceCallTraceResult struct {
+	GasUsed hexutil.Big    `json:"gasUsed"`
+	Output  hexutil.Bytes  `json:"output"`
+	Address common.Address `json:"address"`
+	Code    hexutil.Bytes  `json:"code"`
+}
+
+type TraceCallStateDiff struct {
+	Balance interface{}                                          `json:"balance"`
+	Nonce   interface{}                                          `json:"nonce"`
+	Code    interface{}                                          `json:"code"`
+	Storage map[common.Hash]map[string]TraceCallStateDiffStorage `json:"storage"`
+}
+
+type TraceCallStateDiffStorage struct {
+	From common.Hash `json:"from"`
+	To   common.Hash `json:"to"`
 }
 
 type DebugModifiedAccounts struct {

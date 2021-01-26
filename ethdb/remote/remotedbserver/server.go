@@ -55,7 +55,7 @@ func StartGrpc(kv ethdb.KV, eth core.Backend, addr string, creds *credentials.Tr
 		grpc.NumStreamWorkers(cpus), // reduce amount of goroutines
 		grpc.WriteBufferSize(1024),  // reduce buffers to save mem
 		grpc.ReadBufferSize(1024),
-		grpc.MaxConcurrentStreams(100), // to force clients reduce concurrency level
+		grpc.MaxConcurrentStreams(200), // to force clients reduce concurrency level
 		// Don't drop the connection, settings accordign to this comment on GitHub
 		// https://github.com/grpc/grpc-go/issues/3171#issuecomment-552796779
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
@@ -196,7 +196,11 @@ func (s *KvServer) Tx(stream remote.KV_TxServer) error {
 			}
 			continue
 		case remote.Op_CLOSE:
-			cursors[in.Cursor].c.Close()
+			cInfo, ok := cursors[in.Cursor]
+			if !ok {
+				return fmt.Errorf("server-side error: unknown Cursor=%d, Op=%s", in.Cursor, in.Op)
+			}
+			cInfo.c.Close()
 			delete(cursors, in.Cursor)
 			if err := stream.Send(&remote.Pair{}); err != nil {
 				return fmt.Errorf("server-side error: %w", err)
@@ -262,7 +266,7 @@ func handleOp(c ethdb.Cursor, stream remote.KV_TxServer, in *remote.Cursor) erro
 		return err
 	}
 
-	if err := stream.Send(&remote.Pair{K: common.CopyBytes(k), V: common.CopyBytes(v)}); err != nil {
+	if err := stream.Send(&remote.Pair{K: k, V: v}); err != nil {
 		return err
 	}
 

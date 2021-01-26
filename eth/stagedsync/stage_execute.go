@@ -37,7 +37,7 @@ type HasChangeSetWriter interface {
 
 type ChangeSetHook func(blockNum uint64, wr *state.ChangeSetWriter)
 
-type StateReaderBuilder func(ethdb.Getter) state.StateReader
+type StateReaderBuilder func(ethdb.Database) state.StateReader
 
 type StateWriterBuilder func(db ethdb.Database, changeSetsDB ethdb.Database, blockNumber uint64) state.WriterWithChangeSets
 
@@ -113,7 +113,7 @@ func executeBlockWithGo(block *types.Block, tx ethdb.DbWithPendingMutations, cac
 }
 
 func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig *params.ChainConfig, chainContext *core.TinyChainContext, vmConfig *vm.Config, quit <-chan struct{}, params ExecuteBlockStageParams) error {
-	prevStageProgress, _, errStart := stages.GetStageProgress(stateDB, stages.Senders)
+	prevStageProgress, errStart := stages.GetStageProgress(stateDB, stages.Senders)
 	if errStart != nil {
 		return errStart
 	}

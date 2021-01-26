@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -33,8 +34,8 @@ import (
 	"github.com/ledgerwatch/turbo-geth/core/types/accounts"
 	"github.com/ledgerwatch/turbo-geth/core/vm"
 	"github.com/ledgerwatch/turbo-geth/crypto"
+	"github.com/ledgerwatch/turbo-geth/eth/stagedsync"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
-	"github.com/ledgerwatch/turbo-geth/ethdb/cbor"
 	"github.com/ledgerwatch/turbo-geth/ethdb/mdbx"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/node"
@@ -42,7 +43,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/rlp"
 	"github.com/ledgerwatch/turbo-geth/turbo/stages/headerdownload"
 	"github.com/ledgerwatch/turbo-geth/turbo/trie"
-	"github.com/valyala/gozstd"
 	"github.com/wcharczuk/go-chart"
 	"github.com/wcharczuk/go-chart/util"
 )
@@ -1586,302 +1586,6 @@ func iterateOverCode(chaindata string) error {
 	return nil
 }
 
-func zstd(chaindata string) error {
-	db := ethdb.MustOpen(chaindata)
-	defer db.Close()
-	tx, errBegin := db.Begin(context.Background(), ethdb.RW)
-	check(errBegin)
-	defer tx.Rollback()
-
-	logEvery := time.NewTicker(5 * time.Second)
-	defer logEvery.Stop()
-
-	// train
-	var samples1 [][]byte
-	var samples2 [][]byte
-
-	bucket := dbutils.BlockReceiptsPrefix
-	fmt.Printf("bucket: %s\n", bucket)
-	c := tx.(ethdb.HasTx).Tx().Cursor(bucket)
-	count, _ := c.Count()
-	blockNBytes := make([]byte, 8)
-	trainFrom := count - 2_000_000
-	for blockN := trainFrom; blockN < count; blockN += 2_000_000 / 4_000 {
-		binary.BigEndian.PutUint64(blockNBytes, blockN)
-		var v []byte
-		_, v, err := c.Seek(blockNBytes)
-		if err != nil {
-			return err
-		}
-
-		storageReceipts := types.Receipts{}
-		err = cbor.Unmarshal(&storageReceipts, bytes.NewReader(v))
-		check(err)
-
-		samples1 = append(samples1, v)
-
-		select {
-		default:
-		case <-logEvery.C:
-			log.Info("Progress sampling", "blockNum", blockN)
-		}
-	}
-
-	fmt.Printf("samples1: %d, samples2: %d\n", len(samples1), len(samples2))
-	t := time.Now()
-	dict128 := gozstd.BuildDict(samples1, 64*1024)
-	fmt.Printf("dict128: %s\n", time.Since(t))
-
-	t = time.Now()
-	dict128_100k := gozstd.BuildDict(samples2, 64*1024)
-	fmt.Printf("dict128_100k: %s\n", time.Since(t))
-
-	t = time.Now()
-	dict64 := gozstd.BuildDict(samples1, 32*1024)
-	fmt.Printf("dict64: %s\n", time.Since(t))
-
-	t = time.Now()
-	dict64_100k := gozstd.BuildDict(samples2, 32*1024)
-	fmt.Printf("dict64_100k: %s\n", time.Since(t))
-
-	t = time.Now()
-	dict32 := gozstd.BuildDict(samples1, 16*1024)
-	fmt.Printf("dict32: %s\n", time.Since(t))
-
-	t = time.Now()
-	dict32_100k := gozstd.BuildDict(samples2, 16*1024)
-	fmt.Printf("dict32_100k: %s\n", time.Since(t))
-
-	cd128_s1_minus2, err := gozstd.NewCDictLevel(dict128, -2)
-	if err != nil {
-		panic(err)
-	}
-	defer cd128_s1_minus2.Release()
-
-	cd128_s100k_minus2, err := gozstd.NewCDictLevel(dict128_100k, -2)
-	if err != nil {
-		panic(err)
-	}
-	defer cd128_s100k_minus2.Release()
-
-	cd64_minus2, err := gozstd.NewCDictLevel(dict64, -2)
-	if err != nil {
-		panic(err)
-	}
-	defer cd64_minus2.Release()
-
-	cd64_s100k_minus2, err := gozstd.NewCDictLevel(dict64_100k, -2)
-	if err != nil {
-		panic(err)
-	}
-	defer cd64_s100k_minus2.Release()
-
-	cd32_minus2, err := gozstd.NewCDictLevel(dict32, -2)
-	if err != nil {
-		panic(err)
-	}
-	defer cd64_minus2.Release()
-
-	cd32_s100k_minus2, err := gozstd.NewCDictLevel(dict32_100k, -2)
-	if err != nil {
-		panic(err)
-	}
-	defer cd32_s100k_minus2.Release()
-
-	//cd128_19, err := gozstd.NewCDictLevel(dict128, 19)
-	//if err != nil {
-	//	return err
-	//}
-	//defer cd128_19.Release()
-	//
-	//cd128_22, err := gozstd.NewCDictLevel(dict128, 22)
-	//if err != nil {
-	//	return err
-	//}
-	//defer cd128_22.Release()
-
-	//total32 := 0
-	//total64 := 0
-	//total64_minus3 := 0
-	total128_s1_minus2 := 0
-	total128_s2_minus2 := 0
-	total64_s1_minus2 := 0
-	total64_s2_minus2 := 0
-	total32_s1_minus2 := 0
-	total32_s2_minus2 := 0
-
-	total := 0
-	var d_s1_minus2 time.Duration
-	var d_s2_minus2 time.Duration
-
-	var d64_s1_minus2 time.Duration
-	var d64_s2_minus2 time.Duration
-
-	var d32_s1_minus2 time.Duration
-	var d32_s2_minus2 time.Duration
-
-	buf := make([]byte, 0, 1024)
-	for k, v, err := c.First(); k != nil; k, v, err = c.Next() {
-		if err != nil {
-			return err
-		}
-		total += len(v)
-		blockNum := binary.BigEndian.Uint64(k)
-
-		t := time.Now()
-		buf = gozstd.CompressDict(buf[:0], v, cd128_s1_minus2)
-		d_s1_minus2 += time.Since(t)
-		total128_s1_minus2 += len(buf)
-
-		t = time.Now()
-		buf = gozstd.CompressDict(buf[:0], v, cd128_s100k_minus2)
-		d_s2_minus2 += time.Since(t)
-		total128_s2_minus2 += len(buf)
-
-		t = time.Now()
-		buf = gozstd.CompressDict(buf[:0], v, cd64_minus2)
-		d64_s1_minus2 += time.Since(t)
-		total64_s1_minus2 += len(buf)
-
-		t = time.Now()
-		buf = gozstd.CompressDict(buf[:0], v, cd64_s100k_minus2)
-		d64_s2_minus2 += time.Since(t)
-		total64_s2_minus2 += len(buf)
-
-		t = time.Now()
-		buf = gozstd.CompressDict(buf[:0], v, cd32_minus2)
-		d32_s1_minus2 += time.Since(t)
-		total32_s1_minus2 += len(buf)
-
-		t = time.Now()
-		buf = gozstd.CompressDict(buf[:0], v, cd32_s100k_minus2)
-		d32_s2_minus2 += time.Since(t)
-		total32_s2_minus2 += len(buf)
-
-		select {
-		default:
-		case <-logEvery.C:
-			totalf := float64(total)
-			log.Info("Progress 8", "blockNum", blockNum, "before", common.StorageSize(total),
-				"128_s1_minus2", fmt.Sprintf("%.2f", totalf/float64(total128_s1_minus2)), "d_s1_minus2", d_s1_minus2,
-				"128_s2_minus2", fmt.Sprintf("%.2f", totalf/float64(total128_s2_minus2)), "d_s2_minus2", d_s2_minus2,
-
-				"64_s1_minus2", fmt.Sprintf("%.2f", totalf/float64(total64_s1_minus2)), "d64_s1_minus2", d64_s1_minus2,
-				"64_s2_minus2", fmt.Sprintf("%.2f", totalf/float64(total64_s2_minus2)), "d64_s2_minus2", d64_s2_minus2,
-
-				"32_s1_minus2", fmt.Sprintf("%.2f", totalf/float64(total32_s1_minus2)), "d32_s1_minus2", d32_s1_minus2,
-				"32_s2_minus2", fmt.Sprintf("%.2f", totalf/float64(total32_s2_minus2)), "d32_s2_minus2", d32_s2_minus2,
-			)
-		}
-	}
-
-	return nil
-}
-
-func benchRlp(chaindata string) error {
-	db := ethdb.MustOpen(chaindata)
-	defer db.Close()
-	tx, err := db.Begin(context.Background(), ethdb.RW)
-	check(err)
-	defer tx.Rollback()
-
-	logEvery := time.NewTicker(5 * time.Second)
-	defer logEvery.Stop()
-
-	// train
-	total := 0
-	bucket := dbutils.BlockReceiptsPrefix
-	fmt.Printf("bucket: %s\n", bucket)
-	c := tx.(ethdb.HasTx).Tx().Cursor(bucket)
-
-	total_cbor := 0
-	total_compress_cbor := 0
-
-	total = 0
-	var cbor_encode time.Duration
-	var cbor_decode time.Duration
-	var cbor_decode2 time.Duration
-	var cbor_decode3 time.Duration
-	var cbor_compress time.Duration
-
-	buf := bytes.NewBuffer(make([]byte, 0, 100_000))
-	compressBuf := make([]byte, 0, 100_000)
-
-	var samplesCbor [][]byte
-
-	count, _ := c.Count()
-	blockNBytes := make([]byte, 8)
-	trainFrom := count - 2_000_000
-	for blockN := trainFrom; blockN < count; blockN += 2_000_000 / 4_000 {
-		binary.BigEndian.PutUint64(blockNBytes, blockN)
-		var v []byte
-		_, v, err = c.Seek(blockNBytes)
-		if err != nil {
-			return err
-		}
-
-		receipts := types.Receipts{}
-		err = cbor.Unmarshal(&receipts, bytes.NewReader(v))
-		check(err)
-
-		select {
-		default:
-		case <-logEvery.C:
-			log.Info("Progress sampling", "blockNum", blockN)
-		}
-	}
-
-	compressorCbor, err := gozstd.NewCDictLevel(gozstd.BuildDict(samplesCbor, 32*1024), -2)
-	check(err)
-	defer compressorCbor.Release()
-
-	binary.BigEndian.PutUint64(blockNBytes, trainFrom)
-	for k, v, err := c.Seek(blockNBytes); k != nil; k, v, err = c.Next() {
-		if err != nil {
-			return err
-		}
-		total += len(v)
-		blockNum := binary.BigEndian.Uint64(k)
-
-		storageReceipts := types.Receipts{}
-		err = cbor.Unmarshal(&storageReceipts, bytes.NewReader(v))
-		check(err)
-
-		t := time.Now()
-		buf.Reset()
-		err = cbor.Marshal(buf, storageReceipts)
-		cbor_encode += time.Since(t)
-		total_cbor += buf.Len()
-		check(err)
-
-		t = time.Now()
-		//compressBuf = gozstd.CompressDict(compressBuf[:0], buf.Bytes(), compressorCbor)
-		cbor_compress += time.Since(t)
-		total_compress_cbor += len(compressBuf)
-
-		storageReceipts2 := types.Receipts{}
-		t = time.Now()
-		err = cbor.Unmarshal(&storageReceipts2, bytes.NewReader(buf.Bytes()))
-		cbor_decode += time.Since(t)
-		check(err)
-
-		select {
-		default:
-		case <-logEvery.C:
-			totalf := float64(total)
-			log.Info("Progress 8", "blockNum", blockNum, "before", common.StorageSize(total),
-				//"rlp_decode", rlp_decode,
-				"total_cbor", fmt.Sprintf("%.2f", float64(total_cbor)/totalf), "cbor_encode", cbor_encode, "cbor_decode", cbor_decode,
-				"cbor_decode2", cbor_decode2, "cbor_decode3", cbor_decode3,
-				//"compress_rlp_ratio", fmt.Sprintf("%.2f", totalf/float64(total_compress_rlp)), "rlp_compress", rlp_compress,
-				"compress_cbor_ratio", fmt.Sprintf("%.2f", totalf/float64(total_compress_cbor)), "cbor_compress", cbor_compress,
-			)
-		}
-	}
-
-	return nil
-}
-
 func mint(chaindata string, block uint64) error {
 	f, err := os.Create("mint.csv")
 	if err != nil {
@@ -2093,6 +1797,119 @@ func indexKeySizes(chaindata string) error {
 	return nil
 }
 
+func extractBodies(chaindata string, block uint64) error {
+	db := ethdb.MustOpen(chaindata)
+	defer db.Close()
+	tx, err := db.Begin(context.Background(), ethdb.RO)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	c := tx.(ethdb.HasTx).Tx().Cursor(dbutils.BlockBodyPrefix)
+	defer c.Close()
+	blockEncoded := dbutils.EncodeBlockNumber(block)
+	for k, _, err := c.Seek(blockEncoded); k != nil; k, _, err = c.Next() {
+		if err != nil {
+			return err
+		}
+		blockNumber := binary.BigEndian.Uint64(k[:8])
+		blockHash := common.BytesToHash(k[8:])
+		body := rawdb.ReadBody(db, blockHash, blockNumber)
+		b, err := rlp.EncodeToBytes(body)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Body %d %x: %x\n", blockNumber, blockHash, b)
+		header := rawdb.ReadHeader(db, blockHash, blockNumber)
+		b, err = rlp.EncodeToBytes(header)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Header %d %x: %x\n", blockNumber, blockHash, b)
+		if blockNumber > block+5 {
+			break
+		}
+	}
+	return nil
+}
+
+func applyBlock(chaindata string, hash common.Hash) error {
+	db := ethdb.MustOpen(chaindata)
+	defer db.Close()
+	f, err := os.Open("out.txt")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	s := bufio.NewScanner(r)
+	s.Buffer(nil, 20000000)
+	count := 0
+	var body *types.Body
+	var header *types.Header
+	for s.Scan() {
+		fields := strings.Split(s.Text(), " ")
+		h := common.HexToHash(fields[2][:64])
+		if h != hash {
+			continue
+		}
+		switch fields[0] {
+		case "Body":
+			if err = rlp.DecodeBytes(common.FromHex(fields[3]), &body); err != nil {
+				return nil
+			}
+		case "Header":
+			if err = rlp.DecodeBytes(common.FromHex(fields[3]), &header); err != nil {
+				return nil
+			}
+		}
+		count++
+	}
+	if s.Err() != nil {
+		return s.Err()
+	}
+	fmt.Printf("Lines: %d\n", count)
+	if body == nil {
+		fmt.Printf("block body with given hash %x not found\n", hash)
+		return nil
+	}
+	if header == nil {
+		fmt.Printf("header with given hash not found\n")
+		return nil
+	}
+	block := types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Uncles)
+	fmt.Printf("Formed block %d %x\n", block.NumberU64(), block.Hash())
+	if _, err = stagedsync.InsertBlockInStages(db, params.MainnetChainConfig, &vm.Config{}, ethash.NewFaker(), block, true /* checkRoot */); err != nil {
+		return err
+	}
+	if err = rawdb.WriteCanonicalHash(db, hash, block.NumberU64()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func fixUnwind(chaindata string) error {
+	contractAddr := common.HexToAddress("0x577a32aa9c40cf4266e49fc1e44c749c356309bd")
+	db := ethdb.MustOpen(chaindata)
+	defer db.Close()
+	i, err := db.Get(dbutils.IncarnationMapBucket, contractAddr[:])
+	if err != nil {
+		if errors.Is(err, ethdb.ErrKeyNotFound) {
+			fmt.Print("Not found\n")
+			var b [8]byte
+			binary.BigEndian.PutUint64(b[:], 1)
+			if err = db.Put(dbutils.IncarnationMapBucket, contractAddr[:], b[:]); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		fmt.Printf("Inc: %x\n", i)
+	}
+	return nil
+}
+
 func main() {
 	flag.Parse()
 
@@ -2236,16 +2053,6 @@ func main() {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
-	if *action == "zstd" {
-		if err := zstd(*chaindata); err != nil {
-			fmt.Printf("Error: %v\n", err)
-		}
-	}
-	if *action == "benchRlp" {
-		if err := benchRlp(*chaindata); err != nil {
-			fmt.Printf("Error: %v\n", err)
-		}
-	}
 	if *action == "extractHeaders" {
 		if err := extracHeaders(*chaindata, uint64(*block)); err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -2274,6 +2081,21 @@ func main() {
 	}
 	if *action == "indexKeySizes" {
 		if err := indexKeySizes(*chaindata); err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+	}
+	if *action == "extractBodies" {
+		if err := extractBodies(*chaindata, uint64(*block)); err != nil {
+			fmt.Printf("Error:%v\n", err)
+		}
+	}
+	if *action == "applyBlock" {
+		if err := applyBlock(*chaindata, common.HexToHash(*hash)); err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+	}
+	if *action == "fixUnwind" {
+		if err := fixUnwind(*chaindata); err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}

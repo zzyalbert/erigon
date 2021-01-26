@@ -13,6 +13,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/eth"
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync/stages"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/ledgerwatch/turbo-geth/internal/ethapi"
 	"github.com/ledgerwatch/turbo-geth/rpc"
 	"github.com/ledgerwatch/turbo-geth/turbo/adapter"
 	"github.com/ledgerwatch/turbo-geth/turbo/transactions"
@@ -25,18 +26,23 @@ type PrivateDebugAPI interface {
 	AccountRange(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash, start []byte, maxResults int, nocode, nostorage, incompletes bool) (state.IteratorDump, error)
 	GetModifiedAccountsByNumber(ctx context.Context, startNum rpc.BlockNumber, endNum *rpc.BlockNumber) ([]common.Address, error)
 	GetModifiedAccountsByHash(_ context.Context, startHash common.Hash, endHash *common.Hash) ([]common.Address, error)
+	TraceCall(ctx context.Context, args ethapi.CallArgs, blockNrOrHash rpc.BlockNumberOrHash, config *eth.TraceConfig) (interface{}, error)
 }
 
 // PrivateDebugAPIImpl is implementation of the PrivateDebugAPI interface based on remote Db access
 type PrivateDebugAPIImpl struct {
+	*BaseAPI
 	dbReader     ethdb.Database
 	chainContext core.ChainContext
+	GasCap       uint64
 }
 
 // NewPrivateDebugAPI returns PrivateDebugAPIImpl instance
-func NewPrivateDebugAPI(dbReader ethdb.Database) *PrivateDebugAPIImpl {
+func NewPrivateDebugAPI(dbReader ethdb.Database, gascap uint64) *PrivateDebugAPIImpl {
 	return &PrivateDebugAPIImpl{
+		BaseAPI:  &BaseAPI{},
 		dbReader: dbReader,
+		GasCap:   gascap,
 	}
 }
 
@@ -83,7 +89,7 @@ func (api *PrivateDebugAPIImpl) AccountRange(ctx context.Context, blockNrOrHash 
 		if number == rpc.LatestBlockNumber {
 			var err error
 
-			blockNumber, _, err = stages.GetStageProgress(tx, stages.Execution)
+			blockNumber, err = stages.GetStageProgress(tx, stages.Execution)
 			if err != nil {
 				return state.IteratorDump{}, fmt.Errorf("last block has not found: %w", err)
 			}
@@ -134,7 +140,7 @@ func (api *PrivateDebugAPIImpl) GetModifiedAccountsByNumber(ctx context.Context,
 	}
 	defer tx.Rollback()
 
-	latestBlock, _, err := stages.GetStageProgress(tx, stages.Finish)
+	latestBlock, err := stages.GetStageProgress(tx, stages.Finish)
 	if err != nil {
 		return nil, err
 	}

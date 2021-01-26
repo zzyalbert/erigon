@@ -29,14 +29,12 @@ func (api *APIImpl) Call(ctx context.Context, args ethapi.CallArgs, blockNrOrHas
 	}
 	defer dbtx.Rollback()
 
-	tx := dbtx.(ethdb.HasTx).Tx()
-
-	chainConfig, err := getChainConfig(dbtx)
+	chainConfig, err := api.chainConfig(dbtx)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := transactions.DoCall(ctx, args, tx, api.dbReader, blockNrOrHash, overrides, api.GasCap, chainConfig)
+	result, err := transactions.DoCall(ctx, args, dbtx, blockNrOrHash, overrides, api.GasCap, chainConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +62,6 @@ func (api *APIImpl) DoEstimateGas(ctx context.Context, args ethapi.CallArgs, blo
 	}
 	defer dbtx.Rollback()
 
-	tx := dbtx.(ethdb.HasTx).Tx()
-
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
 		lo  uint64 = params.TxGas - 1
@@ -77,12 +73,12 @@ func (api *APIImpl) DoEstimateGas(ctx context.Context, args ethapi.CallArgs, blo
 		args.From = new(common.Address)
 	}
 
-	blockNumber, hash, err := rpchelper.GetBlockNumber(blockNrOrHash, api.dbReader)
+	blockNumber, hash, err := rpchelper.GetBlockNumber(blockNrOrHash, dbtx)
 	if err != nil {
 		return 0, err
 	}
 
-	chainConfig, err := getChainConfig(dbtx)
+	chainConfig, err := api.chainConfig(dbtx)
 	if err != nil {
 		return 0, err
 	}
@@ -92,12 +88,12 @@ func (api *APIImpl) DoEstimateGas(ctx context.Context, args ethapi.CallArgs, blo
 		hi = uint64(*args.Gas)
 	} else {
 		// Retrieve the block to act as the gas ceiling
-		header := rawdb.ReadHeader(api.dbReader, hash, blockNumber)
+		header := rawdb.ReadHeader(dbtx, hash, blockNumber)
 		hi = header.GasLimit
 	}
 	// Recap the highest gas limit with account's available balance.
 	if args.GasPrice != nil && args.GasPrice.ToInt().Uint64() != 0 {
-		ds := state.NewPlainDBState(tx, blockNumber)
+		ds := state.NewPlainDBState(dbtx, blockNumber)
 		state := state.New(ds)
 		if state == nil {
 			return 0, fmt.Errorf("can't get the state for %d", blockNumber)
@@ -133,7 +129,7 @@ func (api *APIImpl) DoEstimateGas(ctx context.Context, args ethapi.CallArgs, blo
 	executable := func(gas uint64) (bool, *core.ExecutionResult, error) {
 		args.Gas = (*hexutil.Uint64)(&gas)
 
-		result, err := transactions.DoCall(ctx, args, tx, api.dbReader, blockNrOrHash, nil, api.GasCap, chainConfig)
+		result, err := transactions.DoCall(ctx, args, dbtx, blockNrOrHash, nil, api.GasCap, chainConfig)
 		if err != nil {
 			if errors.Is(err, core.ErrIntrinsicGas) {
 				// Special case, raise gas limit

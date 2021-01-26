@@ -16,9 +16,10 @@ import (
 )
 
 func SpawnHashStateStage(s *StageState, db ethdb.Database, tmpdir string, quit <-chan struct{}) error {
+	logPrefix := s.state.LogPrefix()
 	to, err := s.ExecutionAt(db)
 	if err != nil {
-		return err
+		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 
 	if s.BlockNumber == to {
@@ -31,15 +32,14 @@ func SpawnHashStateStage(s *StageState, db ethdb.Database, tmpdir string, quit <
 		return fmt.Errorf("hashstate: promotion backwards from %d to %d", s.BlockNumber, to)
 	}
 
-	logPrefix := s.state.LogPrefix()
 	log.Info(fmt.Sprintf("[%s] Promoting plain state", logPrefix), "from", s.BlockNumber, "to", to)
 	if s.BlockNumber == 0 { // Initial hashing of the state is performed at the previous stage
-		if err := promoteHashedStateCleanly(logPrefix, db, tmpdir, quit); err != nil {
-			return err
+		if err := PromoteHashedStateCleanly(logPrefix, db, tmpdir, quit); err != nil {
+			return fmt.Errorf("[%s] %w", logPrefix, err)
 		}
 	} else {
 		if err := promoteHashedStateIncrementally(logPrefix, s, s.BlockNumber, to, db, tmpdir, quit); err != nil {
-			return err
+			return fmt.Errorf("[%s] %w", logPrefix, err)
 		}
 	}
 
@@ -49,7 +49,7 @@ func SpawnHashStateStage(s *StageState, db ethdb.Database, tmpdir string, quit <
 func UnwindHashStateStage(u *UnwindState, s *StageState, db ethdb.Database, tmpdir string, quit <-chan struct{}) error {
 	logPrefix := s.state.LogPrefix()
 	if err := unwindHashStateStageImpl(logPrefix, u, s, db, tmpdir, quit); err != nil {
-		return err
+		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 	if err := u.Done(db); err != nil {
 		return fmt.Errorf("%s: reset: %v", logPrefix, err)
@@ -74,7 +74,7 @@ func unwindHashStateStageImpl(logPrefix string, u *UnwindState, s *StageState, s
 	return nil
 }
 
-func promoteHashedStateCleanly(logPrefix string, db ethdb.Database, tmpdir string, quit <-chan struct{}) error {
+func PromoteHashedStateCleanly(logPrefix string, db ethdb.Database, tmpdir string, quit <-chan struct{}) error {
 	err := etl.Transform(
 		logPrefix,
 		db,
@@ -175,6 +175,7 @@ func NewPromoter(db ethdb.Database, quitCh <-chan struct{}) *Promoter {
 		db:               db,
 		ChangeSetBufSize: 256 * 1024 * 1024,
 		TempDir:          os.TempDir(),
+		quitCh:           quitCh,
 	}
 }
 
@@ -182,7 +183,7 @@ type Promoter struct {
 	db               ethdb.Database
 	ChangeSetBufSize uint64
 	TempDir          string
-	quitCh           chan struct{}
+	quitCh           <-chan struct{}
 }
 
 func getExtractFunc(db ethdb.Getter, changeSetBucket string) etl.ExtractFunc {

@@ -140,7 +140,7 @@ func createStageBuilders(blocks []*types.Block, blockNum uint64, checkRoot bool)
 									if err1 := a.DecodeForStorage(v); err1 != nil {
 										return err1
 									}
-									fmt.Printf("%x => %d %d %x\n", k, a.Balance.ToBig(), a.Nonce, a.CodeHash)
+									fmt.Printf("%x => bal: %d nonce: %d codehash: %x, inc: %d\n", k, a.Balance.ToBig(), a.Nonce, a.CodeHash, a.Incarnation)
 								}
 							}
 							c.Close()
@@ -155,7 +155,7 @@ func createStageBuilders(blocks []*types.Block, blockNum uint64, checkRoot bool)
 									if err1 := a.DecodeForStorage(v); err1 != nil {
 										return err1
 									}
-									fmt.Printf("%x => %d %d %x\n", k, a.Balance.ToBig(), a.Nonce, a.CodeHash)
+									fmt.Printf("%x => bal: %d nonce: %d codehash: %x, inc: %d\n", k, a.Balance.ToBig(), a.Nonce, a.CodeHash, a.Incarnation)
 								}
 							}
 							c.Close()
@@ -305,7 +305,7 @@ func SetHead(db ethdb.Database, config *params.ChainConfig, vmConfig *vm.Config,
 	}
 	rawdb.WriteHeadBlockHash(db, newHeadHash)
 	rawdb.WriteHeadHeaderHash(db, newHeadHash)
-	if err = stages.SaveStageProgress(db, stages.Headers, newHead, nil); err != nil {
+	if err = stages.SaveStageProgress(db, stages.Headers, newHead); err != nil {
 		return err
 	}
 	stageBuilders := createStageBuilders([]*types.Block{}, newHead, checkRoot)
@@ -323,7 +323,7 @@ func SetHead(db ethdb.Database, config *params.ChainConfig, vmConfig *vm.Config,
 		"1",
 		ethdb.DefaultStorageMode,
 		"",
-		16*1024,
+		0*1024, // Turn off cache for now
 		8*1024,
 		nil,
 		nil,
@@ -355,7 +355,7 @@ func InsertHeadersInStages(db ethdb.Database, config *params.ChainConfig, engine
 	if !newCanonical {
 		return false, false, 0, nil
 	}
-	if err = stages.SaveStageProgress(db, stages.Headers, blockNum, nil); err != nil {
+	if err = stages.SaveStageProgress(db, stages.Headers, blockNum); err != nil {
 		return false, false, 0, err
 	}
 	return newCanonical, reorg, forkblocknumber, nil
@@ -392,7 +392,7 @@ func InsertBlocksInStages(db ethdb.Database, storageMode ethdb.StorageMode, conf
 		return false, nil // No change of the chain
 	}
 	blockNum := blocks[len(blocks)-1].Number().Uint64()
-	if err = stages.SaveStageProgress(tx, stages.Headers, blockNum, nil); err != nil {
+	if err = stages.SaveStageProgress(tx, stages.Headers, blockNum); err != nil {
 		return false, err
 	}
 	stageBuilders := createStageBuilders(blocks, blockNum, checkRoot)
@@ -410,7 +410,7 @@ func InsertBlocksInStages(db ethdb.Database, storageMode ethdb.StorageMode, conf
 		"1",
 		storageMode,
 		"",
-		16*1024,
+		0*1024, // Turn off cache for now
 		8*1024,
 		nil,
 		nil,

@@ -711,7 +711,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == BlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
-		var request blockBodiesData
+		var request BlockBodiesData
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -1039,7 +1039,6 @@ func (pm *ProtocolManager) handleDebugMsg(p *debugPeer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	return nil
 }
 
 // BroadcastBlock will either propagate a block to a subset of its peers, or
