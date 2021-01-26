@@ -45,7 +45,7 @@ func New(snapshotsDir string, seeding bool) (*Client, error) {
 func DefaultTorrentConfig() *torrent.ClientConfig {
 	torrentConfig := torrent.NewDefaultClientConfig()
 	torrentConfig.ListenPort = 0
-	torrentConfig.NoDHT = true
+	torrentConfig.NoDHT = false
 	torrentConfig.DisableTrackers = false
 	torrentConfig.Debug = false
 	torrentConfig.Logger = torrentConfig.Logger.FilterLevel(lg.Debug)
@@ -122,7 +122,7 @@ func (cli *Client) AddTorrent(ctx context.Context, db ethdb.Database, snapshotTy
 	}
 	t.AllowDataDownload()
 	t.DownloadAll()
-	log.Info("Got infobytes", "snapshot", snapshotType.String())
+	log.Info("Got infobytes", "snapshot", snapshotType.String(), "file", t.Files()[0].Path())
 
 	if newTorrent {
 		log.Info("Save spec", "snapshot", snapshotType.String())

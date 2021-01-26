@@ -12,8 +12,14 @@ const (
 	DefaultChunkSize = 1024 * 1024
 	LmdbFilename     = "data.mdb"
 
-	HeadersSnapshotHash  = "2ee9fb6572b2dfb9be0080c60cb140716590d963" //11кk block 1mb chunk
-	BlocksSnapshotHash   = "2635920470345cd4473e672e47aacef42f28cb4a" //11кk block 1mb chunk
+/*	snapshot=headers  hash=2ee9fb6572b2dfb9be0080c60cb140716590d963
+	snapshot=bodies hash=ea86a38511daad97066fb4878d87fbede1dee4de
+	snapshot=state  hash=fed1ef2b4d2cd8ea32eda24559b4d7eedaeb1b78
+*/
+
+HeadersSnapshotHash  = "2ee9fb6572b2dfb9be0080c60cb140716590d963" //11кk block 1mb chunk
+	BlocksSnapshotHash   = "ea86a38511daad97066fb4878d87fbede1dee4de" //11кk block 1mb chunk
+	//BlocksSnapshotHash   = "2635920470345cd4473e672e47aacef42f28cb4a" //11кk block 1mb chunk
 	StateSnapshotHash    = "fed1ef2b4d2cd8ea32eda24559b4d7eedaeb1b78"
 	ReceiptsSnapshotHash = ""
 
@@ -41,11 +47,11 @@ func GetAvailableSnapshotTypes(networkID uint64) []snapshotsync.SnapshotType {
 }
 
 //var Trackers = [][]string{{
-//	"http://35.189.110.210:8080/announce",
+//	"http://35.189.110.210:80/announce",
 //}}
 var Trackers = [][]string{{
-	"http://35.189.110.210:8080/announce",
-	
+	"http://35.189.110.210:80/announce",
+
 	"udp://tracker.openbittorrent.com:80",
 	"udp://tracker.openbittorrent.com:80",
 	"udp://tracker.publicbt.com:80",
