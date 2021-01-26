@@ -80,6 +80,24 @@ func createStageBuilders(blocks []*types.Block, blockNum uint64, checkRoot bool)
 			},
 		},
 		{
+			ID: stages.AbsInt,
+			Build: func(world StageParameters) *Stage {
+				return &Stage{
+					ID:                  stages.AbsInt,
+					Description:         "Run abstract interpretation",
+					Disabled:            false,
+					DisabledDescription: "Work In Progress",
+					ExecFunc: func(s *StageState, u Unwinder) error {
+						return SpawnAbsInt(s, world.TX, world.chainConfig, world.chainContext, world.tmpdir, world.QuitCh,
+							CallTracesStageParams{
+								CacheSize: world.cacheSize,
+								BatchSize: world.batchSize,
+							})
+					},
+				}
+			},
+		},
+		{
 			ID: stages.Execution,
 			Build: func(world StageParameters) *Stage {
 				return &Stage{

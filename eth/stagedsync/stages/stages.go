@@ -42,6 +42,7 @@ var (
 	StorageHistoryIndex SyncStage = []byte("StorageHistoryIndex") // Generating history index for storage
 	LogIndex            SyncStage = []byte("LogIndex")            // Generating logs index (from receipts)
 	CallTraces          SyncStage = []byte("CallTraces")          // Generating call traces index
+	AbsInt          	SyncStage = []byte("AbsInt")              // Run abstract interpretation
 	TxLookup            SyncStage = []byte("TxLookup")            // Generating transactions lookup index
 	TxPool              SyncStage = []byte("TxPool")              // Starts Backend
 	Finish              SyncStage = []byte("Finish")              // Nominal stage after all other stages
