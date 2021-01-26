@@ -75,12 +75,12 @@ func Seed(ctx context.Context, datadir string) error {
 		}
 
 		torrents[i], _, err = cl.AddTorrentSpec(&torrent.TorrentSpec{
-			Trackers:  [][]string{
-				[]string{
-					"http://127.0.0.1:8080/announce",
-				},
-			},
-			//Trackers:  trnt.Trackers,
+			//Trackers:  [][]string{
+			//	[]string{
+			//		"http://127.0.0.1:8080/announce",
+			//	},
+			//},
+			Trackers:  trnt.Trackers,
 			InfoHash:  mi.HashInfoBytes(),
 			InfoBytes: mi.InfoBytes,
 			ChunkSize: trnt.DefaultChunkSize,
