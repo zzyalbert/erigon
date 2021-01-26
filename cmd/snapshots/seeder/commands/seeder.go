@@ -17,6 +17,9 @@ import (
 )
 
 func Seed(ctx context.Context, datadir string) error {
+	defer func() {
+		time.Sleep(time.Second*2)
+	}()
 	datadir = filepath.Dir(datadir)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -31,8 +34,8 @@ func Seed(ctx context.Context, datadir string) error {
 
 	pathes := []string{
 		cfg.DataDir + "/headers",
-		cfg.DataDir + "/bodies",
-		cfg.DataDir + "/state",
+		//cfg.DataDir + "/bodies",
+		//cfg.DataDir + "/state",
 		//cfg.DataDir+"/receipts",
 	}
 
@@ -72,7 +75,12 @@ func Seed(ctx context.Context, datadir string) error {
 		}
 
 		torrents[i], _, err = cl.AddTorrentSpec(&torrent.TorrentSpec{
-			Trackers:  trnt.Trackers,
+			Trackers:  [][]string{
+				[]string{
+					"http://127.0.0.1:8080/announce",
+				},
+			},
+			//Trackers:  trnt.Trackers,
 			InfoHash:  mi.HashInfoBytes(),
 			InfoBytes: mi.InfoBytes,
 			ChunkSize: trnt.DefaultChunkSize,
