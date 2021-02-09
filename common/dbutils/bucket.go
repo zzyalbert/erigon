@@ -36,24 +36,24 @@ Physical layout:
 [acc2_hash]             | [acc2_value]
 						...
 */
-const PlainStateBucket = "PLAIN-CST2"
-const PlainStateBucketOld1 = "PLAIN-CST"
+const PlainStateBucket = "plainState"
+const PlainStateBucketOld1 = "plainState"
 
 const (
 	//PlainContractCodeBucket -
 	//key - address+incarnation
 	//value - code hash
-	PlainContractCodeBucket = "PLAIN-contractCode"
+	PlainContractCodeBucket = "plainContractCode"
 
 	// PlainAccountChangeSetBucket keeps changesets of accounts ("plain state")
 	// key - encoded timestamp(block number)
 	// value - encoded ChangeSet{k - address v - account(encoded).
-	PlainAccountChangeSetBucket = "PLAIN-ACS"
+	PlainAccountChangeSetBucket = "accountChangeSet"
 
 	// PlainStorageChangeSetBucket keeps changesets of storage ("plain state")
 	// key - encoded timestamp(block number)
 	// value - encoded ChangeSet{k - plainCompositeKey(for storage) v - originalValue(common.Hash)}.
-	PlainStorageChangeSetBucket = "PLAIN-SCS"
+	PlainStorageChangeSetBucket = "storageChangeSet"
 
 	//HashedAccountsBucket
 	// key - address hash
@@ -63,20 +63,20 @@ const (
 	//value - storage value(common.hash)
 	HashedAccountsBucket   = "hashed_accounts"
 	HashedStorageBucket    = "hashed_storage"
-	CurrentStateBucketOld2 = "CST2"
+	CurrentStateBucketOld2 = "hashedState"
 	CurrentStateBucketOld1 = "CST"
 
 	//key - address + shard_id_u64
 	//value - roaring bitmap  - list of block where it changed
-	AccountsHistoryBucket = "hAT"
+	AccountsHistoryBucket = "accountHistory"
 
 	//key - address + storage_key + shard_id_u64
 	//value - roaring bitmap - list of block where it changed
-	StorageHistoryBucket = "hST"
+	StorageHistoryBucket = "storageHistory"
 
 	//key - contract code hash
 	//value - contract code
-	CodeBucket = "CODE"
+	CodeBucket = "code"
 
 	//key - addressHash+incarnation
 	//value - code hash
@@ -128,34 +128,32 @@ Invariants:
 - TrieAccount records with length=1 can satisfy (hasBranch==0&&hasHash==0) condition
 - Other records in TrieAccount and TrieStorage must (hasTree!=0 || hasHash!=0)
 */
-const TrieOfAccountsBucket = "trie_account"
-const TrieOfStorageBucket = "trie_storage"
+const TrieOfAccountsBucket = "TrieAccount"
+const TrieOfStorageBucket = "TrieStorage"
 const IntermediateTrieHashBucketOld1 = "iTh"
 const IntermediateTrieHashBucketOld2 = "iTh2"
 
 const (
 	// DatabaseInfoBucket is used to store information about data layout.
-	DatabaseInfoBucket        = "DBINFO"
-	SnapshotInfoBucket        = "SNINFO"
-	HeadersSnapshotInfoBucket = "hSNINFO"
-	BodiesSnapshotInfoBucket  = "bSNINFO"
-	StateSnapshotInfoBucket   = "sSNINFO"
+	DatabaseInfoBucket        = "dbInfo"
+	SnapshotInfoBucket        = "snapshotInfo"
+	HeadersSnapshotInfoBucket = "headersSnapshotInfo"
+	BodiesSnapshotInfoBucket  = "bodiesSnapshotInfo"
+	StateSnapshotInfoBucket   = "stateSnapshotInfo"
 
 	// databaseVerisionKey tracks the current database version.
-	DatabaseVerisionKey = "DatabaseVersion"
+	DatabaseVerisionKey = "databaseVersion"
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
-	HeaderPrefixOld    = "h" // block_num_u64 + hash -> header
-	HeaderNumberBucket = "H" // headerNumberPrefix + hash -> num (uint64 big endian)
-
-	HeaderCanonicalBucket = "canonical_headers" // block_num_u64 -> header hash
+	HeaderPrefixOld    = "blockHeader"       // block_num_u64 + hash -> header
+	HeaderNumberBucket = "blockHeaderNumber" // headerNumberPrefix + hash -> num (uint64 big endian)HeaderCanonicalBucket = "canonical_headers" // block_num_u64 -> header hash
 	HeadersBucket         = "headers"           // block_num_u64 + hash -> header (RLP)
 	HeaderTDBucket        = "header_to_td"      // block_num_u64 + hash -> td (RLP)
 
-	BlockBodyPrefix     = "b"      // block_num_u64 + hash -> block body
-	EthTx               = "eth_tx" // tbl_sequence_u64 -> rlp(tx)
-	BlockReceiptsPrefix = "r"      // block_num_u64 + hash -> block receipts
-	Log                 = "log"    // block_num_u64 + hash -> block receipts
+	BlockBodyPrefix     = "blockBody"        // block_num_u64 + hash -> block body
+	EthTx               = "blockTransaction" // tbl_sequence_u64 -> rlp(tx)
+	BlockReceiptsPrefix = "receipt"          // block_num_u64 + hash -> block receipts
+	Log                 = "log"              // block_num_u64 + hash -> block receipts
 
 	// Stores bitmap indices - in which block numbers saw logs of given 'address' or 'topic'
 	// [addr or topic] + [2 bytes inverted shard number] -> bitmap(blockN)
@@ -165,31 +163,31 @@ const (
 	// if last existing shard size merge it with delta
 	// if serialized size of delta > ShardLimit - break down to multiple shards
 	// shard number - it's biggest value in bitmap
-	LogTopicIndex   = "log_topic_index"
-	LogAddressIndex = "log_address_index"
+	LogTopicIndex   = "logTopicIndex"
+	LogAddressIndex = "logAddressIndex"
 
 	// Indices for call traces - have the same format as LogTopicIndex and LogAddressIndex
 	// Store bitmap indices - in which block number we saw calls from (CallFromIndex) or to (CallToIndex) some addresses
-	CallFromIndex = "call_from_index"
-	CallToIndex   = "call_to_index"
+	CallFromIndex = "callFromIndex"
+	CallToIndex   = "callToIndex"
 
-	TxLookupPrefix  = "l" // txLookupPrefix + hash -> transaction/receipt lookup metadata
-	BloomBitsPrefix = "B" // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
+	TxLookupPrefix  = "blockTransactionLookup" // txLookupPrefix + hash -> transaction/receipt lookup metadata
+	BloomBitsPrefix = "bloomBits"              // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
-	PreimagePrefix = "secure-key-"      // preimagePrefix + hash -> preimage
-	ConfigPrefix   = "ethereum-config-" // config prefix for the db
+	PreimagePrefix = "preimage" // preimagePrefix + hash -> preimage
+	ConfigPrefix   = "config"   // config prefix for the db
 
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
-	BloomBitsIndexPrefix = "iB" // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
+	BloomBitsIndexPrefix = "bloomBitsIndex" // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
 
 	// Progress of sync stages: stageName -> stageData
-	SyncStageProgress     = "SSP2"
+	SyncStageProgress     = "syncStage"
 	SyncStageProgressOld1 = "SSP"
 	// Position to where to unwind sync stages: stageName -> stageData
-	SyncStageUnwind     = "SSU2"
+	SyncStageUnwind     = "syncStageUnwind"
 	SyncStageUnwindOld1 = "SSU"
 
-	CliqueBucket = "clique-"
+	CliqueBucket = "clique"
 
 	// this bucket stored in separated database
 	InodesBucket = "inodes"
