@@ -566,23 +566,23 @@ func (n *Node) OpenDatabaseWithFreezer(name string, tmpdir string) (*ethdb.Objec
 		}
 
 		var openFunc func(exclusive bool) (*ethdb.ObjectDatabase, error)
-		if n.config.MDBX {
-			log.Info("Opening Database (MDBX)", "mapSize", n.config.LMDBMapSize.HR())
+		if n.config.LMDB {
+			log.Info("Opening Database (LMDB)", "mapSize", n.config.LMDBMapSize.HR(), "maxFreelistReuse", n.config.LMDBMaxFreelistReuse)
 			openFunc = func(exclusive bool) (*ethdb.ObjectDatabase, error) {
-				opts := ethdb.NewMDBX().Path(dbPath).MapSize(n.config.LMDBMapSize)
+				opts := ethdb.NewLMDB().Path(dbPath).MapSize(n.config.LMDBMapSize).MaxFreelistReuse(n.config.LMDBMaxFreelistReuse)
 				if exclusive {
 					opts = opts.Exclusive()
 				}
-				kv, err1 := opts.Open()
+				kv, err1 := opts.MaxFreelistReuse(n.config.LMDBMaxFreelistReuse).Open()
 				if err1 != nil {
 					return nil, err1
 				}
 				return ethdb.NewObjectDatabase(kv), nil
 			}
 		} else {
-			log.Info("Opening Database (LMDB)", "mapSize", n.config.LMDBMapSize.HR(), "maxFreelistReuse", n.config.LMDBMaxFreelistReuse)
+			log.Info("Opening Database (MDBX)", "mapSize", n.config.LMDBMapSize.HR())
 			openFunc = func(exclusive bool) (*ethdb.ObjectDatabase, error) {
-				opts := ethdb.NewLMDB().Path(dbPath).MapSize(n.config.LMDBMapSize).MaxFreelistReuse(n.config.LMDBMaxFreelistReuse)
+				opts := ethdb.NewMDBX().Path(dbPath).MapSize(n.config.LMDBMapSize)
 				if exclusive {
 					opts = opts.Exclusive()
 				}
