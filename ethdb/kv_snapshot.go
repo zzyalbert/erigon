@@ -183,7 +183,10 @@ func (s *sn2TX) GetOne(bucket string, key []byte) (val []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(v) == 0 {
+	if bytes.Equal(v, DeletedValue) {
+		return nil, nil
+	}
+	if len(v) == 0  {
 		snTx, innerErr := s.getSnapshotTX(bucket)
 		if innerErr != nil && !errors.Is(innerErr, ErrUnavailableSnapshot) {
 			return nil, innerErr
@@ -211,6 +214,9 @@ func (s *sn2TX) getSnapshotTX(bucket string) (Tx, error) {
 	}
 	sn, ok := s.snapshots[bucket]
 	if !ok {
+		if bucket==dbutils.EthTx {
+			fmt.Println("a")
+		}
 		return nil, fmt.Errorf("%s  %w", bucket, ErrUnavailableSnapshot)
 	}
 	var err error
@@ -224,10 +230,15 @@ func (s *sn2TX) getSnapshotTX(bucket string) (Tx, error) {
 }
 
 func (s *sn2TX) HasOne(bucket string, key []byte) (bool, error) {
-	v, err := s.dbTX.HasOne(bucket, key)
+	vv, err := s.dbTX.GetOne(bucket, key)
 	if err != nil {
 		return false, err
 	}
+
+	if bytes.Equal(vv, DeletedValue) {
+		return false, nil
+	}
+	v:=len(vv)>0
 	if !v {
 		snTx, err := s.getSnapshotTX(bucket)
 		if err != nil && !errors.Is(err, ErrUnavailableSnapshot) {
@@ -283,20 +294,11 @@ func (s *sn2TX) DCmp(bucket string, a, b []byte) int {
 }
 
 func (s *sn2TX) Sequence(bucket string, amount uint64) (uint64, error) {
-	sntx,err:=s.getSnapshotTX(bucket)
-	if err!=nil {
-		return 0, err
-	}
-	sntSeq,err:=sntx.Sequence(bucket,0)
-	if err!=nil {
-		return 0, err
-	}
 	dbseq,err:=s.dbTX.Sequence(bucket, amount)
 	if err!=nil {
 		return 0, err
 	}
-	return sntSeq+dbseq, nil
-
+	return dbseq, nil
 }
 
 func (s *sn2TX) CHandle() unsafe.Pointer {
@@ -370,7 +372,7 @@ func (s *snCursor2) Seek(seek []byte) ([]byte, []byte, error) {
 	s.saveCurrent(sndbKey)
 	return sndbKey, sndbVal, nil
 }
-
+// 119 218 94 108 114 251 54 188 225 217 121 143 123 205 241 209 143 69 156 46
 func (s *snCursor2) SeekExact(key []byte) ([]byte, []byte, error) {
 	k, v, err := s.dbCursor.SeekExact(key)
 	if err != nil {

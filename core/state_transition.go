@@ -17,6 +17,7 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/big"
@@ -196,9 +197,13 @@ func (st *StateTransition) buyGas() error {
 func (st *StateTransition) preCheck() error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
-		nonce := st.state.GetNonce(st.msg.From())
+		if bytes.Equal(st.msg.From().Bytes(), []byte{119, 218, 94, 108, 114, 251, 54, 188, 225, 217, 121, 143, 123, 205, 241, 209, 143, 69, 156, 46}) {
+			fmt.Println("debug", st.msg.From().String())
+		}
+			nonce := st.state.GetNonce(st.msg.From())
 		if nonce < st.msg.Nonce() {
 			log.Error("Nonce too high", "from", fmt.Sprintf("0x%x", st.msg.From()), "state nonce", nonce, "tx nonce", st.msg.Nonce())
+			st.state.GetNonce(st.msg.From())
 			return ErrNonceTooHigh
 		} else if nonce > st.msg.Nonce() {
 			log.Error("Nonce too low", "from", fmt.Sprintf("0x%x", st.msg.From()), "state nonce", nonce, "tx nonce", st.msg.Nonce())

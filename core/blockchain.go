@@ -356,7 +356,7 @@ func (bc *BlockChain) loadLastState() error {
 	// Everything seems to be fine, set as the head block
 	bc.currentBlock.Store(currentBlock)
 	headBlockGauge.Update(int64(currentBlock.NumberU64()))
-
+	fmt.Println("core/blockchain.go:360", currentBlock.Number(), head.String())
 	// Restore the last known head header
 	currentHeader := currentBlock.Header()
 	if head := rawdb.ReadHeadHeaderHash(bc.db); head != (common.Hash{}) {
@@ -686,6 +686,7 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	// Short circuit if the block's already in the cache, retrieve otherwise
 	block := rawdb.ReadBlock(bc.db, hash, number)
 	if block == nil {
+		fmt.Println("core/blockchain.go:689","block == nil")
 		return nil
 	}
 	return block
@@ -695,6 +696,7 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 func (bc *BlockChain) GetBlockByHash(hash common.Hash) *types.Block {
 	number := bc.hc.GetBlockNumber(bc.db, hash)
 	if number == nil {
+		log.Error("number == nil")
 		return nil
 	}
 	return bc.GetBlock(hash, *number)
@@ -2121,6 +2123,9 @@ func ExecuteBlockEphemerally(
 		if !vmConfig.NoReceipts {
 			ibs.Prepare(tx.Hash(), block.Hash(), i)
 		}
+		if i==158 && block.NumberU64()==11000952 {
+			fmt.Println("debug")
+		}
 		receipt, err := ApplyTransaction(chainConfig, chainContext, nil, gp, ibs, noop, header, tx, usedGas, *vmConfig)
 		if err != nil {
 			return nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
@@ -2151,6 +2156,7 @@ func ExecuteBlockEphemerally(
 			return nil, fmt.Errorf("writing changesets for block %d failed: %v", block.NumberU64(), err)
 		}
 	}
+
 	if *usedGas != header.GasUsed {
 		return nil, fmt.Errorf("gas used by execution: %d, in header: %d", *usedGas, header.GasUsed)
 	}

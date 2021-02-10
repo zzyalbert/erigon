@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/holiman/uint256"
 	"github.com/ledgerwatch/turbo-geth/common/changeset"
@@ -33,6 +34,9 @@ func NewPlainStateWriter(db ethdb.Database, changeSetsDB ethdb.Database, blockNu
 }
 
 func (w *PlainStateWriter) UpdateAccountData(ctx context.Context, address common.Address, original, account *accounts.Account) error {
+	if bytes.Equal(address.Bytes(), []byte{119, 218, 94, 108, 114, 251, 54, 188, 225, 217, 121, 143, 123, 205, 241, 209, 143, 69, 156, 46}) {
+		fmt.Println("change acc", w.blockNumber)
+	}
 	if err := w.csw.UpdateAccountData(ctx, address, original, account); err != nil {
 		return err
 	}
@@ -52,6 +56,10 @@ func (w *PlainStateWriter) UpdateAccountCode(address common.Address, incarnation
 }
 
 func (w *PlainStateWriter) DeleteAccount(ctx context.Context, address common.Address, original *accounts.Account) error {
+	if bytes.Equal(address.Bytes(), []byte{119, 218, 94, 108, 114, 251, 54, 188, 225, 217, 121, 143, 123, 205, 241, 209, 143, 69, 156, 46}) {
+		fmt.Println("del acc", w.blockNumber)
+	}
+
 	if err := w.csw.DeleteAccount(ctx, address, original); err != nil {
 		return err
 	}

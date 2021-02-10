@@ -59,7 +59,7 @@ func BodySnapshot(ctx context.Context, dbPath, snapshotPath string, toBlock uint
 		}
 	}
 
-	snKV := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+	snKV := ethdb.NewMDBX().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 		return dbutils.BucketsCfg{
 			dbutils.BlockBodyPrefix:          dbutils.BucketConfigItem{},
 			dbutils.EthTx:          dbutils.BucketsConfigs[dbutils.EthTx],

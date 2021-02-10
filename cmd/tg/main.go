@@ -20,6 +20,12 @@ var (
 	gitCommit string
 )
 
+
+// only state
+//--datadir /media/b00ris/nvme/noblockssync --snapshot.mode "s"
+
+//full
+//./build/bin/tg --datadir /media/b00ris/nvme/snsync_test --snapshot.mode "hbs"
 func main() {
 	// creating a turbo-api app with all defaults
 	app := turbocli.MakeApp(runTurboGeth, turbocli.DefaultFlags)

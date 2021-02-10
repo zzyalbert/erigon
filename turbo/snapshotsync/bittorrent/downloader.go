@@ -206,7 +206,7 @@ func (cli *Client) Download() {
 				} else {
 					stats := t.Stats()
 					log.Info("Downloading snapshot", "snapshot", t.Name(), "%", int(100*(float64(t.BytesCompleted())/float64(t.Info().TotalLength()))), "seeders", stats.ConnectedSeeders)
-					time.Sleep(time.Minute)
+					time.Sleep(time.Second*10)
 				}
 
 			}
