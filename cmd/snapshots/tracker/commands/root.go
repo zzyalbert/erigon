@@ -3,10 +3,12 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/tracker"
 	"github.com/ledgerwatch/turbo-geth/cmd/utils"
+	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/internal/debug"
@@ -19,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const DefaultInterval = 60 //in seconds
@@ -67,7 +70,6 @@ var rootCmd = &cobra.Command{
 	Args:       cobra.ExactArgs(1),
 	ArgAliases: []string{"snapshots dir"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("DB", args[0])
 		db:=ethdb.MustOpen(args[0])
 		m := http.NewServeMux()
 		m.Handle("/announce", &Tracker{db: db})
@@ -97,7 +99,10 @@ type Tracker struct {
 &supportcrypto=1
 &uploaded=0"
  */
-
+type AnnounceReqWithTime struct {
+	AnnounceReq
+	UpdatedAt time.Time
+}
 type AnnounceReq struct {
 	InfoHash []byte
 	PeerID []byte
@@ -120,7 +125,7 @@ type Peer struct {
 func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Info("call","url", r.RequestURI)
 	//todo check infohashes
-	//todo save peerid, uploaded, downloaded, port,
+	//todo update infohashes list
 
 
 	req,err:=ParseRequest(r)
@@ -129,14 +134,18 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
 		return
 	}
-
-	peer,err:=json.Marshal(req)
-	if err!=nil {
-		log.Error("Json marshal","err", err)
+	if err = ValidateReq(req); err!=nil {
+		log.Error("Validate failed","err", err)
 		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
 		return
 	}
-	if len(req.InfoHash)!=20 || len(req.PeerID)!=20 {
+
+	toSave:=AnnounceReqWithTime{
+		req,
+		time.Now(),
+	}
+	peerBytes,err:=json.Marshal(toSave)
+	if err!=nil {
 		log.Error("Json marshal","err", err)
 		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
 		return
@@ -151,7 +160,24 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		err = t.db.Put(dbutils.SnapshotInfoBucket, key, peer)
+		if prevBytes,err:=t.db.Get(dbutils.SnapshotInfoBucket, key); err==nil&&len(prevBytes)>0 {
+			prev:=new(AnnounceReqWithTime)
+			err = json.Unmarshal(prevBytes,prev)
+			if err!=nil {
+				log.Error("Unable to unmarshall", "err", err)
+			}
+			if time.Now().Sub(prev.UpdatedAt) < time.Second*DefaultInterval {
+				//too early to update
+				WriteResp(w, HttpResponse{FailureReason: "too early to update"}, req.Compact)
+				return
+
+			}
+		} else if !errors.Is(err, ethdb.ErrKeyNotFound) && err!=nil {
+			log.Error("get from db is return error", "err", err)
+			WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
+			return
+		}
+		err = t.db.Put(dbutils.SnapshotInfoBucket, key, peerBytes)
 		if err!=nil {
 			log.Error("Json marshal","err", err)
 			WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
@@ -165,10 +191,16 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = t.db.Walk(dbutils.SnapshotInfoBucket, append(req.InfoHash, make([]byte, 20)...), 20*8, func(k, v []byte) (bool, error) {
-		a:=AnnounceReq{}
+		a:=AnnounceReqWithTime{}
 		err = json.Unmarshal(v, &a)
 		if err!=nil {
-			return false, err
+			log.Error("Fail to unmarshall", "k", common.Bytes2Hex(k), "err", err)
+			//skip failed
+			return true, nil
+		}
+		if time.Now().Sub(a.UpdatedAt) > 24*time.Hour {
+			log.Info("Skipped", "k", common.Bytes2Hex(k), "last updated", a.UpdatedAt)
+			return true, nil
 		}
 		if a.Left==0 {
 			resp.Complete++
@@ -246,6 +278,16 @@ func ParseRequest(r *http.Request) (AnnounceReq, error) {
 		Port: port,
 	}
 	return res, nil
+}
+
+func ValidateReq(req AnnounceReq) error {
+	if len(req.InfoHash)!=20 {
+		return errors.New("invalid infohash")
+	}
+	if len(req.PeerID)!=20 {
+		return errors.New("invalid peer id")
+	}
+	return nil
 }
 
 type HttpResponse struct {
