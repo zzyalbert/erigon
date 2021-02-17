@@ -447,7 +447,7 @@ func (sc *StateCache) Root() common.Hash {
 	var lastItem, nextItem CacheItem
 	itemIterator := func(i btree.Item) bool {
 		nextItem = i.(CacheItem)
-		return false
+		return true
 	}
 	for {
 		if lastItem == nil {

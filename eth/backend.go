@@ -163,8 +163,10 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
 	var torrentClient *bittorrent.Client
+	var snapshotBlock uint64
 	if config.SyncMode == downloader.StagedSync && config.SnapshotMode != (snapshotsync.SnapshotMode{}) && config.NetworkID == params.MainnetChainConfig.ChainID.Uint64() {
 		fmt.Println("config.ExternalSnapshotDownloaderAddr != \"\"", config.ExternalSnapshotDownloaderAddr != "")
+		var downloadedSnapshots map[snapshotsync.SnapshotType]*snapshotsync.SnapshotsInfo
 		if config.ExternalSnapshotDownloaderAddr != "" {
 			cli, cl, innerErr := snapshotsync.NewClient(config.ExternalSnapshotDownloaderAddr)
 			if innerErr != nil {
@@ -189,40 +191,40 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 					return true
 				}
 				for {
-					mp := make(map[snapshotsync.SnapshotType]*snapshotsync.SnapshotsInfo)
+					downloadedSnapshots = make(map[snapshotsync.SnapshotType]*snapshotsync.SnapshotsInfo)
 					snapshots, err1 := cli.Snapshots(context.Background(), &snapshotsync.SnapshotsRequest{NetworkId: config.NetworkID})
 					if err1 != nil {
 						return nil, err1
 					}
 					for i := range snapshots.Info {
-						if mp[snapshots.Info[i].Type].SnapshotBlock < snapshots.Info[i].SnapshotBlock && snapshots.Info[i] != nil {
-							mp[snapshots.Info[i].Type] = snapshots.Info[i]
+						if downloadedSnapshots[snapshots.Info[i].Type].SnapshotBlock < snapshots.Info[i].SnapshotBlock && snapshots.Info[i] != nil {
+							downloadedSnapshots[snapshots.Info[i].Type] = snapshots.Info[i]
 						}
 					}
 
 					downloaded := true
 					if config.SnapshotMode.Headers {
-						if !snapshotReadinessCheck(mp, snapshotsync.SnapshotType_headers) {
+						if !snapshotReadinessCheck(downloadedSnapshots, snapshotsync.SnapshotType_headers) {
 							downloaded = false
 						}
 					}
 					if config.SnapshotMode.Bodies {
-						if !snapshotReadinessCheck(mp, snapshotsync.SnapshotType_bodies) {
+						if !snapshotReadinessCheck(downloadedSnapshots, snapshotsync.SnapshotType_bodies) {
 							downloaded = false
 						}
 					}
 					if config.SnapshotMode.State {
-						if !snapshotReadinessCheck(mp, snapshotsync.SnapshotType_state) {
+						if !snapshotReadinessCheck(downloadedSnapshots, snapshotsync.SnapshotType_state) {
 							downloaded = false
 						}
 					}
 					if config.SnapshotMode.Receipts {
-						if !snapshotReadinessCheck(mp, snapshotsync.SnapshotType_receipts) {
+						if !snapshotReadinessCheck(downloadedSnapshots, snapshotsync.SnapshotType_receipts) {
 							downloaded = false
 						}
 					}
 					if downloaded {
-						return mp, nil
+						return downloadedSnapshots, nil
 					}
 					time.Sleep(time.Second * 10)
 				}
@@ -261,25 +263,27 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 			err = torrentClient.AddSnapshotsTorrents(context.Background(), chainDb, config.NetworkID, config.SnapshotMode)
 			if err == nil {
 				torrentClient.Download()
-
-				mp, innerErr := torrentClient.GetSnapshots(chainDb, config.NetworkID)
+				var innerErr error
+				downloadedSnapshots, innerErr = torrentClient.GetSnapshots(chainDb, config.NetworkID)
 				if innerErr != nil {
 					return nil, innerErr
 				}
-
 				snapshotKV := chainDb.KV()
-				snapshotKV, innerErr = snapshotsync.WrapBySnapshotsFromDownloader(snapshotKV, mp)
+				snapshotKV, innerErr = snapshotsync.WrapBySnapshotsFromDownloader(snapshotKV, downloadedSnapshots)
 				if innerErr != nil {
 					return nil, innerErr
 				}
 				chainDb.SetKV(snapshotKV)
-				innerErr = snapshotsync.PostProcessing(chainDb, config.SnapshotMode, mp)
+				innerErr = snapshotsync.PostProcessing(chainDb, config.SnapshotMode, downloadedSnapshots)
 				if innerErr != nil {
 					return nil, innerErr
 				}
 			} else {
 				log.Error("There was an error in snapshot init. Swithing to regular sync", "err", err)
 			}
+		}
+		if config.SnapshotMode.State && !config.SnapshotMode.Bodies && !config.SnapshotMode.Headers && downloadedSnapshots[snapshotsync.SnapshotType_state]!=nil {
+			snapshotBlock = downloadedSnapshots[snapshotsync.SnapshotType_state].SnapshotBlock
 		}
 	}
 
@@ -434,6 +438,9 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.protocolManager.SetTmpDir(tmpdir)
 	eth.protocolManager.SetBatchSize(int(config.CacheSize), int(config.BatchSize))
+	if snapshotBlock>0 {
+		eth.protocolManager.SetSnapshotBlock(snapshotBlock)
+	}
 
 	if config.SyncMode != downloader.StagedSync {
 		if err = eth.StartTxPool(); err != nil {

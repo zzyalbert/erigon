@@ -62,11 +62,11 @@ func WrapBySnapshotsFromDir(kv ethdb.KV, snapshotDir string, mode SnapshotMode) 
 		}
 	}
 	if mode.State {
-		snapshotKV, err := ethdb.NewLMDB().Flags(func(flags uint) uint { return flags | lmdb.Readonly }).Path(snapshotDir + "/headers").WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
-			return BucketConfigs[SnapshotType_headers]
+		snapshotKV, err := ethdb.NewLMDB().Flags(func(flags uint) uint { return flags | lmdb.Readonly }).Path(snapshotDir + "/state").WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+			return BucketConfigs[SnapshotType_state]
 		}).Open()
 		if err != nil {
-			log.Error("Can't open headers snapshot", "err", err)
+			log.Error("Can't open state snapshot", "err", err)
 			return nil, err
 		} else { //nolint
 			snkv = snkv.SnapshotDB([]string{dbutils.StateSnapshotInfoBucket, dbutils.PlainStateBucket, dbutils.PlainContractCodeBucket, dbutils.CodeBucket}, snapshotKV)

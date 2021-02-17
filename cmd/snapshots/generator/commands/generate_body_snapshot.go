@@ -7,6 +7,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/core/types"
 	"github.com/ledgerwatch/turbo-geth/rlp"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -59,7 +60,7 @@ func BodySnapshot(ctx context.Context, dbPath, snapshotPath string, toBlock uint
 		}
 	}
 
-	snKV := ethdb.NewMDBX().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+	snKV := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 		return dbutils.BucketsCfg{
 			dbutils.BlockBodyPrefix:          dbutils.BucketConfigItem{},
 			dbutils.EthTx:          dbutils.BucketsConfigs[dbutils.EthTx],
@@ -165,11 +166,11 @@ func BodySnapshot(ctx context.Context, dbPath, snapshotPath string, toBlock uint
 		return err
 	}
 	snDB.Close()
-	//err = os.Remove(snapshotPath + "/lock.mdb")
-	//if err != nil {
-	//	log.Warn("Remove lock", "err", err)
-	//	return err
-	//}
+	err = os.Remove(snapshotPath + "/lock.mdb")
+	if err != nil {
+		log.Warn("Remove lock", "err", err)
+		return err
+	}
 
 	log.Info("Finished", "duration", time.Since(t))
 	return nil

@@ -21,6 +21,7 @@ func init() {
 
 }
 
+//go run ./cmd/snapshots/generator/main.go state_copy --chaindata /media/b00ris/nvme/tmp/debug/ --snapshotDir /media/b00ris/nvme/snapshots/ --snapshotMode s --block 11500000 --snapshot /media/b00ris/nvme/snapshots/state115
 //go run cmd/snapshots/generator/main.go state_copy --block 11000000 --snapshot /media/b00ris/nvme/snapshots/state --chaindata /media/b00ris/nvme/backup/snapshotsync/tg/chaindata/ &> /media/b00ris/nvme/copy.log
 var copyFromStateSnapshotCmd = &cobra.Command{
 	Use:     "state_copy",
@@ -33,6 +34,17 @@ var copyFromStateSnapshotCmd = &cobra.Command{
 
 func CopyFromState(ctx context.Context, dbpath string, snapshotPath string, block uint64, snapshotDir, snapshotMode string) error {
 	db, err := ethdb.Open(dbpath, true)
+	//var err error
+	//kv1:=ethdb.NewLMDB().Path(dbpath).Flags(func(u uint) uint {
+	//	return u | lmdb.Readonly
+	//}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+	//	return dbutils.BucketsCfg{
+	//		dbutils.PlainStateBucket:        dbutils.BucketsConfigs[dbutils.PlainStateBucket],
+	//		dbutils.PlainContractCodeBucket: dbutils.BucketsConfigs[dbutils.PlainContractCodeBucket],
+	//		dbutils.CodeBucket:              dbutils.BucketsConfigs[dbutils.CodeBucket],
+	//	}
+	//}).MustOpen()
+	//db:=ethdb.NewObjectDatabase(kv1)
 	if err != nil {
 		return err
 	}

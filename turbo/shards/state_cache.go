@@ -1009,6 +1009,24 @@ func (sc *StateCache) TurnWritesToReads(writes *btree.BTree) {
 	})
 }
 
+func (sc *StateCache) ReadWrites() error {
+	var err error
+	sc.readWrites.Ascend(func(i btree.Item) bool {
+		switch it := i.(type) {
+		case *AccountItem:
+			fmt.Println("acc",it.addrHash.String())
+		case *StorageItem:
+			fmt.Println("str", it.addrHash.String(), it.incarnation, it.locHash.String())
+		case *CodeItem:
+			fmt.Println("code", it.addrHash.String())
+		default:
+			fmt.Println("default", it)
+		}
+		return true
+	})
+	return err
+}
+
 func (sc *StateCache) TotalCount() int {
 	return sc.readWrites.Len()
 }

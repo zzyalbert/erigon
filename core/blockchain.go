@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io"
 	"math/big"
 	"sync"
@@ -2123,11 +2124,10 @@ func ExecuteBlockEphemerally(
 		if !vmConfig.NoReceipts {
 			ibs.Prepare(tx.Hash(), block.Hash(), i)
 		}
-		if i==158 && block.NumberU64()==11000952 {
-			fmt.Println("debug")
-		}
 		receipt, err := ApplyTransaction(chainConfig, chainContext, nil, gp, ibs, noop, header, tx, usedGas, *vmConfig)
 		if err != nil {
+			fmt.Println("Tx", i)
+			spew.Dump(tx)
 			return nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 		}
 		//fmt.Printf("Tx Hash: %x, gas used: %d\n", tx.Hash(), receipt.GasUsed)

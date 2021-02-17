@@ -119,7 +119,6 @@ type Peer struct {
 
 func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Info("call","url", r.RequestURI)
-	//todo check infohashes
 	//todo save peerid, uploaded, downloaded, port,
 
 

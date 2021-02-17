@@ -107,6 +107,7 @@ type ProtocolManager struct {
 	cacheSize     int
 	batchSize     int
 	currentHeight uint64 // Atomic variable to contain chain height
+	snapshotBlock uint64
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -181,6 +182,13 @@ func (pm *ProtocolManager) SetBatchSize(cacheSize, batchSize int) {
 		pm.downloader.SetBatchSize(cacheSize, batchSize)
 	}
 }
+func (pm *ProtocolManager) SetSnapshotBlock(blocknum uint64) {
+	pm.snapshotBlock = blocknum
+	if pm.downloader != nil {
+		pm.downloader.SetSnapshotBlock(blocknum)
+	}
+}
+
 
 func initPm(manager *ProtocolManager, engine consensus.Engine, chainConfig *params.ChainConfig, blockchain *core.BlockChain, chaindb *ethdb.ObjectDatabase) {
 	sm, err := ethdb.GetStorageModeFromDB(chaindb)
@@ -195,6 +203,7 @@ func initPm(manager *ProtocolManager, engine consensus.Engine, chainConfig *para
 	manager.downloader.SetTmpDir(manager.tmpdir)
 	manager.downloader.SetBatchSize(manager.cacheSize, manager.batchSize)
 	manager.downloader.SetStagedSync(manager.stagedSync)
+	manager.downloader.SetSnapshotBlock(manager.snapshotBlock)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
@@ -285,7 +294,7 @@ func (pm *ProtocolManager) removePeer(id string) {
 	if peer == nil {
 		return
 	}
-	log.Debug("Removing Ethereum peer", "peer", id)
+	//log.Info("Removing Ethereum peer", "peer", id)
 
 	// Unregister the peer from the downloader and Ethereum peer set
 	err := pm.downloader.UnregisterPeer(id)
@@ -436,6 +445,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.HandshakeOrderMux.Unlock()
 		return err
 	}
+	//defer log.Info("eth/handler.go:448 remove")
 	defer pm.removePeer(p.id)
 
 	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
@@ -451,6 +461,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	peerHeadHash, _ := p.Head()
 	if err := p.RequestHeadersByHash(peerHeadHash, 1, 0, false); err != nil {
 		p.HandshakeOrderMux.Unlock()
+		log.Info("RequestHeadersByHash", "err", err)
 		return err
 	}
 
@@ -478,6 +489,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.syncDrop = time.AfterFunc(syncChallengeTimeout, func() {
 			p.Log().Warn("Checkpoint challenge timed out, dropping", "addr", p.RemoteAddr(), "type", p.Name())
 			pm.removePeer(p.id)
+			//log.Info("eth/handler.go:491 Remove")
 		})
 		// Make sure it's cleaned up if the peer dies off
 		defer func() {
