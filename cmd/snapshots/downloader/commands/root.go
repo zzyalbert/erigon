@@ -83,7 +83,7 @@ func rootContext() context.Context {
 var rootCmd = &cobra.Command{
 	Use:     "",
 	Short:   "run snapshot downloader",
-	Example: "go run ./cmd/snapshots/downloader/main.go --dir /tmp --addr 127.0.0.1:9191",
+	Example: "go run ./cmd/snapshots/downloader/main.go --dir /tmp --addr 127.0.0.1:9191 --predownload.mainnet",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if err := debug.SetupCobra(cmd); err != nil {
 			panic(err)

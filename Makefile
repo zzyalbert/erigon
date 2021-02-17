@@ -93,6 +93,11 @@ seeder:
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/seeder\" to seed snapshots."
 
+sndownloader:
+	$(GOBUILD) -o $(GOBIN)/sndownloader ./cmd/snapshots/downloader
+	@echo "Done building."
+	@echo "Run \"$(GOBIN)/sndownloader\" to seed snapshots."
+
 tracker:
 	$(GOBUILD) -o $(GOBIN)/tracker ./cmd/snapshots/tracker
 	@echo "Done building."
