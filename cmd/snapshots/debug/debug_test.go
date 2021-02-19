@@ -24,6 +24,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/turbo/snapshotsync"
 	"os"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 )
@@ -332,6 +333,7 @@ MustOpen
 */
 
 // 0
+
 func TestCheckValue(t *testing.T) {
 	//46147
 	db, err := ethdb.Open("/media/b00ris/nvme/fresh_sync/tg/chaindata/", true)
@@ -411,6 +413,125 @@ func TestSizesCheck(t *testing.T) {
 	val, err:=json.Marshal(m)
 	fmt.Println(val)
 	fmt.Println(err)
+}
+
+func TestTxLookupData(t *testing.T) {
+	db, err := ethdb.Open("/media/b00ris/nvme/sync115/tg/chaindata/", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+	kvb:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/bodies/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_bodies]
+	}).MustOpen()
+	tx,err:=kvb.Begin(context.Background(), nil, ethdb.RO)
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	v,err:=tx.GetOne(dbutils.EthTx, dbutils.EncodeBlockNumber(944576795))
+	if err!=nil {
+		t.Fatal(err)
+	}
+	txs:=new(types.Transaction)
+	if err := rlp.DecodeBytes(v, txs); err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println("i", txs.Hash().String())
+/*
+   0x82554bfa38315263192106dd390b97b698f40b1d134eda048fc43bbe0448676b 11500000
+   944576795 189
+   944576795 0x82554bfa38315263192106dd390b97b698f40b1d134eda048fc43bbe0448676b
+
+   0x82554bfa38315263192106dd390b97b698f40b1d134eda048fc43bbe0448676b 11500000
+   944576795 189
+   944576795 0x82554bfa38315263192106dd390b97b698f40b1d134eda048fc43bbe0448676b
+ */
+
+	tx.Rollback()
+	t.Fatal()
+	snkv:=ethdb.NewSnapshot2KV().DB(db.KV()).SnapshotDB([]string{dbutils.HeaderPrefix, dbutils.HeaderNumberPrefix, dbutils.BlockBodyPrefix, dbutils.HeadHeaderKey, dbutils.Senders}, kv).SnapshotDB([]string{dbutils.BlockBodyPrefix, dbutils.EthTx}, kvb).MustOpen()
+	db.SetKV(snkv)
+	mp:=make(map[string]int)
+	startKey:=dbutils.HeaderKey(11500000, common.Hash{})
+	err = db.Walk(dbutils.HeaderPrefix, startKey, 0, func(k, v []byte) (bool, error) {
+		if !dbutils.CheckCanonicalKey(k) {
+			return true, nil
+		}
+		blocknum := binary.BigEndian.Uint64(k)
+		blockHash := common.BytesToHash(v)
+		body := rawdb.ReadBody(db, blockHash, blocknum)
+		if body == nil {
+			return false, fmt.Errorf("tx lookup generation, empty block body %d, hash %x",  blocknum, v)
+		}
+
+		fmt.Println("block", blocknum, len(body.Transactions), len(mp))
+		for _, tx := range body.Transactions {
+			fmt.Println(tx.Hash().String(), blocknum)
+			mp[tx.Hash().String()]++
+		}
+
+		if blocknum>11500000 {
+			return false, nil
+		}
+
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	fmt.Println("checkDupl")
+	for k,v:=range  mp {
+		if v>1 {
+			fmt.Println("duplicate", k, v)
+		}
+	}
+}
+func TestEthTx(t *testing.T) {
+	db, err := ethdb.Open("/media/b00ris/nvme/sync115/tg/chaindata/", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+	//	return u|lmdb.Readonly
+	//}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+	//	return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	//}).MustOpen()
+	//kvb:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/bodies/").Flags(func(u uint) uint {
+	//	return u|lmdb.Readonly
+	//}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+	//	return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_bodies]
+	//}).MustOpen()
+
+	//snkv:=ethdb.NewSnapshot2KV().DB(db.KV()).SnapshotDB([]string{dbutils.HeaderPrefix, dbutils.HeaderNumberPrefix, dbutils.BlockBodyPrefix, dbutils.HeadHeaderKey, dbutils.Senders}, kv).SnapshotDB([]string{dbutils.BlockBodyPrefix}, kvb).MustOpen()
+	//db.SetKV(snkv)
+	//mp:=make(map[string]int)
+	//startKey:=dbutils.HeaderKey(11499998, common.Hash{})
+	i:=0
+	err = db.Walk(dbutils.EthTx, []byte{}, 0, func(k, v []byte) (bool, error) {
+		//fmt.Println(binary.BigEndian.Uint64(k), v)
+		if i>100 {
+			return false, nil
+		}
+		i++
+		txs:=new(types.Transaction)
+		if err := rlp.DecodeBytes(v, txs); err != nil {
+			return false, fmt.Errorf("broken tx rlp: %w", err)
+		}
+		fmt.Println(i, txs.Hash().String())
+		i++
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
 }
 
 

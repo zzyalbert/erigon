@@ -300,6 +300,7 @@ func ReadTransactions(db ethdb.Database, baseTxId uint64, amount uint32) ([]*typ
 		if err := rlp.Decode(reader, txs[i]); err != nil {
 			return false, fmt.Errorf("broken tx rlp: %w", err)
 		}
+		//fmt.Println(baseTxId+uint64(i), txs[i].Hash().String())
 
 		i++
 		return i < amount, nil
@@ -363,6 +364,7 @@ func ReadBody(db ethdb.Database, hash common.Hash, number uint64) *types.Body {
 		return nil
 	}
 	body := new(types.Body)
+	//fmt.Println(bodyForStorage.BaseTxId, bodyForStorage.TxAmount)
 	body.Uncles = bodyForStorage.Uncles
 	body.Transactions, err = ReadTransactions(db, bodyForStorage.BaseTxId, bodyForStorage.TxAmount)
 	if err != nil {

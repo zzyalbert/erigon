@@ -214,9 +214,6 @@ func (s *sn2TX) getSnapshotTX(bucket string) (Tx, error) {
 	}
 	sn, ok := s.snapshots[bucket]
 	if !ok {
-		if bucket==dbutils.EthTx {
-			fmt.Println("a")
-		}
 		return nil, fmt.Errorf("%s  %w", bucket, ErrUnavailableSnapshot)
 	}
 	var err error
