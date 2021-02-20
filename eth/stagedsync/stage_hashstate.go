@@ -267,6 +267,9 @@ func getUnwindExtractAccounts(db ethdb.Getter, changeSetBucket string) etl.Extra
 			return err
 		}
 
+		if bytes.HasPrefix(newK, common.FromHex("d3a65b892403c89048818ede62c76c424a63eb22a174018d90253ea3e3231bbc")) {
+			fmt.Printf("cs: %x,%x\n", newK, v)
+		}
 		if len(v) == 0 {
 			return next(dbKey, newK, v)
 		}
@@ -276,9 +279,6 @@ func getUnwindExtractAccounts(db ethdb.Getter, changeSetBucket string) etl.Extra
 			return err
 		}
 
-		if bytes.HasPrefix(newK, common.FromHex("d3a65b892403c89048818ede62c76c424a63eb22a174018d90253ea3e3231bbc")) {
-			fmt.Printf("cs: %x,%x\n", newK, v)
-		}
 		if !(acc.Incarnation > 0 && acc.IsEmptyCodeHash()) {
 			return next(dbKey, newK, v)
 		}
