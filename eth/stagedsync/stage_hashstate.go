@@ -201,6 +201,7 @@ func getExtractFunc(db ethdb.Getter, changeSetBucket string) etl.ExtractFunc {
 		if err != nil {
 			return err
 		}
+		fmt.Printf("cs4: %x,%x\n", newK, value)
 		return next(dbKey, newK, value)
 	}
 }
