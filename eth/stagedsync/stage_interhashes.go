@@ -115,7 +115,7 @@ func RegenerateIntermediateHashes(logPrefix string, db ethdb.Database, checkRoot
 	t := time.Now()
 	if hash, err := loader.CalcTrieRoot(db, quit); err == nil {
 		generationIHTook := time.Since(t)
-		fmt.Printf("root1: %x,%x\n", hash, expectedRootHash)
+		fmt.Printf("root1: %x,%x,%t\n", hash, expectedRootHash, checkRoot)
 		if checkRoot && hash != expectedRootHash {
 			return fmt.Errorf("%s: wrong trie root: %x, expected (from header): %x", logPrefix, hash, expectedRootHash)
 		}
