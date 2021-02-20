@@ -112,9 +112,7 @@ func keyTransformExtractFunc(transformKey func([]byte) ([]byte, error)) etl.Extr
 			return err
 		}
 
-		if bytes.HasPrefix(k, common.FromHex("1000000000000000000000000000000000000007")) {
-			fmt.Printf("cs: %x,%x,%x\n", newK, k, v)
-		}
+		fmt.Printf("cs: %x,%x,%x\n", newK, k, v)
 		return next(k, newK, v)
 	}
 }
