@@ -193,6 +193,7 @@ func (t *BlockTest) insertBlocks(db ethdb.Database, config *params.ChainConfig, 
 		}
 		// RLP decoding worked, try to insert into chain:
 		if newCanonical, err1 := stagedsync.InsertBlockInStages(db, config, &vm.Config{}, engine, cb, true /* checkRoot */); err1 != nil {
+			fmt.Printf("aa:%s,%t\n", err1, b.BlockHeader == nil)
 			if b.BlockHeader == nil {
 				continue // OK - block is supposed to be invalid, continue with next block
 			} else {
