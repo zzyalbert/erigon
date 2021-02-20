@@ -17,7 +17,6 @@
 package trie
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/holiman/uint256"
@@ -204,13 +203,7 @@ func GenStructStep(
 				}
 			}
 
-			if maxLen >= 80 {
-				if bytes.HasPrefix(curr[:maxLen][80:], common.FromHex("0508")) {
-					fmt.Printf("--- 1: 3, %x, , %x\n", curr[:maxLen][80:], e.topHash())
-				}
-			} else {
-				//fmt.Printf("--- 1: 3, %x, , %x\n", curr[:maxLen], e.topHash())
-			}
+			fmt.Printf("--- %x\n", e.topHash())
 		}
 
 		groups = groups[:maxLen]
