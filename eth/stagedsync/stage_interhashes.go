@@ -48,14 +48,6 @@ func SpawnIntermediateHashesStage(s *StageState, db ethdb.Database, checkRoot bo
 		defer tx.Rollback()
 	}
 
-	tx.Walk(dbutils.CurrentStateBucket, nil, 0, func(k, v []byte) (bool, error) {
-		if len(k) == 32 {
-			return true, nil
-		}
-		fmt.Printf("hs: %x,%x\n", k, v)
-		return true, nil
-	})
-
 	hash, err := rawdb.ReadCanonicalHash(tx, to)
 	if err != nil {
 		return err
@@ -173,23 +165,10 @@ func (p *HashPromoter) Promote(logPrefix string, s *StageState, from, to uint64,
 
 	decode := changeset.Mapper[changeSetBucket].Decode
 	extract := func(dbKey, dbValue []byte, next etl.ExtractNextFunc) error {
-		blockN, k, v := decode(dbKey, dbValue)
+		_, k, _ := decode(dbKey, dbValue)
 		newK, err := transformPlainStateKey(k)
 		if err != nil {
 			return err
-		}
-		if bytes.HasPrefix(newK, common.FromHex("1570aaebc55e1a8067cc4a5c3ba451d196bf91544f183168b51bb1d306bda995")) {
-			if len(newK) == 32 {
-				if len(v) > 0 {
-					var a accounts.Account
-					a.DecodeForStorage(v)
-					fmt.Printf("acc: %d -> %d\n", blockN, a.Incarnation)
-				} else {
-					fmt.Printf("acc: empty! %d\n", blockN)
-				}
-			} else {
-				fmt.Printf("storage! %d, %x, %x\n", blockN, newK, v)
-			}
 		}
 		return next(dbKey, newK, nil)
 	}
@@ -230,23 +209,10 @@ func (p *HashPromoter) Unwind(logPrefix string, s *StageState, u *UnwindState, s
 
 	decode := changeset.Mapper[changeSetBucket].Decode
 	extract := func(dbKey, dbValue []byte, next etl.ExtractNextFunc) error {
-		blockN, k, v := decode(dbKey, dbValue)
+		_, k, _ := decode(dbKey, dbValue)
 		newK, err := transformPlainStateKey(k)
 		if err != nil {
 			return err
-		}
-		if bytes.HasPrefix(newK, common.FromHex("1570aaebc55e1a8067cc4a5c3ba451d196bf91544f183168b51bb1d306bda995")) {
-			if len(newK) == 32 {
-				if len(v) > 0 {
-					var a accounts.Account
-					a.DecodeForStorage(v)
-					fmt.Printf("acc: %d -> %d\n", blockN, a.Incarnation)
-				} else {
-					fmt.Printf("acc: empty! %d\n", blockN)
-				}
-			} else {
-				fmt.Printf("storage! %d, %x, %x\n", blockN, newK, v)
-			}
 		}
 		return next(k, newK, nil)
 	}
@@ -369,13 +335,6 @@ func UnwindIntermediateHashesStage(u *UnwindState, s *StageState, db ethdb.Datab
 		defer tx.Rollback()
 	}
 
-	tx.Walk(dbutils.CurrentStateBucket, nil, 0, func(k, v []byte) (bool, error) {
-		if len(k) == 32 {
-			return true, nil
-		}
-		fmt.Printf("hs: %x,%x\n", k, v)
-		return true, nil
-	})
 	logPrefix := s.state.LogPrefix()
 	if err := unwindIntermediateHashesStageImpl(logPrefix, u, s, tx, tmpdir, expectedRootHash, quit); err != nil {
 		return err
