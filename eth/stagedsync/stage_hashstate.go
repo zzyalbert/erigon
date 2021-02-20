@@ -111,6 +111,10 @@ func keyTransformExtractFunc(transformKey func([]byte) ([]byte, error)) etl.Extr
 		if err != nil {
 			return err
 		}
+
+		if bytes.HasPrefix(newK, common.FromHex("d3a65b892403c89048818ede62c76c424a63eb22a174018d90253ea3e3231bbc")) {
+			fmt.Printf("cs: %x,%x\n", newK, v)
+		}
 		return next(k, newK, v)
 	}
 }
@@ -246,6 +250,10 @@ func getUnwindExtractStorage(changeSetBucket string) etl.ExtractFunc {
 		if err != nil {
 			return err
 		}
+
+		if bytes.HasPrefix(newK, common.FromHex("d3a65b892403c89048818ede62c76c424a63eb22a174018d90253ea3e3231bbc")) {
+			fmt.Printf("cs: %x,%x\n", newK, v)
+		}
 		return next(dbKey, newK, v)
 	}
 }
@@ -266,6 +274,10 @@ func getUnwindExtractAccounts(db ethdb.Getter, changeSetBucket string) etl.Extra
 		var acc accounts.Account
 		if err = acc.DecodeForStorage(v); err != nil {
 			return err
+		}
+
+		if bytes.HasPrefix(newK, common.FromHex("d3a65b892403c89048818ede62c76c424a63eb22a174018d90253ea3e3231bbc")) {
+			fmt.Printf("cs: %x,%x\n", newK, v)
 		}
 		if !(acc.Incarnation > 0 && acc.IsEmptyCodeHash()) {
 			return next(dbKey, newK, v)
