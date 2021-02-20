@@ -85,7 +85,7 @@ func PromoteHashedStateCleanly(logPrefix string, db ethdb.Database, tmpdir strin
 		dbutils.PlainStateBucket,
 		dbutils.CurrentStateBucket,
 		tmpdir,
-		keyTransformExtractFunc(transformPlainStateKey),
+		keyTransformExtractSt(),
 		etl.IdentityLoadFunc,
 		etl.TransformArgs{
 			Quit: quit,
@@ -101,7 +101,7 @@ func PromoteHashedStateCleanly(logPrefix string, db ethdb.Database, tmpdir strin
 		dbutils.PlainContractCodeBucket,
 		dbutils.ContractCodeBucket,
 		tmpdir,
-		keyTransformExtractFunc(transformContractCodeKey),
+		keyTransformExtractCode(),
 		etl.IdentityLoadFunc,
 		etl.TransformArgs{
 			Quit: quit,
@@ -109,14 +109,25 @@ func PromoteHashedStateCleanly(logPrefix string, db ethdb.Database, tmpdir strin
 	)
 }
 
-func keyTransformExtractFunc(transformKey func([]byte) ([]byte, error)) etl.ExtractFunc {
+func keyTransformExtractSt() etl.ExtractFunc {
 	return func(k, v []byte, next etl.ExtractNextFunc) error {
-		newK, err := transformKey(k)
+		newK, err := transformPlainStateKey(k)
 		if err != nil {
 			return err
 		}
 
 		fmt.Printf("cs0: %x,%x,%x\n", newK, k, v)
+		return next(k, newK, v)
+	}
+}
+
+func keyTransformExtractCode() etl.ExtractFunc {
+	return func(k, v []byte, next etl.ExtractNextFunc) error {
+		newK, err := transformContractCodeKey(k)
+		if err != nil {
+			return err
+		}
+
 		return next(k, newK, v)
 	}
 }
