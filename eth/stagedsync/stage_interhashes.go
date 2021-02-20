@@ -48,6 +48,14 @@ func SpawnIntermediateHashesStage(s *StageState, db ethdb.Database, checkRoot bo
 		defer tx.Rollback()
 	}
 
+	tx.Walk(dbutils.CurrentStateBucket, nil, 0, func(k, v []byte) (bool, error) {
+		if len(k) == 32 {
+			return true, nil
+		}
+		fmt.Printf("hs: %x,%x\n", k, v)
+		return true, nil
+	})
+
 	hash, err := rawdb.ReadCanonicalHash(tx, to)
 	if err != nil {
 		return err
@@ -361,6 +369,13 @@ func UnwindIntermediateHashesStage(u *UnwindState, s *StageState, db ethdb.Datab
 		defer tx.Rollback()
 	}
 
+	tx.Walk(dbutils.CurrentStateBucket, nil, 0, func(k, v []byte) (bool, error) {
+		if len(k) == 32 {
+			return true, nil
+		}
+		fmt.Printf("hs: %x,%x\n", k, v)
+		return true, nil
+	})
 	logPrefix := s.state.LogPrefix()
 	if err := unwindIntermediateHashesStageImpl(logPrefix, u, s, tx, tmpdir, expectedRootHash, quit); err != nil {
 		return err
