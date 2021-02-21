@@ -762,10 +762,10 @@ func (c *AccTrieCursor) AtPrefix(prefix []byte) (k, v []byte, hasBranch bool, er
 			c.cur = append(c.cur[:0], c.kBuf...)
 			return c.cur, c._hash(c.hashID[c.lvl]), c._hasBranch(), nil
 		}
-		err = c._deleteCurrent()
-		if err != nil {
-			return []byte{}, nil, false, err
-		}
+	}
+	err = c._deleteCurrent()
+	if err != nil {
+		return []byte{}, nil, false, err
 	}
 
 	return c._next()
@@ -791,10 +791,10 @@ func (c *AccTrieCursor) Next() (k, v []byte, hasBranch bool, err error) {
 			c.cur = append(c.cur[:0], c.kBuf...)
 			return c.cur, c._hash(c.hashID[c.lvl]), c._hasBranch(), nil
 		}
-		err = c._deleteCurrent()
-		if err != nil {
-			return []byte{}, nil, false, err
-		}
+	}
+	err = c._deleteCurrent()
+	if err != nil {
+		return []byte{}, nil, false, err
 	}
 
 	return c._next()
@@ -954,10 +954,10 @@ func (c *AccTrieCursor) _next() (k, v []byte, hasBranch bool, err error) {
 				c.cur = append(c.cur[:0], c.kBuf...)
 				return c.cur, c._hash(c.hashID[c.lvl]), c._hasBranch(), nil
 			}
-			err = c._deleteCurrent()
-			if err != nil {
-				return []byte{}, nil, false, err
-			}
+		}
+		err = c._deleteCurrent()
+		if err != nil {
+			return []byte{}, nil, false, err
 		}
 
 		c.SkipState = c.SkipState && c._hasBranch()
@@ -1057,10 +1057,10 @@ func (c *StorageTrieCursor) SeekToAccount(accWithInc []byte) (k, v []byte, hasBr
 			c.cur = common.CopyBytes(c.kBuf[80:])
 			return c.cur, c._hash(c.hashID[c.lvl]), c._hasBranch(), nil
 		}
-		err = c._deleteCurrent()
-		if err != nil {
-			return []byte{}, nil, false, err
-		}
+	}
+	err = c._deleteCurrent()
+	if err != nil {
+		return []byte{}, nil, false, err
 	}
 	return c._next()
 }
@@ -1085,10 +1085,10 @@ func (c *StorageTrieCursor) Next() (k, v []byte, hasBranch bool, err error) {
 			c.cur = common.CopyBytes(c.kBuf[80:])
 			return c.cur, c._hash(c.hashID[c.lvl]), c._hasBranch(), nil
 		}
-		err = c._deleteCurrent()
-		if err != nil {
-			return []byte{}, nil, false, err
-		}
+	}
+	err = c._deleteCurrent()
+	if err != nil {
+		return []byte{}, nil, false, err
 	}
 
 	return c._next()
@@ -1247,10 +1247,10 @@ func (c *StorageTrieCursor) _next() (k, v []byte, hasBranch bool, err error) {
 				c.cur = common.CopyBytes(c.kBuf[80:])
 				return c.cur, c._hash(c.hashID[c.lvl]), c._hasBranch(), nil
 			}
-			err = c._deleteCurrent()
-			if err != nil {
-				return []byte{}, nil, false, err
-			}
+		}
+		err = c._deleteCurrent()
+		if err != nil {
+			return []byte{}, nil, false, err
 		}
 
 		c.skipState = c.skipState && c._hasBranch()
