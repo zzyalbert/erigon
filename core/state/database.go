@@ -54,6 +54,36 @@ const (
 	NonContractIncarnation = 0
 )
 
+// Database modifications
+//1. Create a new table called AbsInt whose keys are block numbers and whose values are lists of addresses of accounts
+//   whose bytecode are set in the block. Create new AbsIntReader and AbsIntWriter interfaces and implementations for the
+//   new table.
+//2. Add a JumpsValid flag to the Account in the PlainState table
+
+// Execute stage modifications:
+// 1. Instantiate a new AbsIntWriter in executeBlockWithGo
+// 2. Pass the AbsIntWriter thru ExecuteBlockEphemerally to the places where a new bytecode is set on an account,
+//    and add the address to the list kept by AbsIntWriter for the block.
+// 3. Change the jump dest checking code so that it only does the check when Account.JumpsValid is false
+
+// AbsInt functionality:
+// 1. Read the list of addresses for accounts with new bytecodes codes in new blocks
+// 2. Call StateReader.ReadAccountData on each address in the list
+// 3. Run the cfg analysis on the bytecode in the account
+// 4. Set the JumpsValid flag in the Account based on the cfg results
+// 5. Call StateWriter.WriteAccountData to write the updated Account if it changed
+
+//steps:
+//create new absintreader in execute stage and pass it thru to contract creation code
+type AbsIntReader interface {
+	ReadNewAccountCode(blockNum int) ([]common.Address, error)
+}
+
+//execute stage needs to write the list of new account codes for every block
+type AbsIntWriter interface {
+	WriteNewAccountCode(ctx context.Context, blockNum int, address []common.Address) error
+}
+
 type StateReader interface {
 	ReadAccountData(address common.Address) (*accounts.Account, error)
 	ReadAccountStorage(address common.Address, incarnation uint64, key *common.Hash) ([]byte, error)
