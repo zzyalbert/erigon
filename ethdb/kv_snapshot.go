@@ -45,9 +45,7 @@ func (opts snapshotOpts2) DB(db KV) snapshotOpts2 {
 
 func (opts snapshotOpts2) MustOpen() KV {
 	snapshots := make(map[string]snapshotData)
-	fmt.Println("MustOpen")
 	for i, v := range opts.snapshots {
-		fmt.Println(i, v)
 		for _, bucket := range v.buckets {
 			snapshots[bucket] = opts.snapshots[i]
 		}
@@ -302,7 +300,8 @@ func (s *sn2TX) CHandle() unsafe.Pointer {
 	return s.dbTX.CHandle()
 }
 
-var DeletedValue = []byte("it is deleted value")
+//defaut deleted value
+var DeletedValue = []byte{0}
 
 type snCursor2 struct {
 	dbCursor Cursor
@@ -658,7 +657,7 @@ type KvData struct {
 func GenStateData(data []KvData) (KV, error) {
 	snapshot := NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 		return dbutils.BucketsCfg{
-			dbutils.PlainStateBucket: dbutils.BucketConfigItem{},
+			dbutils.PlainStateBucket: dbutils.BucketsConfigs[dbutils.PlainStateBucket],
 		}
 	}).InMem().MustOpen()
 

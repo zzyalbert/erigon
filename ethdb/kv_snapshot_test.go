@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
-	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"testing"
 )
 
@@ -1426,4 +1425,27 @@ func checkKV(t *testing.T, key, val, expectedKey, expectedVal []byte) {
 		t.Log("-", common.Bytes2Hex(val))
 		t.Fatal("wrong value for key", common.Bytes2Hex(key))
 	}
+}
+
+func TestCheckEmpty(t *testing.T) {
+	data := []KvData{
+		{K: []byte{1}, V: []byte{1}},
+		{K: []byte{2}, V: []byte{2}},
+		{K: []byte{3}, V: []byte{3}},
+		{K: []byte{4}, V: []byte{4}},
+		{K: []byte{5}, V: []byte{5}},
+		{K: []byte{7}, V: []byte{}},
+		{K: []byte{9}, V: nil},
+	}
+	snapshotDB, err := GenStateData(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db:=NewObjectDatabase(snapshotDB)
+	fmt.Println(db.Get(dbutils.PlainStateBucket, []byte{4}))
+	v,err:=db.Get(dbutils.PlainStateBucket, []byte{7})
+	fmt.Println(v, err, len(v))
+	v,err=db.Get(dbutils.PlainStateBucket, []byte{9})
+	fmt.Println(v, err, len(v))
+	fmt.Println(db.Get(dbutils.PlainStateBucket, []byte{8}))
 }

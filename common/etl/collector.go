@@ -239,9 +239,9 @@ func loadFilesIntoBucket(logPrefix string, db ethdb.Database, bucket string, pro
 		if err := common.Stopped(args.Quit); err != nil {
 			return err
 		}
-
 		element := (heap.Pop(h)).(HeapElem)
 		provider := providers[element.TimeIdx]
+		//fmt.Println("el", common.Bytes2Hex(element.Key))
 		err := loadFunc(element.Key, element.Value, currentTable, loadNextFunc)
 		if err != nil {
 			return err

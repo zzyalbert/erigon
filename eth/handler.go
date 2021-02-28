@@ -461,7 +461,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	peerHeadHash, _ := p.Head()
 	if err := p.RequestHeadersByHash(peerHeadHash, 1, 0, false); err != nil {
 		p.HandshakeOrderMux.Unlock()
-		log.Info("RequestHeadersByHash", "err", err)
 		return err
 	}
 

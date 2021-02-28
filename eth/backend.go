@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -251,9 +252,19 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 			if err != nil {
 				return nil, err
 			}
-			torrentClient, err = bittorrent.New(dbPath, config.SnapshotSeeding)
+			v,err:=chainDb.Get(dbutils.BittorrentInfoBucket, []byte(dbutils.BittorrentPeerID))
+			if err!=nil {
+				log.Error("Get bittorrent peerID","err", err)
+			}
+			torrentClient, err = bittorrent.New(dbPath, config.SnapshotSeeding, string(v))
 			if err != nil {
 				return nil, err
+			}
+			if len(v)==0 {
+				err = torrentClient.SavePeerID(chainDb)
+				if err!=nil {
+					log.Error("Bittorrent peerID haven't saved","err", err)
+				}
 			}
 
 			err = torrentClient.Load(chainDb)
@@ -286,7 +297,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 			snapshotBlock = downloadedSnapshots[snapshotsync.SnapshotType_state].SnapshotBlock
 		}
 	}
-
+	log.Error("Bt Peer ID", "id", common.Bytes2Hex(torrentClient.PeerID()))
 	eth := &Ethereum{
 		config:         config,
 		chainDb:        chainDb,
@@ -863,6 +874,10 @@ func (s *Ethereum) StopTxPool() error {
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.protocolManager.Stop()
+	if s.torrentClient!=nil {
+		s.torrentClient.Close()
+	}
+
 	if s.privateAPI != nil {
 		shutdownDone := make(chan bool)
 		go func() {

@@ -173,3 +173,7 @@ func CompositeKeySuffix(key []byte, timestamp uint64) (composite, encodedTS []by
 	copy(composite[len(key):], encodedTS)
 	return composite, encodedTS
 }
+
+func PeerID()  {
+	
+}

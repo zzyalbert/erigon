@@ -1,6 +1,7 @@
 package debug
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -22,9 +23,9 @@ import (
 	"github.com/ledgerwatch/turbo-geth/params"
 	"github.com/ledgerwatch/turbo-geth/rlp"
 	"github.com/ledgerwatch/turbo-geth/turbo/snapshotsync"
+	"math/rand"
 	"os"
 	"reflect"
-	"sort"
 	"testing"
 	"time"
 )
@@ -394,12 +395,16 @@ func TestSizesCheck(t *testing.T) {
 	}
 	m:=make(map[int]uint64)
 	i:=1000000
+	numOfEmpty:=0
 	err = db.Walk(dbutils.PlainStateBucket, []byte{}, 0, func(k, v []byte) (bool, error) {
 		if len(k)==20 {
 			return true, nil
 		}
 		m[len(v)]++
 		i--
+		if bytes.Equal(v, []byte{0}) {
+			numOfEmpty++
+		}
 		if i==0 {
 			fmt.Println(len(k),common.Bytes2Hex(k), len(v))
 			i=1000000
@@ -409,6 +414,7 @@ func TestSizesCheck(t *testing.T) {
 	if err!=nil {
 		t.Fatal(err)
 	}
+	t.Log(numOfEmpty)
 	t.Log(m)
 	val, err:=json.Marshal(m)
 	fmt.Println(val)
@@ -823,3 +829,673 @@ func (d *DebugReaderWriter) AllCodes() map[common.Hash]struct{}  {
 	}
 	return c
 }
+
+func TestCustomHeadersSnapshot(t *testing.T) {
+	pathKeys:="/media/b00ris/nvme/tmp/bn/index.sn"
+	pathData:="/media/b00ris/nvme/tmp/bn/data.sn"
+	os.Remove(pathKeys)
+	os.Remove(pathData)
+	fkeys, err:=os.Create(pathKeys)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	fdata, err:=os.Create(pathData)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	//_=f
+
+	//keysNum:=0
+	kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+	db:=ethdb.NewObjectDatabase(kv)
+
+	b:=make([]byte,8)
+	binary.BigEndian.PutUint64(b, 11500000)
+	_, err = fkeys.Write(b)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	i:=0
+	currentDataLength :=uint64(0)
+	err = db.Walk(dbutils.HeaderPrefix, []byte{}, 0, func(k, v []byte) (bool, error) {
+		_, err = fkeys.Write(common.CopyBytes(k))
+		if err!=nil {
+			t.Fatal(err)
+		}
+
+		ln:=make([]byte, 8)
+		//point in data file
+		binary.BigEndian.PutUint64(ln, currentDataLength)
+		_, err = fkeys.Write(ln)
+		if err!=nil {
+			t.Fatal(err)
+		}
+		//len of data
+		binary.BigEndian.PutUint64(ln, uint64(len(v)))
+		_, err = fkeys.Write(ln)
+		if err!=nil {
+			t.Fatal(err)
+		}
+		currentDataLength +=uint64(len(v))
+		_, err = fdata.Write(common.CopyBytes(v))
+		if err!=nil {
+			t.Fatal(err)
+		}
+		i++
+		if i%10000 == 0 {
+			fmt.Println(i, currentDataLength)
+		}
+
+		//fmt.Println(common.Bytes2Hex(k))
+		//fmt.Println(len(k), len(v))
+		//keysNum++
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	//t.Log(keysNum)
+}
+
+func TestName1(t *testing.T) {
+
+	//kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+	//	return u|lmdb.Readonly
+	//}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+	//	return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	//}).MustOpen()
+	//db:=ethdb.NewObjectDatabase(kv)
+
+
+	pathKeys:="/media/b00ris/nvme/tmp/bn/index.sn"
+	pathData:="/media/b00ris/nvme/tmp/bn/data.sn"
+
+	fkeys, err:=os.Open(pathKeys)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer fkeys.Close()
+	fdata, err:=os.Open(pathData)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer fdata.Close()
+
+	b:=make([]byte, 8)
+	n,err:=fkeys.Read(b)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	max:=binary.BigEndian.Uint64(b)
+	key:=make([]byte, 40)
+	var point, dataSize uint64
+	_=point
+	for i:=uint64(1); i < max; i++ {
+		_, err=fkeys.Read(key)
+		if err!=nil {
+			t.Fatal(err)
+		}
+
+		//point
+		_, err = fkeys.Read(b)
+		if err!=nil {
+			t.Fatal(err)
+		}
+		point = binary.BigEndian.Uint64(b)
+		//size
+		_, err = fkeys.Read(b)
+		if err!=nil {
+			t.Fatal(err)
+		}
+		dataSize = binary.BigEndian.Uint64(b)
+		//dtOrig, err:=db.Get(dbutils.HeaderPrefix, key)
+		//if err!=nil {
+		//	t.Fatal(err)
+		//}
+		//if len(dtOrig)==0 {
+		//	t.Log("not found", i)
+		//}
+		//
+		dt:=make([]byte, dataSize)
+		//t.Log("point", point, "size", dataSize)
+		//_, err=fdata.Seek(int64(point), io.SeekCurrent)
+		//if err!=nil {
+		//	t.Fatal(err, i, binary.BigEnd;  20 an.Uint64(b))
+		//}
+		_, err = fdata.Read(dt)
+		if err!=nil {
+			t.Fatal(err)
+		}
+		//if bytes.Equal(dtOrig, dt)==false {
+		//	t.Log("Body not equal")
+		//	t.Log(common.Bytes2Hex(dtOrig))
+		//	t.Log(common.Bytes2Hex(dt))
+		//}
+	}
+	t.Log(max)
+	t.Log(n)
+
+	//_=db
+}
+
+func TestName3(t *testing.T) {
+	kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+	db:=ethdb.NewObjectDatabase(kv)
+	var k1,v1 []byte
+	i:=0
+
+	tt:=time.Now()
+	err := db.Walk(dbutils.HeaderPrefix,[]byte{}, 0, func(k, v []byte) (bool, error) {
+		k1,v1 = k, v
+		//fmt.Println("k:",common.Bytes2Hex(k))
+		//fmt.Println("v:", common.Bytes2Hex(v))
+		//if i>3 {
+		//	return false, nil
+		//}
+		i++
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	t.Log(time.Since(tt))
+	_=k1
+	_=v1
+	/*
+	--- PASS: TestName3 (14.06s)
+	--- PASS: TestName3 (5.28s)
+	--- PASS: TestName3 (5.02s)
+	--- PASS: TestName3 (4.78s)
+	--- PASS: TestName3 (5.03s)
+
+
+
+
+	*/
+}
+
+func TestBinKVCheck(t *testing.T) {
+	kv, err:=ethdb.NewBinKV("/media/b00ris/nvme/tmp/bn")
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer kv.Close()
+	db:=ethdb.NewObjectDatabase(kv)
+	var k1,v1 []byte
+	kv2:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+	tx,err:=kv2.Begin(context.Background(), nil, ethdb.RO)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	c:=tx.Cursor(dbutils.HeaderPrefix)
+	korig, vorig,err:=c.First()
+	if err!=nil {
+		t.Fatal(err)
+	}
+	//fmt.Println("k:",common.Bytes2Hex(k))
+	//fmt.Println("v:", common.Bytes2Hex(v))
+	//i:=0
+	err = db.Walk(dbutils.HeaderPrefix,[]byte{}, 0, func(k, v []byte) (bool, error) {
+		k1,v1 = k, v
+		//fmt.Println("k:",common.Bytes2Hex(k))
+		//fmt.Println("v:", common.Bytes2Hex(v))
+		if !bytes.Equal(k, korig) {
+			t.Log(common.Bytes2Hex(k),common.Bytes2Hex(korig))
+		}
+		if !bytes.Equal(v, vorig) {
+			t.Log("fail value for",common.Bytes2Hex(k), )
+		}
+		//if i>3 {
+		//	return false, nil
+		//}
+		//i++
+		korig, vorig,err = c.Next()
+		if err!=nil {
+			t.Fatal(err)
+		}
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	_=k1
+	_=v1
+	_=vorig
+
+}
+func TestBinKVCheckV2(t *testing.T) {
+	kv, err:=ethdb.NewBinKV("/media/b00ris/nvme/tmp/bn")
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer kv.Close()
+	tx,err:=kv.Begin(context.Background(), nil, ethdb.RO)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//defer tx.Rollback()
+	var k1,v1 []byte
+	kv2:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+	tx2,err:=kv2.Begin(context.Background(), nil, ethdb.RO)
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	c:=tx.Cursor(dbutils.HeaderPrefix)
+	c2:=tx2.Cursor(dbutils.HeaderPrefix)
+	korig, vorig,err:=c2.First()
+	if err!=nil {
+		t.Fatal(err)
+	}
+	k, v,err:=c.First()
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+
+	for ;!(k==nil&&v==nil&&korig==nil&&vorig==nil); {
+
+		if !bytes.Equal(k, korig) {
+			t.Fatal(common.Bytes2Hex(k),common.Bytes2Hex(korig))
+		}
+		if !bytes.Equal(v, vorig) {
+			t.Fatal("fail value for",common.Bytes2Hex(k), )
+		}
+		currK, currV,err:=c.Current()
+		if err!=nil {
+			t.Fatal(err)
+		}
+
+		currOrigK, currOrigV,err:=c2.Current()
+		if err!=nil {
+			t.Fatal(err)
+		}
+
+		if !bytes.Equal(currK, currOrigK) || !bytes.Equal(k, currK) {
+			t.Fatal("current k", common.Bytes2Hex(k),common.Bytes2Hex(korig), common.Bytes2Hex(currOrigK))
+		}
+		if !bytes.Equal(currV, currOrigV) || !bytes.Equal(v, currV) {
+			t.Fatal("current v",common.Bytes2Hex(k), )
+		}
+
+
+	          	k, v,err = c.Next()
+		if err!=nil {
+			t.Fatal(err)
+		}
+		korig, vorig,err = c2.Next()
+		if err!=nil {
+			t.Fatal(err)
+		}
+
+		if bytes.Equal(k, currK) {
+			t.Fatal("current k=next k", common.Bytes2Hex(k),common.Bytes2Hex(korig))
+		}
+
+	}
+	_=k1
+	_=v1
+	_=vorig
+
+}
+func TestBinKV(t *testing.T) {
+	kv, err:=ethdb.NewBinKV("/media/b00ris/nvme/tmp/bn")
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer kv.Close()
+	db:=ethdb.NewObjectDatabase(kv)
+	var k1,v1 []byte
+	tt:=time.Now()
+	err = db.Walk(dbutils.HeaderPrefix,[]byte{}, 0, func(k, v []byte) (bool, error) {
+		k1,v1 = k, v
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	t.Log(time.Since(tt))
+	_=k1
+	_=v1
+	/*
+	--- PASS: TestBinKV (35.39s)
+	--- PASS: TestBinKV (30.20s)
+	after multiple reads (200)
+	debug_test.go:1171: 3.972221805s
+	    debug_test.go:1171: 4.102059313s
+
+	20
+	    debug_test.go:1171: 5.950186325s
+	    debug_test.go:1171: 5.925421281s
+	    debug_test.go:1171: 6.020720685s
+
+50
+	    debug_test.go:1171: 4.74899121s
+	100
+	    debug_test.go:1171: 4.561637034s
+
+
+	lmdb
+		--- PASS: TestName3 (5.28s)
+		--- PASS: TestName3 (5.02s)
+		--- PASS: TestName3 (4.78s)
+		--- PASS: TestName3 (5.03s)
+
+
+
+	*/
+}
+func TestBinFirstAndLast(t *testing.T) {
+	kv, err:=ethdb.NewBinKV("/media/b00ris/nvme/tmp/bn")
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer kv.Close()
+	var kf1,vf1, kl1,vl1 []byte
+	var kf2,vf2, kl2,vl2 []byte
+
+	err = kv.View(context.Background(), func(tx ethdb.Tx) error {
+		c:=tx.Cursor(dbutils.HeaderPrefix)
+		kf1, vf1,err=c.First()
+		if err!=nil {
+			return err
+		}
+		kl1, vl1,err=c.Last()
+		if err!=nil {
+			return err
+		}
+		return nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	kv2:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+	kv2.View(context.Background(), func(tx ethdb.Tx) error {
+		c:=tx.Cursor(dbutils.HeaderPrefix)
+		kf2, vf2,err=c.First()
+		if err!=nil {
+			return err
+		}
+		kl2, vl2,err=c.Last()
+		if err!=nil {
+			return err
+		}
+		return nil
+	})
+
+	if !bytes.Equal(kf1, kf2) {
+		t.Fatal()
+	}
+	if !bytes.Equal(vf1, vf2) {
+		t.Fatal()
+	}
+	if !bytes.Equal(kl1, kl2) {
+		t.Fatal()
+	}
+	if !bytes.Equal(vl1, vl2) {
+		t.Fatal()
+	}
+}
+
+func TestCompareWithPostProcessing(t *testing.T) {
+	origDB,err:=ethdb.Open("/media/b00ris/nvme/fresh_sync/tg/chaindata", true)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	hash,err:= rawdb.ReadCanonicalHash(origDB, 0)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	val:=rawdb.ReadHeaderRLP(origDB, hash, 0)
+
+	kv, err:=ethdb.NewBinKV("/media/b00ris/nvme/tmp/bn")
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer kv.Close()
+
+	kv2:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+
+	pathBin:="/media/b00ris/nvme/tmp/TestCompareWithPostProcessingbin"
+	pathLmdb:="/media/b00ris/nvme/tmp/TestCompareWithPostProcessinglmdb"
+	os.RemoveAll(pathBin)
+	os.RemoveAll(pathLmdb)
+
+	db:=ethdb.NewObjectDatabase(ethdb.NewLMDB().Path(pathBin).MustOpen())
+	err = db.Put(dbutils.HeaderPrefix, dbutils.HeaderKey(0, hash), val)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	err = db.Put(dbutils.HeaderPrefix, dbutils.HeaderHashKey(0), hash.Bytes())
+	if err!=nil {
+		t.Fatal(err)
+	}
+	db2:=ethdb.NewObjectDatabase(ethdb.NewLMDB().Path(pathLmdb).MustOpen())
+	err = db2.Put(dbutils.HeaderPrefix, dbutils.HeaderKey(0, hash), val)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	err = db2.Put(dbutils.HeaderPrefix, dbutils.HeaderHashKey(0), hash.Bytes())
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+
+	snkv:=ethdb.NewSnapshot2KV().DB(db.KV()).SnapshotDB([]string{dbutils.HeaderPrefix}, kv).SnapshotDB([]string{dbutils.HeadersSnapshotInfoBucket}, kv2).MustOpen()
+	db.SetKV(snkv)
+	tt:=time.Now()
+	err=snapshotsync.GenerateHeaderIndexes(context.Background(), db)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	t.Log("bin", time.Since(tt))
+
+
+
+	snkv2:=ethdb.NewSnapshot2KV().DB(db2.KV()).SnapshotDB([]string{dbutils.HeaderPrefix, dbutils.HeadersSnapshotInfoBucket}, kv2).MustOpen()
+	db2.SetKV(snkv2)
+	tt=time.Now()
+	err=snapshotsync.GenerateHeaderIndexes(context.Background(), db2)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	t.Log("lmdb", time.Since(tt))
+
+
+
+	tx,err:=snkv2.Begin(context.Background(), nil, ethdb.RO)
+	c:=tx.Cursor(dbutils.HeaderPrefix)
+	korig, vorig,err:=c.First()
+	if err!=nil {
+		t.Fatal(err)
+	}
+	err = db.Walk(dbutils.HeaderPrefix,[]byte{}, 0, func(k, v []byte) (bool, error) {
+		if !bytes.Equal(k, korig) {
+			t.Fatal(common.Bytes2Hex(k),common.Bytes2Hex(korig))
+		}
+		if !bytes.Equal(v, vorig) {
+			t.Log("fail value for",common.Bytes2Hex(k), )
+		}
+		korig, vorig,err = c.Next()
+		if err!=nil {
+			t.Fatal(err)
+		}
+		return true, nil
+	})
+	 if err!=nil {
+	 	t.Fatal(err)
+	 }
+/*
+   debug_test.go:1306: bin 5m59.086414218s
+   debug_test.go:1317: lmdb 6m17.007325735s
+
+    debug_test.go:1306: bin 5m57.108946392s
+    debug_test.go:1317: lmdb 6m4.577944312s
+
+    debug_test.go:1306: bin 5m55.714544551s
+    debug_test.go:1317: lmdb 6m3.122525096s
+ */
+}
+
+func TestRandomReadLmdbTest(t *testing.T) {
+	origDB,err:=ethdb.Open("/media/b00ris/nvme/fresh_sync/tg/chaindata", true)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	_=origDB
+	numOfReads:=1000000
+	keysList:=make([][]byte, 0, numOfReads)
+	for i:=0; i<numOfReads; i++ {
+		id:=rand.Int31n(11500000)
+		hash, err:=rawdb.ReadCanonicalHash(origDB, uint64(id))
+		if err!=nil {
+			t.Fatal(err)
+		}
+		keysList=append(keysList, dbutils.HeaderKey(uint64(id), hash))
+
+	}
+	//binkv, err:=ethdb.NewBinKV("/media/b00ris/nvme/tmp/bn")
+	//if err!=nil {
+	//	t.Fatal(err)
+	//}
+	//defer binkv.Close()
+	//bindb:=ethdb.NewObjectDatabase(binkv)
+	kv2:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+	lmDB:=ethdb.NewObjectDatabase(kv2)
+
+	var v []byte
+	tm:=time.Now()
+	for _,key:=range keysList {
+		v, err = lmDB.Get(dbutils.HeaderPrefix, key)
+		if err!=nil {
+			t.Fatal(err)
+		}
+	}
+	lmdbSn:=time.Since(tm)
+	fmt.Println("lmdb", lmdbSn)
+	//tm=time.Now()
+	//for _,key:=range keysList {
+	//	v, err = bindb.Get(dbutils.HeaderPrefix, key)
+	//	if err!=nil {
+	//		t.Fatal(err)
+	//	}
+	//}
+	//bindbsn:=time.Since(tm)
+	//fmt.Println("bindb", bindbsn)
+	//_=bindb
+	_=lmDB
+	_=v
+}
+func TestRandomReadBinTest(t *testing.T) {
+	origDB,err:=ethdb.Open("/media/b00ris/nvme/fresh_sync/tg/chaindata", true)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	_=origDB
+	numOfReads:=10000000
+	keysList:=make([][]byte, 0, numOfReads)
+	for i:=0; i<numOfReads; i++ {
+		id:=rand.Int31n(11500000)
+		hash, err:=rawdb.ReadCanonicalHash(origDB, uint64(id))
+		if err!=nil {
+			t.Fatal(err)
+		}
+		keysList=append(keysList, dbutils.HeaderKey(uint64(id), hash))
+
+	}
+	binkv, err:=ethdb.NewBinKV("/media/b00ris/nvme/tmp/bn")
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer binkv.Close()
+	bindb:=ethdb.NewObjectDatabase(binkv)
+	//kv2:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+	//	return u|lmdb.Readonly
+	//}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+	//	return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	//}).MustOpen()
+	//lmDB:=ethdb.NewObjectDatabase(kv2)
+
+	var v []byte
+	//tm:=time.Now()
+	//for _,key:=range keysList {
+	//	v, err = lmDB.Get(dbutils.HeaderPrefix, key)
+	//	if err!=nil {
+	//		t.Fatal(err)
+	//	}
+	//}
+	//lmdbSn:=time.Since(tm)
+	//fmt.Println("lmdb", lmdbSn)
+	tm:=time.Now()
+	for _,key:=range keysList {
+		v, err = bindb.Get(dbutils.HeaderPrefix, key)
+		if err!=nil {
+			t.Fatal(err)
+		}
+	}
+	bindbsn:=time.Since(tm)
+	fmt.Println("bindb", bindbsn)
+	_=bindb
+	//_=lmDB
+	_=v
+}
+/*
+10000000
+lmdb 1m30.393778034s
+--- PASS: TestRandomReadTest (133.69s)
+lmdb 3m50.243489598s
+lmdb 1m25.326654356s
+
+10000000
+bindb 1m37.088543311s
+
+bindb 2m3.821595905s
+bindb 56.319379803s
+bindb 55.885618029s
+bindb 59.352367268s
+bindb 59.352367268s
+
+
+
+
+100000
+lmdb 715.672312ms
+bindb 741.688667ms
+
+1000 lmdb 114.472312ms
+1000 bindb 97.731523ms
+
+1000000
+lmdb 18.535345296s
+bindb 35.464465934s
+
+
+*/

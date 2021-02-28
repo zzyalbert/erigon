@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/turbo/snapshotsync"
 )
@@ -17,13 +18,24 @@ var (
 )
 
 func NewServer(dir string, seeding bool) (*SNDownloaderServer, error) {
-	downloader, err := New(dir, seeding)
+	db:=ethdb.MustOpen(dir + "/db")
+	peerID,err:=db.Get(dbutils.BittorrentInfoBucket, []byte(dbutils.BittorrentPeerID))
+	if err!=nil {
+		return nil, err
+	}
+	downloader, err := New(dir, seeding, string(peerID))
 	if err != nil {
 		return nil, err
 	}
+	if len(peerID)==0 {
+		err = downloader.SavePeerID(db)
+		if err!=nil {
+			return nil, err
+		}
+	}
 	return &SNDownloaderServer{
 		t:  downloader,
-		db: ethdb.MustOpen(dir + "/db"),
+		db: db,
 	}, nil
 }
 

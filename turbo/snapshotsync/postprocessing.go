@@ -153,6 +153,7 @@ func PostProcessState(db ethdb.GetterPutter, info *SnapshotsInfo) error {
 		return err
 	}
 	err = stages.SaveStageProgress(db, stages.Execution, info.SnapshotBlock)
+	err = stages.SaveStageProgress(db, stages.Senders, info.SnapshotBlock)
 	if err != nil {
 		return err
 	}

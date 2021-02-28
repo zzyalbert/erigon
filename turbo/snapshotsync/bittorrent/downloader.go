@@ -25,11 +25,12 @@ type Client struct {
 	snapshotsDir string
 }
 
-func New(snapshotsDir string, seeding bool) (*Client, error) {
+func New(snapshotsDir string, seeding bool, peerID string) (*Client, error) {
 	torrentConfig := DefaultTorrentConfig()
 	torrentConfig.Seed = seeding
 	torrentConfig.DataDir = snapshotsDir
 	torrentConfig.UpnpID = torrentConfig.UpnpID + "leecher"
+	torrentConfig.PeerID=peerID
 
 	torrentClient, err := torrent.NewClient(torrentConfig)
 	if err != nil {
@@ -77,13 +78,29 @@ func (cli *Client) Load(db ethdb.Database) error {
 	})
 }
 
+func (cli *Client) SavePeerID(db ethdb.Putter) error {
+	return db.Put(dbutils.BittorrentInfoBucket, []byte(dbutils.BittorrentPeerID), cli.PeerID())
+}
+
+func (cli *Client) Close() {
+	cli.Cli.Close()
+}
+
+
+func (cli *Client) PeerID() []byte {
+	peerID:=cli.Cli.PeerID()
+	return peerID[:]
+}
 func (cli *Client) AddTorrentSpec(snapshotName string, snapshotHash metainfo.Hash, infoBytes []byte) (*torrent.Torrent, error) {
 	t, ok := cli.Cli.Torrent(snapshotHash)
 	if ok {
 		return t, nil
 	}
 	t, _, err := cli.Cli.AddTorrentSpec(&torrent.TorrentSpec{
-		Trackers:    Trackers,
+		Trackers: [][]string{{
+			"http://35.189.110.210:80/announce",
+		}},
+		//Trackers:    Trackers,
 		InfoHash:    snapshotHash,
 		DisplayName: snapshotName,
 		InfoBytes:   infoBytes,
@@ -205,7 +222,7 @@ func (cli *Client) Download() {
 					break dwn
 				} else {
 					stats := t.Stats()
-					log.Info("Downloading snapshot", "snapshot", t.Name(), "%", int(100*(float64(t.BytesCompleted())/float64(t.Info().TotalLength()))), "seeders", stats.ConnectedSeeders)
+					log.Info("Downloading snapshot", "snapshot", t.Name(), "%", int(100*(float64(t.BytesCompleted())/float64(t.Info().TotalLength()))),"mb", t.BytesCompleted()/1024/1024, "seeders", stats.ConnectedSeeders)
 					time.Sleep(time.Second*10)
 				}
 
