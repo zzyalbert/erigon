@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
+	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"io"
 	"os"
@@ -50,11 +52,11 @@ type BinKV struct {
 }
 
 func (b *BinKV) View(ctx context.Context, f func(tx Tx) error) error {
-	return f(&BinTX{kv:b})
+	return f(&BinTX{kv:b, key: make([]byte,56)})
 }
 
 func (b *BinKV) Update(ctx context.Context, f func(tx Tx) error) error {
-	return f(&BinTX{kv:b})
+	return f(&BinTX{kv:b, key: make([]byte,56)})
 }
 
 func (b *BinKV) Close() {
@@ -63,7 +65,7 @@ func (b *BinKV) Close() {
 }
 
 func (b *BinKV) Begin(ctx context.Context, parent Tx, flags TxFlags) (Tx, error) {
-	return &BinTX{kv: b}, nil
+	return &BinTX{kv: b, key: make([]byte,56)}, nil
 }
 
 func (b *BinKV) AllBuckets() dbutils.BucketsCfg {
@@ -73,6 +75,7 @@ func (b *BinKV) AllBuckets() dbutils.BucketsCfg {
 
 type BinTX struct {
 	kv *BinKV
+	key []byte
 }
 
 func (b *BinTX) Cursor(bucket string) Cursor {
@@ -90,24 +93,24 @@ func (b *BinTX) CursorDupFixed(bucket string) CursorDupFixed {
 }
 
 func (b *BinTX) GetOne(bucket string, seek []byte) (val []byte, err error) {
-	key:=make([]byte, 56)
-	lastIndex:=0
 	var index int
 	if len(seek)==40 {
-		index = int(binary.BigEndian.Uint64(seek))
+		index = int(binary.BigEndian.Uint64(seek[:8])) - 1
 	} else {
+		lastIndex:=0
+		panic("sdas")
 		index=sort.Search(int(b.kv.numOfElements), func(i int) bool {
 			lastIndex = i
 			_,err:=b.kv.index.Seek(int64(8+i*(40+8+8)), io.SeekStart)
 			if err!=nil {
 				panic(err)
 			}
-			_, err=io.ReadFull(b.kv.index, key)
+			_, err=io.ReadFull(b.kv.index, b.key)
 			if err!=nil {
 				panic(err)
 			}
 
-			res := bytes.Compare(key, seek)
+			res := bytes.Compare(b.key, seek)
 			return res >= 0
 		})
 		if index==int(b.kv.numOfElements) {
@@ -120,21 +123,19 @@ func (b *BinTX) GetOne(bucket string, seek []byte) (val []byte, err error) {
 		return  nil, err
 	}
 
-	_, err=io.ReadFull(b.kv.index, key)
+	_, err=io.ReadFull(b.kv.index, b.key)
 	if err!=nil {
 		return  nil, err
 	}
 
-	if len(seek)==40 && !bytes.Equal(seek, key[:40]) {
+	if len(seek)==40 && !bytes.Equal(seek, b.key[:40]) {
+		fmt.Println(index, binary.BigEndian.Uint64(b.key[:8]), binary.BigEndian.Uint64(seek[:8]),)
+		fmt.Println(common.Bytes2Hex(b.key))
+		fmt.Println(common.Bytes2Hex(seek))
 		return nil, ErrKeyNotFound
 	}
-
-	point:=binary.BigEndian.Uint64(key[40:48])
-	size:=binary.BigEndian.Uint64(key[48:56])
-
-
-	v:=make([]byte, size)
-	_, err = b.kv.data.Seek(int64(point), io.SeekStart)
+	v:=make([]byte, binary.BigEndian.Uint64(b.key[48:56]))
+	_, err = b.kv.data.Seek(int64(binary.BigEndian.Uint64(b.key[40:48])), io.SeekStart)
 	if err!=nil {
 		return  nil, err
 	}

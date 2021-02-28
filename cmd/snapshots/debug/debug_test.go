@@ -1370,7 +1370,7 @@ func TestRandomReadLmdbTest(t *testing.T) {
 	numOfReads:=1000000
 	keysList:=make([][]byte, 0, numOfReads)
 	for i:=0; i<numOfReads; i++ {
-		id:=rand.Int31n(11500000)
+		id:=rand.Int31n(11499998)+1
 		hash, err:=rawdb.ReadCanonicalHash(origDB, uint64(id))
 		if err!=nil {
 			t.Fatal(err)
@@ -1393,10 +1393,10 @@ func TestRandomReadLmdbTest(t *testing.T) {
 
 	var v []byte
 	tm:=time.Now()
-	for _,key:=range keysList {
+	for i,key:=range keysList {
 		v, err = lmDB.Get(dbutils.HeaderPrefix, key)
 		if err!=nil {
-			t.Fatal(err)
+			t.Fatal(err, i, common.Bytes2Hex(key))
 		}
 	}
 	lmdbSn:=time.Since(tm)
@@ -1423,7 +1423,7 @@ func TestRandomReadBinTest(t *testing.T) {
 	numOfReads:=10000000
 	keysList:=make([][]byte, 0, numOfReads)
 	for i:=0; i<numOfReads; i++ {
-		id:=rand.Int31n(11500000)
+		id:=rand.Int31n(11499998)+1
 		hash, err:=rawdb.ReadCanonicalHash(origDB, uint64(id))
 		if err!=nil {
 			t.Fatal(err)
@@ -1455,17 +1455,121 @@ func TestRandomReadBinTest(t *testing.T) {
 	//lmdbSn:=time.Since(tm)
 	//fmt.Println("lmdb", lmdbSn)
 	tm:=time.Now()
-	for _,key:=range keysList {
+	for i,key:=range keysList {
 		v, err = bindb.Get(dbutils.HeaderPrefix, key)
 		if err!=nil {
-			t.Fatal(err)
+			t.Fatal(err, i,  common.Bytes2Hex(key))
 		}
+		//v2,err:=origDB.Get(dbutils.HeaderPrefix, key)
+		//if err!=nil {
+		//	t.Fatal(err)
+		//}
+		//if !bytes.Equal(v, v2) {
+		//	t.Log(common.Bytes2Hex(v))
+		//	t.Log(common.Bytes2Hex(v2))
+		//	t.Fatal()
+		//}
 	}
 	bindbsn:=time.Since(tm)
 	fmt.Println("bindb", bindbsn)
 	_=bindb
 	//_=lmDB
 	_=v
+}
+
+func TestRandomReadBothTest(t *testing.T) {
+	origDB,err:=ethdb.Open("/media/b00ris/nvme/fresh_sync/tg/chaindata", true)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	_=origDB
+	numOfKeys :=100000
+	numOfCycles:=10000
+	keysList:=make([][]byte, 0, numOfKeys)
+	for i:=0; i< numOfKeys; i++ {
+		id:=rand.Int31n(11499998)+1
+		hash, err:=rawdb.ReadCanonicalHash(origDB, uint64(id))
+		if err!=nil {
+			t.Fatal(err)
+		}
+		keysList=append(keysList, dbutils.HeaderKey(uint64(id), hash))
+
+	}
+	binkv, err:=ethdb.NewBinKV("/media/b00ris/nvme/tmp/bn")
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer binkv.Close()
+	bindb:=ethdb.NewObjectDatabase(binkv)
+	kv2:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
+	}).MustOpen()
+	lmDB:=ethdb.NewObjectDatabase(kv2)
+
+	//timingBin:=make([]time.Duration, numOfKeys)
+	//timingLmdb:=make([]time.Duration, numOfKeys)
+	var v1,v2 []byte
+	tm:=time.Now()
+	for j:=0;j<numOfCycles;j++ {
+		for i,key:=range keysList {
+			//tt1:=time.Now()
+			v1, err = bindb.Get(dbutils.HeaderPrefix, key)
+			//timingBin[i]=time.Since(tt1)
+			if err!=nil {
+				t.Fatal(err, i,  common.Bytes2Hex(key))
+			}
+		}
+	}
+	bindbsn:=time.Since(tm)
+	fmt.Println("bindb", bindbsn)
+
+	tm=time.Now()
+	for j:=0;j<numOfCycles;j++ {
+		for i, key := range keysList {
+			//tt1:=time.Now()
+			v2, err = lmDB.Get(dbutils.HeaderPrefix, key)
+			//timingLmdb[i]=time.Since(tt1)
+
+			if err != nil {
+				t.Fatal(err, i, common.Bytes2Hex(key))
+			}
+		}
+	}
+	lmdbSn:=time.Since(tm)
+	fmt.Println("lmdb", lmdbSn)
+
+	//for i,_:=range keysList {
+	//	fmt.Println(i, timingBin[i], timingLmdb[i])
+	//}
+	_=bindb
+	_=lmDB
+	_=v1
+	_=v2
+
+	/**
+	bindb 3.775510273s
+	lmdb 51.829369594s
+	0_o
+	bindb 3.786477907s
+	lmdb 2.69446405s
+	bindb 3.732588105s
+	lmdb 2.688271345s
+	bindb 3.75490917s
+	lmdb 2.661946802s
+	bindb 3.732664452s
+	lmdb 2.703882901s
+
+	1000000 keys x 10 times
+	bindb 35.32278571s
+	lmdb 24.659315931s
+
+	numOfKeys:=1000
+	numOfCycles:=10000
+	bindb 34.037538405s
+	lmdb 24.892599987s
+	 */
 }
 /*
 10000000
@@ -1482,7 +1586,7 @@ bindb 56.319379803s
 bindb 55.885618029s
 bindb 59.352367268s
 bindb 59.352367268s
-
+bindb 38.086106054s
 
 
 
