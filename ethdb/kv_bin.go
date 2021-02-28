@@ -96,60 +96,20 @@ func (b *BinTX) GetOne(bucket string, seek []byte) (val []byte, err error) {
 	if len(seek)==40 {
 		index = int(binary.BigEndian.Uint64(seek))
 	} else {
-		if len(b.kv.cache)>0 {
-			//fmt.Println("seek", common.Bytes2Hex(key))
-			index  = sort.Search(len(b.kv.cache), func(i int) bool {
-				lastIndex = i
-
-				res := bytes.Compare(b.kv.cache[i], seek)
-				//fmt.Println("cmp",  common.Bytes2Hex(b.kv.cache[i]), common.Bytes2Hex(seek), "res", res)
-				return res >= 0
-			})
-			//fmt.Println(common.Bytes2Hex(seek), index, lastIndex)
-
-
-			var from int
-			if index==len(b.kv.cache) || index>lastIndex {
-				from = lastIndex
-			} else {
-				from = index
+		index=sort.Search(int(b.kv.numOfElements), func(i int) bool {
+			lastIndex = i
+			_,err:=b.kv.index.Seek(int64(8+i*(40+8+8)), io.SeekStart)
+			if err!=nil {
+				panic(err)
 			}
-			//numOfElements := 2000
-			//if lastIndex*1000>=b.kv.numOfElements {
-			//
-			//}
-			newIndex:=sort.Search(1000, func(i int) bool {
-				lastIndex = i
-				_,err:=b.kv.index.Seek(int64(8+(from+i)*(40+8+8)), io.SeekStart)
-				if err!=nil {
-					panic(err)
-				}
-				_, err=io.ReadFull(b.kv.index, key)
-				if err!=nil {
-					panic(err)
-				}
+			_, err=io.ReadFull(b.kv.index, key)
+			if err!=nil {
+				panic(err)
+			}
 
-				res := bytes.Compare(key, seek)
-				return res >= 0
-			})
-			index = from+newIndex
-		} else {
-			index=sort.Search(int(b.kv.numOfElements), func(i int) bool {
-				lastIndex = i
-				_,err:=b.kv.index.Seek(int64(8+i*(40+8+8)), io.SeekStart)
-				if err!=nil {
-					panic(err)
-				}
-				_, err=io.ReadFull(b.kv.index, key)
-				if err!=nil {
-					panic(err)
-				}
-
-				res := bytes.Compare(key, seek)
-				return res >= 0
-			})
-		}
-
+			res := bytes.Compare(key, seek)
+			return res >= 0
+		})
 		if index==int(b.kv.numOfElements) {
 			index = lastIndex
 		}
@@ -165,6 +125,9 @@ func (b *BinTX) GetOne(bucket string, seek []byte) (val []byte, err error) {
 		return  nil, err
 	}
 
+	if len(seek)==40 && !bytes.Equal(seek, key[:40]) {
+		return nil, ErrKeyNotFound
+	}
 
 	point:=binary.BigEndian.Uint64(key[40:48])
 	size:=binary.BigEndian.Uint64(key[48:56])
