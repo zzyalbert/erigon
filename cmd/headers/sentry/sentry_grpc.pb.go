@@ -3,15 +3,17 @@
 package sentry
 
 import (
-	context "context"
-	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	"context"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // SentryClient is the client API for Sentry service.
@@ -102,7 +104,7 @@ func (c *sentryClient) SetStatus(ctx context.Context, in *StatusData, opts ...gr
 }
 
 func (c *sentryClient) ReceiveMessages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Sentry_ReceiveMessagesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Sentry_serviceDesc.Streams[0], "/sentry.Sentry/ReceiveMessages", opts...)
+	stream, err := c.cc.NewStream(ctx, &Sentry_ServiceDesc.Streams[0], "/sentry.Sentry/ReceiveMessages", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +136,7 @@ func (x *sentryReceiveMessagesClient) Recv() (*InboundMessage, error) {
 }
 
 func (c *sentryClient) ReceiveUploadMessages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Sentry_ReceiveUploadMessagesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Sentry_serviceDesc.Streams[1], "/sentry.Sentry/ReceiveUploadMessages", opts...)
+	stream, err := c.cc.NewStream(ctx, &Sentry_ServiceDesc.Streams[1], "/sentry.Sentry/ReceiveUploadMessages", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +168,7 @@ func (x *sentryReceiveUploadMessagesClient) Recv() (*InboundMessage, error) {
 }
 
 func (c *sentryClient) ReceiveTxMessages(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (Sentry_ReceiveTxMessagesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Sentry_serviceDesc.Streams[2], "/sentry.Sentry/ReceiveTxMessages", opts...)
+	stream, err := c.cc.NewStream(ctx, &Sentry_ServiceDesc.Streams[2], "/sentry.Sentry/ReceiveTxMessages", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +260,7 @@ type UnsafeSentryServer interface {
 }
 
 func RegisterSentryServer(s grpc.ServiceRegistrar, srv SentryServer) {
-	s.RegisterService(&_Sentry_serviceDesc, srv)
+	s.RegisterService(&Sentry_ServiceDesc, srv)
 }
 
 func _Sentry_PenalizePeer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -450,7 +452,10 @@ func (x *sentryReceiveTxMessagesServer) Send(m *InboundMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-var _Sentry_serviceDesc = grpc.ServiceDesc{
+// Sentry_ServiceDesc is the grpc.ServiceDesc for Sentry service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Sentry_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "sentry.Sentry",
 	HandlerType: (*SentryServer)(nil),
 	Methods: []grpc.MethodDesc{
