@@ -1569,6 +1569,11 @@ func TestRandomReadBothTest(t *testing.T) {
 	numOfCycles:=10000
 	bindb 34.037538405s
 	lmdb 24.892599987s
+
+	numOfKeys :=100000
+	numOfCycles:=10000
+	bindb 58m52.936712543s
+	lmdb 41m46.417327109s
 	 */
 }
 /*
