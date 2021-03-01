@@ -141,6 +141,7 @@ func runDownloader(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	log.Info("Load")
 	err = bittorrentServer.Load()
 	if err != nil {
 		return err
