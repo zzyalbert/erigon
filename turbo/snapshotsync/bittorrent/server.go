@@ -26,7 +26,7 @@ func NewServer(dir string, seeding bool) (*SNDownloaderServer, error) {
 		return nil, fmt.Errorf("get peer id: %w",err)
 	}
 	downloader, err := New(dir, seeding, string(peerID))
-	if err != nil {
+	if err != nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
 		return nil, err
 	}
 	if len(peerID)==0 {
