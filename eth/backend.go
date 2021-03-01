@@ -253,7 +253,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 				return nil, err
 			}
 			v,err:=chainDb.Get(dbutils.BittorrentInfoBucket, []byte(dbutils.BittorrentPeerID))
-			if err!=nil {
+			if err!=nil && errors.Is(err, ethdb.ErrKeyNotFound) {
 				log.Error("Get bittorrent peerID","err", err)
 			}
 			torrentClient, err = bittorrent.New(dbPath, config.SnapshotSeeding, string(v))

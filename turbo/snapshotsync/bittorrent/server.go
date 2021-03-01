@@ -22,11 +22,11 @@ var (
 func NewServer(dir string, seeding bool) (*SNDownloaderServer, error) {
 	db:=ethdb.MustOpen(dir + "/db")
 	peerID,err:=db.Get(dbutils.BittorrentInfoBucket, []byte(dbutils.BittorrentPeerID))
-	if err!=nil {
+	if err!=nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get peer id: %w",err)
 	}
 	downloader, err := New(dir, seeding, string(peerID))
-	if err != nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
+	if err != nil {
 		return nil, err
 	}
 	if len(peerID)==0 {
