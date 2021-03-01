@@ -139,17 +139,17 @@ func runDownloader(cmd *cobra.Command, args []string) error {
 	grpcServer := grpc.NewServer(opts...)
 	bittorrentServer, err := bittorrent.NewServer(cfg.Dir, cfg.Seeding)
 	if err != nil {
-		return err
+		return fmt.Errorf("new server: %w",err)
 	}
 	log.Info("Load")
 	err = bittorrentServer.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("load: %w",err)
 	}
 
 	mainNetPreDownload, err := cmd.Flags().GetBool(PreDownloadMainnetFlag.Name)
 	if err != nil {
-		return err
+		return fmt.Errorf("get bool: %w",err)
 	}
 	if mainNetPreDownload {
 		log.Info("Predownload mainnet snapshots")

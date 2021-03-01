@@ -245,7 +245,6 @@ var Buckets = []string{
 	LogTopicIndex,
 	LogAddressIndex,
 	SnapshotInfoBucket,
-	BittorrentInfoBucket,
 	HeadersSnapshotInfoBucket,
 	BodiesSnapshotInfoBucket,
 	StateSnapshotInfoBucket,
@@ -254,6 +253,7 @@ var Buckets = []string{
 	Log,
 	Sequence,
 	EthTx,
+	BittorrentInfoBucket,
 }
 
 // DeprecatedBuckets - list of buckets which can be programmatically deleted - for example after migration

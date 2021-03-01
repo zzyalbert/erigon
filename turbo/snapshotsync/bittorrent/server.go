@@ -3,6 +3,7 @@ package bittorrent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/anacrolix/torrent"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
@@ -22,7 +23,7 @@ func NewServer(dir string, seeding bool) (*SNDownloaderServer, error) {
 	db:=ethdb.MustOpen(dir + "/db")
 	peerID,err:=db.Get(dbutils.BittorrentInfoBucket, []byte(dbutils.BittorrentPeerID))
 	if err!=nil {
-		return nil, err
+		return nil, fmt.Errorf("get peer id: %w",err)
 	}
 	downloader, err := New(dir, seeding, string(peerID))
 	if err != nil {
@@ -31,7 +32,7 @@ func NewServer(dir string, seeding bool) (*SNDownloaderServer, error) {
 	if len(peerID)==0 {
 		err = downloader.SavePeerID(db)
 		if err!=nil {
-			return nil, err
+			return nil, fmt.Errorf("save peer id: %w",err)
 		}
 	}
 	return &SNDownloaderServer{

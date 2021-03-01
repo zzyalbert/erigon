@@ -35,6 +35,7 @@ func New(snapshotsDir string, seeding bool, peerID string) (*Client, error) {
 	torrentClient, err := torrent.NewClient(torrentConfig)
 	if err != nil {
 		log.Error("Fail to start torrnet client", "err", err)
+		return nil, fmt.Errorf("fail to start: %w",err)
 	}
 
 	return &Client{
