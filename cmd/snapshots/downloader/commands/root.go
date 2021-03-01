@@ -26,7 +26,7 @@ import (
 
 func init() {
 	flags := append(debug.Flags, utils.MetricFlags...)
-	flags = append(flags, PreDownloadMainnetFlag, Addr, Dir)
+	flags = append(flags, PreDownloadMainnetFlag, Addr, Dir, HttpApi)
 	utils.CobraFlags(rootCmd, flags)
 
 	rootCmd.PersistentFlags().Bool("seeding", true, "Seed snapshots")
@@ -46,6 +46,10 @@ var (
 	PreDownloadMainnetFlag = cli.BoolFlag{
 		Name:  "predownload.mainnet",
 		Usage: "add all available mainnet snapshots for seeding",
+	}
+	HttpApi = cli.BoolFlag{
+		Name:  "http",
+		Usage: "Enable http",
 	}
 )
 
@@ -158,6 +162,23 @@ func runDownloader(cmd *cobra.Command, args []string) error {
 			}
 		}()
 	}
+	go func() {
+		for {
+			snapshots,err:=bittorrentServer.Snapshots(context.Background(), &snapshotsync.SnapshotsRequest{
+				NetworkId: params.MainnetChainConfig.ChainID.Uint64(),
+			})
+			if err!=nil {
+				log.Error("get snapshots", "err", err)
+				time.Sleep(time.Minute)
+				continue
+			}
+			stats:=bittorrentServer.Stats(context.Background())
+			for _,v:=range snapshots.Info {
+				log.Info("Snapshot "+ v.Type.String(), "%", v.Readiness, "peers", stats[v.Type.String()].ConnectedSeeders)
+			}
+			time.Sleep(time.Minute)
+		}
+	}()
 	snapshotsync.RegisterDownloaderServer(grpcServer, bittorrentServer)
 	go func() {
 		log.Info("Starting grpc")

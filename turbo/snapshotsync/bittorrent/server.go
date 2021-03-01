@@ -3,6 +3,7 @@ package bittorrent
 import (
 	"context"
 	"errors"
+	"github.com/anacrolix/torrent"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
@@ -66,4 +67,13 @@ func (S *SNDownloaderServer) Snapshots(ctx context.Context, request *snapshotsyn
 		reply.Info = append(reply.Info, resp[i])
 	}
 	return &reply, nil
+}
+
+func (S *SNDownloaderServer) Stats(ctx context.Context) (map[string]torrent.TorrentStats) {
+	stats:=map[string]torrent.TorrentStats{}
+	torrents:=S.t.Cli.Torrents()
+	for _,t:=range torrents {
+		stats[t.Name()] = t.Stats()
+	}
+	return stats
 }
