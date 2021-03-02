@@ -290,15 +290,18 @@ func ParseRequest(r *http.Request) (AnnounceReq, error) {
 
 	downloaded,err := strconv.ParseInt(q.Get("downloaded"),10, 64)
 	if err!=nil {
-		return AnnounceReq{}, fmt.Errorf("downloaded %v - %w",q.Get("downloaded"), err)
+		log.Warn("downloaded", "err", err)
+		//return AnnounceReq{}, fmt.Errorf("downloaded %v - %w",q.Get("downloaded"), err)
 	}
 	uploaded,err := strconv.ParseInt(q.Get("uploaded"),10, 64)
 	if err!=nil {
-		return AnnounceReq{}, fmt.Errorf("uploaded %v - %w",q.Get("uploaded"), err)
+		log.Warn("uploaded", "err", err)
+		//return AnnounceReq{}, fmt.Errorf("uploaded %v - %w",q.Get("uploaded"), err)
 	}
 	left,err := strconv.ParseInt(q.Get("left"),10, 64)
 	if err!=nil {
-		return AnnounceReq{}, fmt.Errorf("left: %v - %w",q.Get("left"), err)
+		log.Warn("left", "err", err)
+		//return AnnounceReq{}, fmt.Errorf("left: %v - %w",q.Get("left"), err)
 	}
 	port,err := strconv.Atoi(q.Get("port"))
 	if err!=nil {
@@ -325,6 +328,9 @@ func ValidateReq(req AnnounceReq) error {
 		return errors.New("invalid infohash")
 	}
 	if len(req.PeerID)!=20 {
+		return errors.New("invalid peer id")
+	}
+	if req.Port!=0 {
 		return errors.New("invalid peer id")
 	}
 	return nil
