@@ -295,19 +295,19 @@ func ParseRequest(r *http.Request) (AnnounceReq, error) {
 
 	downloaded,err := strconv.ParseInt(q.Get("downloaded"),10, 64)
 	if err!=nil {
-		return AnnounceReq{}, err
+		return AnnounceReq{}, fmt.Errorf("downloaded %v - %w",q.Get("downloaded"), err)
 	}
 	uploaded,err := strconv.ParseInt(q.Get("uploaded"),10, 64)
 	if err!=nil {
-		return AnnounceReq{}, err
+		return AnnounceReq{}, fmt.Errorf("uploaded %v - %w",q.Get("uploaded"), err)
 	}
 	left,err := strconv.ParseInt(q.Get("left"),10, 64)
 	if err!=nil {
-		return AnnounceReq{}, err
+		return AnnounceReq{}, fmt.Errorf("left: %v - %w",q.Get("left"), err)
 	}
 	port,err := strconv.Atoi(q.Get("port"))
 	if err!=nil {
-		return AnnounceReq{}, err
+		return AnnounceReq{}, fmt.Errorf("port: %v -  %w",q.Get("port"), err)
 	}
 
 	res:=AnnounceReq {
