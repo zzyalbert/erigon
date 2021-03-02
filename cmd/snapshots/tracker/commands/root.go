@@ -330,8 +330,8 @@ func ValidateReq(req AnnounceReq) error {
 	if len(req.PeerID)!=20 {
 		return errors.New("invalid peer id")
 	}
-	if req.Port!=0 {
-		return errors.New("invalid peer id")
+	if req.Port==0 {
+		return errors.New("invalid port")
 	}
 	return nil
 }
