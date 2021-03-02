@@ -19,6 +19,7 @@ snapshot=headers active peers=0 seeding=true hash=2ee9fb6572b2dfb9be0080c60cb140
 
 */
 //115
+//	hash=
 	HeadersSnapshotHash  = "4dcebdf20f67ce0a478fd5059a4c613ac961e138" //11кk block 1mb chunk
 	BlocksSnapshotHash   = "296f1703f68afb46c3df040b097e2628fc27a66d" //11кk block 1mb chunk
 	StateSnapshotHash    = "8f024711b2c2c277109b44053fcaab1b13346e69"
