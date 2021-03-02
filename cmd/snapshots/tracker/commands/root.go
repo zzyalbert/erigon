@@ -87,7 +87,7 @@ var rootCmd = &cobra.Command{
 				TrackerId: trackerID,
 			}
 
-			err := db.Walk(dbutils.SnapshotInfoBucket, append(req.InfoHash, make([]byte, 20)...), 20*8, func(k, v []byte) (bool, error) {
+			err := db.Walk(dbutils.SnapshotInfoBucket, append([]byte(ih), make([]byte, 20)...), 20*8, func(k, v []byte) (bool, error) {
 				a:=AnnounceReqWithTime{}
 				err := json.Unmarshal(v, &a)
 				if err!=nil {
