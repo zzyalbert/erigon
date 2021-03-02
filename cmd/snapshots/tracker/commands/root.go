@@ -79,7 +79,7 @@ var rootCmd = &cobra.Command{
 			log.Warn("scrape","url", request.RequestURI)
 			ih:=request.URL.Query().Get("info_hash")
 			if len(ih)!=20 {
-				log.Warn("wronng infohash","ih", ih, "l", len(ih))
+				log.Error("wronng infohash","ih", ih, "l", len(ih))
 				WriteResp(writer, ErrResponse{FailureReason: "incorrect infohash"}, false)
 				return
 			}
@@ -115,6 +115,8 @@ var rootCmd = &cobra.Command{
 			jsonResp,err:=json.Marshal(resp)
 			if err==nil {
 				log.Info("scrape resp", "v", string(jsonResp))
+			}else {
+				log.Info("marshall scrape resp", "err", err)
 			}
 
 			WriteResp(writer, resp,false)
@@ -271,6 +273,8 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	jsonResp,err:=json.Marshal(resp)
 	if err==nil {
 		log.Info("announce resp", "v", string(jsonResp))
+	} else {
+		log.Info("marshall announce resp", "err", err)
 	}
 
 	WriteResp(w, resp,req.Compact)
