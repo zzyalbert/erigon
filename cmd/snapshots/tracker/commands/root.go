@@ -277,6 +277,9 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func WriteResp(w http.ResponseWriter, res interface{}, compact bool)  {
+	if _,ok:=res.(ErrResponse); ok {
+		log.Error("Err", "err", res)
+	}
 	if compact {
 		err := bencode.NewEncoder(w).Encode(res)
 		if err!=nil {
