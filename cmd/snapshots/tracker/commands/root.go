@@ -80,7 +80,7 @@ var rootCmd = &cobra.Command{
 			ih:=request.URL.Query().Get("info_hash")
 			if len(ih)!=20 {
 				log.Warn("wronng infohash","ih", ih, "l", len(ih))
-				WriteResp(writer, HttpResponse{FailureReason: "incorrect infohash"}, false)
+				WriteResp(writer, ErrResponse{FailureReason: "incorrect infohash"}, false)
 				return
 			}
 			resp :=ScrapeResponse{Files: map[string]*ScrapeData{
@@ -109,7 +109,7 @@ var rootCmd = &cobra.Command{
 			})
 			if err!=nil {
 				log.Error("Walk","err", err)
-				WriteResp(writer, HttpResponse{FailureReason: err.Error()}, false)
+				WriteResp(writer, ErrResponse{FailureReason: err.Error()}, false)
 				return
 			}
 			jsonResp,err:=json.Marshal(resp)
@@ -176,12 +176,12 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	req,err:=ParseRequest(r)
 	if err!=nil {
 		log.Error("Parse request", "err", err)
-		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
+		WriteResp(w, ErrResponse{FailureReason: err.Error()}, req.Compact)
 		return
 	}
 	if err = ValidateReq(req); err!=nil {
 		log.Error("Validate failed","err", err)
-		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
+		WriteResp(w, ErrResponse{FailureReason: err.Error()}, req.Compact)
 		return
 	}
 
@@ -192,7 +192,7 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	peerBytes,err:=json.Marshal(toSave)
 	if err!=nil {
 		log.Error("Json marshal","err", err)
-		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
+		WriteResp(w, ErrResponse{FailureReason: err.Error()}, req.Compact)
 		return
 	}
 
@@ -201,7 +201,7 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err = t.db.Delete(dbutils.SnapshotInfoBucket, key, nil)
 		if err!=nil {
 			log.Error("Json marshal","err", err)
-			WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
+			WriteResp(w, ErrResponse{FailureReason: err.Error()}, req.Compact)
 			return
 		}
 	} else {
@@ -213,19 +213,19 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			if time.Now().Sub(prev.UpdatedAt) < time.Second*SoftLimit {
 				//too early to update
-				WriteResp(w, HttpResponse{FailureReason: "too early to update"}, req.Compact)
+				WriteResp(w, ErrResponse{FailureReason: "too early to update"}, req.Compact)
 				return
 
 			}
 		} else if !errors.Is(err, ethdb.ErrKeyNotFound) && err!=nil {
 			log.Error("get from db is return error", "err", err)
-			WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
+			WriteResp(w, ErrResponse{FailureReason: err.Error()}, req.Compact)
 			return
 		}
 		err = t.db.Put(dbutils.SnapshotInfoBucket, key, peerBytes)
 		if err!=nil {
 			log.Error("db.Put","err", err)
-			WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
+			WriteResp(w, ErrResponse{FailureReason: err.Error()}, req.Compact)
 			return
 		}
 	}
@@ -261,7 +261,7 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 	if err!=nil {
 		log.Error("Walk","err", err)
-		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
+		WriteResp(w, ErrResponse{FailureReason: err.Error()}, req.Compact)
 		return
 	}
 	jsonResp,err:=json.Marshal(resp)
@@ -346,12 +346,14 @@ func ValidateReq(req AnnounceReq) error {
 }
 
 type HttpResponse struct {
-	FailureReason string `bencode:"failure reason"`
-	Interval      int32  `bencode:"interval"`
-	TrackerId     string `bencode:"tracker id"`
-	Complete      int32  `bencode:"complete"`
-	Incomplete    int32  `bencode:"incomplete"`
-	Peers         []map[string]interface{}  `bencode:"peers"`
+	Interval      int32  `bencode:"interval" json:"interval"`
+	TrackerId     string `bencode:"tracker id" json:"tracker_id"`
+	Complete      int32  `bencode:"complete" json:"complete"`
+	Incomplete    int32  `bencode:"incomplete" json:"incomplete"`
+	Peers         []map[string]interface{}  `bencode:"peers" json:"peers"`
+}
+type ErrResponse struct {
+	FailureReason string `bencode:"failure reason" json:"failure_reason"`
 }
 type ScrapeResponse struct {
 	Files map[string]*ScrapeData `json:"files" bencode:"files"`
