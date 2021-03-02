@@ -25,6 +25,7 @@ import (
 )
 
 const DefaultInterval = 60 //in seconds
+const SoftLimit = 5 //in seconds
 const DisconnectInterval = time.Minute //in seconds
 var trackerID = "tg snapshot tracker"
 
@@ -206,7 +207,7 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if err!=nil {
 				log.Error("Unable to unmarshall", "err", err)
 			}
-			if time.Now().Sub(prev.UpdatedAt) < time.Second*DefaultInterval {
+			if time.Now().Sub(prev.UpdatedAt) < time.Second*SoftLimit {
 				//too early to update
 				WriteResp(w, HttpResponse{FailureReason: "too early to update"}, req.Compact)
 				return
