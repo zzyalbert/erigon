@@ -79,7 +79,7 @@ var rootCmd = &cobra.Command{
 		} )
 		log.Info("Listen1")
 		go func() {
-			err := http.ListenAndServe(":8080", m)
+			err := http.ListenAndServe(":80", m)
 			log.Error("error", "err", err)
 		}()
 		<-cmd.Context().Done()
