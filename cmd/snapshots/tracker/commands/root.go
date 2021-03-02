@@ -25,6 +25,7 @@ import (
 )
 
 const DefaultInterval = 60 //in seconds
+const DisconnectInterval = time.Minute //in seconds
 var trackerID = "tg snapshot tracker"
 
 func init() {
@@ -75,7 +76,48 @@ var rootCmd = &cobra.Command{
 		m.Handle("/announce", &Tracker{db: db})
 		m.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 			log.Warn("404","url", request.RequestURI)
-			writer.WriteHeader(404)
+			ih:=request.URL.Query().Get("info_hash")
+			if len(ih)!=20 {
+				log.Warn("wronng infohash","ih", ih, "l", len(ih))
+				WriteResp(writer, HttpResponse{FailureReason: "incorrect infohash"}, false)
+				return
+			}
+			resp := HttpResponse{
+				Interval: DefaultInterval,
+				TrackerId: trackerID,
+			}
+
+			err := db.Walk(dbutils.SnapshotInfoBucket, append(req.InfoHash, make([]byte, 20)...), 20*8, func(k, v []byte) (bool, error) {
+				a:=AnnounceReqWithTime{}
+				err := json.Unmarshal(v, &a)
+				if err!=nil {
+					log.Error("Fail to unmarshall", "k", common.Bytes2Hex(k), "err", err)
+					//skip failed
+					return true, nil
+				}
+				if time.Now().Sub(a.UpdatedAt) > 24*time.Hour {
+					log.Debug("Skipped", "k", common.Bytes2Hex(k), "last updated", a.UpdatedAt)
+					return true, nil
+				}
+				if a.Left==0 {
+					resp.Complete++
+				} else {
+					resp.Incomplete++
+				}
+				resp.Peers = append(resp.Peers, map[string]interface{}{
+					"ip": a.RemoteAddr.String(),
+					"peer id": a.PeerID,
+					"port": a.Port,
+				})
+				return true, nil
+			})
+			if err!=nil {
+				log.Error("Walk","err", err)
+				WriteResp(writer, HttpResponse{FailureReason: err.Error()}, false)
+				return
+			}
+
+			WriteResp(writer, resp,false)
 		} )
 		log.Info("Listen1")
 		go func() {
@@ -201,8 +243,8 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			//skip failed
 			return true, nil
 		}
-		if time.Now().Sub(a.UpdatedAt) > 24*time.Hour {
-			log.Debug("Skipped", "k", common.Bytes2Hex(k), "last updated", a.UpdatedAt)
+		if time.Now().Sub(a.UpdatedAt) > DisconnectInterval {
+			log.Info("Skipped", "k", common.Bytes2Hex(k), "last updated", a.UpdatedAt, "now", time.Now())
 			return true, nil
 		}
 		if a.Left==0 {
