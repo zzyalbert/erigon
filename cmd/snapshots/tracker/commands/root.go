@@ -73,7 +73,7 @@ var rootCmd = &cobra.Command{
 		db:=ethdb.MustOpen(args[0])
 		m := http.NewServeMux()
 		m.Handle("/announce", &Tracker{db: db})
-		m.HandleFunc("/*", func(writer http.ResponseWriter, request *http.Request) {
+		m.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 			log.Warn("404","url", request.RequestURI)
 			writer.WriteHeader(404)
 		} )
