@@ -75,8 +75,8 @@ var rootCmd = &cobra.Command{
 		db:=ethdb.MustOpen(args[0])
 		m := http.NewServeMux()
 		m.Handle("/announce", &Tracker{db: db})
-		m.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-			log.Warn("404","url", request.RequestURI)
+		m.HandleFunc("/scrape", func(writer http.ResponseWriter, request *http.Request) {
+			log.Warn("scrape","url", request.RequestURI)
 			ih:=request.URL.Query().Get("info_hash")
 			if len(ih)!=20 {
 				log.Warn("wronng infohash","ih", ih, "l", len(ih))
@@ -119,6 +119,10 @@ var rootCmd = &cobra.Command{
 
 			WriteResp(writer, resp,false)
 		} )
+		m.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+			log.Warn("404", "url", request.RequestURI)
+		})
+
 		log.Info("Listen1")
 		go func() {
 			err := http.ListenAndServe(":80", m)
@@ -243,8 +247,8 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			//skip failed
 			return true, nil
 		}
-		if time.Now().Sub(a.UpdatedAt) > DisconnectInterval {
-			log.Info("Skipped", "k", common.Bytes2Hex(k), "last updated", a.UpdatedAt, "now", time.Now())
+		if time.Now().Sub(a.UpdatedAt) > 5*DisconnectInterval {
+			log.Debug("Skipped requset", "peer", common.Bytes2Hex(a.PeerID), "last updated", a.UpdatedAt, "now", time.Now())
 			return true, nil
 		}
 		if a.Left==0 {
