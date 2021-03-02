@@ -112,6 +112,10 @@ var rootCmd = &cobra.Command{
 				WriteResp(writer, HttpResponse{FailureReason: err.Error()}, false)
 				return
 			}
+			jsonResp,err:=json.Marshal(resp)
+			if err==nil {
+				log.Info("scrape resp", "v", string(jsonResp))
+			}
 
 			WriteResp(writer, resp,false)
 		} )
@@ -171,7 +175,7 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	req,err:=ParseRequest(r)
 	if err!=nil {
-		log.Error("Pase request", "err", err)
+		log.Error("Parse request", "err", err)
 		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
 		return
 	}
@@ -220,7 +224,7 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		err = t.db.Put(dbutils.SnapshotInfoBucket, key, peerBytes)
 		if err!=nil {
-			log.Error("Json marshal","err", err)
+			log.Error("db.Put","err", err)
 			WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
 			return
 		}
@@ -259,6 +263,10 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Error("Walk","err", err)
 		WriteResp(w, HttpResponse{FailureReason: err.Error()}, req.Compact)
 		return
+	}
+	jsonResp,err:=json.Marshal(resp)
+	if err==nil {
+		log.Info("announce resp", "v", string(jsonResp))
 	}
 
 	WriteResp(w, resp,req.Compact)
