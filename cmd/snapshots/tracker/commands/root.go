@@ -202,7 +202,7 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return true, nil
 		}
 		if time.Now().Sub(a.UpdatedAt) > 24*time.Hour {
-			log.Info("Skipped", "k", common.Bytes2Hex(k), "last updated", a.UpdatedAt)
+			log.Debug("Skipped", "k", common.Bytes2Hex(k), "last updated", a.UpdatedAt)
 			return true, nil
 		}
 		if a.Left==0 {
