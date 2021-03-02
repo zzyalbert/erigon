@@ -82,10 +82,9 @@ var rootCmd = &cobra.Command{
 				WriteResp(writer, HttpResponse{FailureReason: "incorrect infohash"}, false)
 				return
 			}
-			resp := HttpResponse{
-				Interval: DefaultInterval,
-				TrackerId: trackerID,
-			}
+			resp :=ScrapeResponse{Files: map[string]*ScrapeData{
+				ih:{},
+			}}
 
 			err := db.Walk(dbutils.SnapshotInfoBucket, append([]byte(ih), make([]byte, 20)...), 20*8, func(k, v []byte) (bool, error) {
 				a:=AnnounceReqWithTime{}
@@ -100,15 +99,11 @@ var rootCmd = &cobra.Command{
 					return true, nil
 				}
 				if a.Left==0 {
-					resp.Complete++
+					resp.Files[ih].Downloaded++
+					resp.Files[ih].Complete++
 				} else {
-					resp.Incomplete++
+					resp.Files[ih].Incomplete++
 				}
-				resp.Peers = append(resp.Peers, map[string]interface{}{
-					"ip": a.RemoteAddr.String(),
-					"peer id": a.PeerID,
-					"port": a.Port,
-				})
 				return true, nil
 			})
 			if err!=nil {
@@ -268,7 +263,7 @@ func (t *Tracker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	WriteResp(w, resp,req.Compact)
 }
 
-func WriteResp(w http.ResponseWriter, res HttpResponse, compact bool)  {
+func WriteResp(w http.ResponseWriter, res interface{}, compact bool)  {
 	if compact {
 		err := bencode.NewEncoder(w).Encode(res)
 		if err!=nil {
@@ -342,4 +337,13 @@ type HttpResponse struct {
 	Complete      int32  `bencode:"complete"`
 	Incomplete    int32  `bencode:"incomplete"`
 	Peers         []map[string]interface{}  `bencode:"peers"`
+}
+type ScrapeResponse struct {
+	Files map[string]*ScrapeData `json:"files" bencode:"files"`
+}
+
+type ScrapeData struct {
+	Complete int32 `bencode:"complete" json:"complete"`
+	Downloaded int32 `json:"downloaded" bencode:"downloaded"`
+	Incomplete  int32 `json:"incomplete" bencode:"incomplete"`
 }
