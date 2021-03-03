@@ -254,10 +254,11 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 			bc.Config(), cc, bc.GetVMConfig(),
 			ch,
 			stagedsync.ExecuteBlockStageParams{
-				ToBlock:       blockNumber, // limit execution to the specified block
-				WriteReceipts: false,
-				BatchSize:     batchSize,
-				Cache:         cache,
+				ToBlock:               blockNumber, // limit execution to the specified block
+				WriteReceipts:         false,
+				BatchSize:             batchSize,
+				Cache:                 cache,
+				SilkwormExecutionFunc: silkwormExecutionFunc(),
 			})
 		if err != nil {
 			return fmt.Errorf("execution err %w", err)

@@ -77,35 +77,47 @@ func unwindHashStateStageImpl(logPrefix string, u *UnwindState, s *StageState, s
 }
 
 func PromoteHashedStateCleanly(logPrefix string, db ethdb.Database, tmpdir string, quit <-chan struct{}) error {
-	err := etl.Transform(
+	if err := etl.Transform(
 		logPrefix,
 		db,
 		dbutils.PlainStateBucket,
 		dbutils.HashedAccountsBucket,
 		tmpdir,
-		keyTransformExtractAcc(transformPlainStateKey),
-		etl.IdentityLoadFunc,
-		etl.TransformArgs{
-			Quit: quit,
+		func(k, v []byte, next etl.ExtractNextFunc) error {
+			if len(k) != 20 {
+				return nil
+			}
+			newK, err := transformPlainStateKey(k)
+			if err != nil {
+				return err
+			}
+			return next(k, newK, v)
 		},
-	)
-	if err != nil {
+		etl.IdentityLoadFunc,
+		etl.TransformArgs{Quit: quit},
+	); err != nil {
 		return err
 	}
 
-	err = etl.Transform(
+	if err := etl.Transform(
 		logPrefix,
 		db,
 		dbutils.PlainStateBucket,
 		dbutils.HashedStorageBucket,
 		tmpdir,
-		keyTransformExtractStorage(transformPlainStateKey),
-		etl.IdentityLoadFunc,
-		etl.TransformArgs{
-			Quit: quit,
+		func(k, v []byte, next etl.ExtractNextFunc) error {
+			if len(k) == 20 {
+				return nil
+			}
+			newK, err := transformPlainStateKey(k)
+			if err != nil {
+				return err
+			}
+			return next(k, newK, v)
 		},
-	)
-	if err != nil {
+		etl.IdentityLoadFunc,
+		etl.TransformArgs{Quit: quit},
+	); err != nil {
 		return err
 	}
 
@@ -115,48 +127,16 @@ func PromoteHashedStateCleanly(logPrefix string, db ethdb.Database, tmpdir strin
 		dbutils.PlainContractCodeBucket,
 		dbutils.ContractCodeBucket,
 		tmpdir,
-		keyTransformExtractFunc(transformContractCodeKey),
-		etl.IdentityLoadFunc,
-		etl.TransformArgs{
-			Quit: quit,
+		func(k, v []byte, next etl.ExtractNextFunc) error {
+			newK, err := transformContractCodeKey(k)
+			if err != nil {
+				return err
+			}
+			return next(k, newK, v)
 		},
+		etl.IdentityLoadFunc,
+		etl.TransformArgs{Quit: quit},
 	)
-}
-
-func keyTransformExtractFunc(transformKey func([]byte) ([]byte, error)) etl.ExtractFunc {
-	return func(k, v []byte, next etl.ExtractNextFunc) error {
-		newK, err := transformKey(k)
-		if err != nil {
-			return err
-		}
-		return next(k, newK, v)
-	}
-}
-
-func keyTransformExtractAcc(transformKey func([]byte) ([]byte, error)) etl.ExtractFunc {
-	return func(k, v []byte, next etl.ExtractNextFunc) error {
-		if len(k) != 20 {
-			return nil
-		}
-		newK, err := transformKey(k)
-		if err != nil {
-			return err
-		}
-		return next(k, newK, v)
-	}
-}
-
-func keyTransformExtractStorage(transformKey func([]byte) ([]byte, error)) etl.ExtractFunc {
-	return func(k, v []byte, next etl.ExtractNextFunc) error {
-		if len(k) == 20 {
-			return nil
-		}
-		newK, err := transformKey(k)
-		if err != nil {
-			return err
-		}
-		return next(k, newK, v)
-	}
 }
 
 func transformPlainStateKey(key []byte) ([]byte, error) {

@@ -23,7 +23,7 @@ func TestBlockHashStage(t *testing.T) {
 		panic(err)
 	}
 	rawdb.WriteHeader(context.TODO(), db, origin)
-	rawdb.WriteHeadHeaderHash(db, origin.Hash())
+	_ = rawdb.WriteHeadHeaderHash(db, origin.Hash())
 	if err := stages.SaveStageProgress(db, stages.Headers, origin.Number.Uint64()); err != nil {
 		t.Fatalf("setting headers progress: %v", err)
 	}

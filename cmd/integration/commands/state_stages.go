@@ -98,6 +98,7 @@ func init() {
 	withBlock(stateStags)
 	withBatchSize(stateStags)
 	withIntegrityChecks(stateStags)
+	withSilkworm(stateStags)
 
 	rootCmd.AddCommand(stateStags)
 
@@ -110,6 +111,7 @@ func init() {
 	withChaindata(loopExecCmd)
 	withBatchSize(loopExecCmd)
 	withUnwind(loopExecCmd)
+	withSilkworm(loopExecCmd)
 
 	rootCmd.AddCommand(loopExecCmd)
 }
@@ -212,11 +214,12 @@ func syncBySmallSteps(db ethdb.Database, ctx context.Context) error {
 				bc.Config(), cc, bc.GetVMConfig(),
 				ch,
 				stagedsync.ExecuteBlockStageParams{
-					ToBlock:       execToBlock, // limit execution to the specified block
-					WriteReceipts: sm.Receipts,
-					Cache:         cache,
-					BatchSize:     batchSize,
-					ChangeSetHook: changeSetHook,
+					ToBlock:               execToBlock, // limit execution to the specified block
+					WriteReceipts:         sm.Receipts,
+					Cache:                 cache,
+					BatchSize:             batchSize,
+					ChangeSetHook:         changeSetHook,
+					SilkwormExecutionFunc: silkwormExecutionFunc(),
 				}); err != nil {
 				return fmt.Errorf("spawnExecuteBlocksStage: %w", err)
 			}
@@ -378,11 +381,12 @@ func loopExec(db ethdb.Database, ctx context.Context, unwind uint64) error {
 			bc.Config(), cc, bc.GetVMConfig(),
 			ch,
 			stagedsync.ExecuteBlockStageParams{
-				ToBlock:       to, // limit execution to the specified block
-				WriteReceipts: true,
-				BatchSize:     batchSize,
-				Cache:         cache,
-				ChangeSetHook: nil,
+				ToBlock:               to, // limit execution to the specified block
+				WriteReceipts:         true,
+				BatchSize:             batchSize,
+				Cache:                 cache,
+				ChangeSetHook:         nil,
+				SilkwormExecutionFunc: silkwormExecutionFunc(),
 			}); err != nil {
 			return fmt.Errorf("spawnExecuteBlocksStage: %w", err)
 		}
