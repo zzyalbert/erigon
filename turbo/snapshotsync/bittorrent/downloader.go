@@ -47,7 +47,7 @@ func New(snapshotsDir string, seeding bool, peerID string) (*Client, error) {
 func DefaultTorrentConfig() *torrent.ClientConfig {
 	torrentConfig := torrent.NewDefaultClientConfig()
 	torrentConfig.ListenPort = 0
-	torrentConfig.NoDHT = false
+	torrentConfig.NoDHT = true
 	torrentConfig.DisableTrackers = false
 	torrentConfig.Debug = false
 	torrentConfig.Logger = torrentConfig.Logger.FilterLevel(lg.Debug)

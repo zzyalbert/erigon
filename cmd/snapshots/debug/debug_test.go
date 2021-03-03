@@ -1608,3 +1608,96 @@ bindb 35.464465934s
 
 
 */
+
+func TestWalkState(t *testing.T) {
+	kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/state/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_state]
+	}).MustOpen()
+	db:=ethdb.NewObjectDatabase(kv)
+	//i:=0
+	var totalAccounts, totalStorage uint64
+	accLenMap:=make(map[int]uint64)
+	strLenMap:=make(map[int]uint64)
+	err:=db.Walk(dbutils.PlainStateBucket, []byte{}, 0, func(k, v []byte) (bool, error) {
+		if !(len(k)==20 || len(k)==60) {
+			t.Fatal(len(k), common.Bytes2Hex(k))
+		}
+		if len(k) ==20 {
+			totalAccounts++
+			accLenMap[len(v)]++
+		}
+		if len(k)==60 {
+			totalStorage++
+			strLenMap[len(v)]++
+		}
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	var totalAccValues,totalStrValues uint64
+	for k,v:=range accLenMap {
+		totalAccValues+=uint64(k)*v
+	}
+	for k,v:=range strLenMap {
+		totalStrValues+=uint64(k)*v
+	}
+	t.Log("total acc", totalAccounts, "values size", totalAccValues, totalAccValues/1024/1024)
+	t.Log("total acc", totalStorage, "values size", totalStrValues, totalStrValues/1024/1024)
+	t.Log("total storage", totalStorage)
+
+	v,_:=json.Marshal(accLenMap)
+	t.Log("acc val len", string(v))
+	v2,_:=json.Marshal(strLenMap)
+	t.Log("storage val len", string(v2))
+}
+
+func TestName111(t *testing.T) {
+	totalAccounts := 112447517
+	accValues:=1405139034
+	totalStorage:= 396763704
+	totalStorageValues:=4171375605
+	fmt.Println("accounts hashed:")
+	fmt.Println("keys:  ",(totalAccounts*32)/1024/1024)
+	fmt.Println("values:", (accValues)/1024/1024)
+	fmt.Println("total: ",(totalAccounts*32+accValues)/1024/1024)
+	fmt.Println("accounts plain:")
+	fmt.Println("keys:  ",(totalAccounts*20)/1024/1024)
+	fmt.Println("values:", (accValues)/1024/1024)
+	fmt.Println("total: ",(totalAccounts*20+accValues)/1024/1024)
+	fmt.Println("storage hashed:")
+	fmt.Println("keys:  ",(totalStorage*64)/1024/1024)
+	fmt.Println("values:",(totalStorageValues)/1024/1024)
+	fmt.Println("total: ",(totalStorage*64+totalStorageValues)/1024/1024)
+	fmt.Println("storage plain:")
+	fmt.Println("keys:  ",(totalStorage*52)/1024/1024)
+	fmt.Println("values:",(totalStorageValues)/1024/1024)
+	fmt.Println("total: ",(totalStorage*52+totalStorageValues)/1024/1024)
+
+	fmt.Println("Total hashed:",(totalAccounts*32+accValues)/1024/1024+(totalStorage*64+totalStorageValues)/1024/1024)
+	fmt.Println("Total plain:",(totalAccounts*20+accValues)/1024/1024+(totalStorage*52+totalStorageValues)/1024/1024)
+}
+
+/*
+I have a baseline for block 11500. Just only accounts and storage. Minor storage encoding optimisations.
+accounts hashed:
+keys:   3431
+values: 1340
+total:  4771
+accounts plain:
+keys:   2144
+values: 1340
+total:  3484
+storage hashed:
+keys:   24216
+values: 3978
+total:  28194
+storage plain:
+keys:   19675
+values: 3978
+total:  23654
+Total hashed: 32965
+Total plain: 27138
+ */
