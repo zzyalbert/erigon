@@ -933,8 +933,3 @@ Date:   Mon Mar 8 14:23:28 2021 +0100
 
     core/types: reduce allocations in GasPriceCmp (#22456)
 
-commit 182670849eafdde729d009ec99d12358f996fbd0
-Author: Péter Szilágyi <peterke@gmail.com>
-Date:   Mon Mar 8 11:34:08 2021 +0200
-
-    params: begin v1.10.2 release cycle
