@@ -17953,7 +17953,7 @@ static int __must_check_result mdbx_node_add_leaf(MDBX_cursor *mc,
 
   /* Adjust free space offsets. */
   const intptr_t lower = mp->mp_lower + sizeof(indx_t);
-  const intptr_t upper = mp->mp_upper - (`node_bytes` - sizeof(indx_t));
+  const intptr_t upper = mp->mp_upper - (node_bytes - sizeof(indx_t));
   if (unlikely(lower > upper)) {
     mc->mc_txn->mt_flags |= MDBX_TXN_ERROR;
     return MDBX_PAGE_FULL;
