@@ -607,7 +607,7 @@ func assertSubset(a, b uint16) {
 }
 
 func cacheWarmUpIfNeed(db ethdb.Tx, cache *shards.StateCache) error {
-	if cache.HasAccountWithInPrefix([]byte{0}) {
+	if cache.HasAccountTrieWithPrefix([]byte{0}) {
 		return nil
 	}
 
