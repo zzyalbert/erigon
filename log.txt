@@ -917,14 +917,4 @@ Date:   Tue Mar 9 17:50:25 2021 +0800
 
     cmd: extend dumpgenesis to support network flags on the cmd (#22406)
 
-commit 3d299b746893e39f580dfcca3cef90604d05f4b6
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Tue Mar 9 09:04:03 2021 +0100
-
-    les: fix errors in metric namespace (#22459)
-    
-    * les: add trailing slash to metric namespace
-    
-    * les: omit '.' in metric namespace
-
 
