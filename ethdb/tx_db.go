@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/btree"
 	"github.com/ledgerwatch/turbo-geth/common"
-	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/metrics"
 )
@@ -19,12 +18,11 @@ import (
 // you can put unlimited amount of data into this class, call IdealBatchSize is unnecessary
 // Walk and MultiWalk methods - work outside of Tx object yet, will implement it later
 type TxDb struct {
-	db       Database
-	tx       Tx
-	ParentTx Tx
-	txFlags  TxFlags
-	cursors  map[string]Cursor
-	len      uint64
+	db      Database
+	tx      Tx
+	txFlags TxFlags
+	cursors map[string]Cursor
+	len     uint64
 }
 
 func (m *TxDb) Close() {
@@ -41,13 +39,22 @@ func NewTxDbWithoutTransaction(db Database, flags TxFlags) *TxDb {
 func (m *TxDb) Begin(ctx context.Context, flags TxFlags) (DbWithPendingMutations, error) {
 	batch := m
 	if m.tx != nil {
-		batch = &TxDb{db: m.db, txFlags: flags}
+		panic("nested transactions not supported")
 	}
 
-	if err := batch.begin(ctx, m.tx, flags); err != nil {
+	if err := batch.begin(ctx, flags); err != nil {
 		return nil, err
 	}
 	return batch, nil
+}
+
+func (m *TxDb) cursor(bucket string) Cursor {
+	c, ok := m.cursors[bucket]
+	if !ok {
+		c = m.tx.Cursor(bucket)
+		m.cursors[bucket] = c
+	}
+	return c
 }
 
 func (m *TxDb) Sequence(bucket string, amount uint64) (res uint64, err error) {
@@ -55,33 +62,28 @@ func (m *TxDb) Sequence(bucket string, amount uint64) (res uint64, err error) {
 }
 
 func (m *TxDb) Put(bucket string, key []byte, value []byte) error {
-	if metrics.Enabled {
-		if bucket == dbutils.PlainStateBucket {
-			defer dbPutTimer.UpdateSince(time.Now())
-		}
-	}
 	m.len += uint64(len(key) + len(value))
-	return m.cursors[bucket].Put(key, value)
+	return m.cursor(bucket).Put(key, value)
 }
 
 func (m *TxDb) Reserve(bucket string, key []byte, i int) ([]byte, error) {
 	m.len += uint64(len(key) + i)
-	return m.cursors[bucket].Reserve(key, i)
+	return m.cursor(bucket).Reserve(key, i)
 }
 
 func (m *TxDb) Append(bucket string, key []byte, value []byte) error {
 	m.len += uint64(len(key) + len(value))
-	return m.cursors[bucket].Append(key, value)
+	return m.cursor(bucket).Append(key, value)
 }
 
 func (m *TxDb) AppendDup(bucket string, key []byte, value []byte) error {
 	m.len += uint64(len(key) + len(value))
-	return m.cursors[bucket].(CursorDupSort).AppendDup(key, value)
+	return m.cursor(bucket).(CursorDupSort).AppendDup(key, value)
 }
 
 func (m *TxDb) Delete(bucket string, k, v []byte) error {
 	m.len += uint64(len(k))
-	return m.cursors[bucket].Delete(k, v)
+	return m.cursor(bucket).Delete(k, v)
 }
 
 func (m *TxDb) NewBatch() DbWithPendingMutations {
@@ -91,17 +93,13 @@ func (m *TxDb) NewBatch() DbWithPendingMutations {
 	}
 }
 
-func (m *TxDb) begin(ctx context.Context, parent Tx, flags TxFlags) error {
-	tx, err := m.db.(HasKV).KV().Begin(ctx, parent, flags)
+func (m *TxDb) begin(ctx context.Context, flags TxFlags) error {
+	tx, err := m.db.(HasKV).KV().Begin(ctx, flags)
 	if err != nil {
 		return err
 	}
 	m.tx = tx
-	m.ParentTx = parent
 	m.cursors = make(map[string]Cursor, 16)
-	for name := range m.db.(HasKV).KV().AllBuckets() {
-		m.cursors[name] = tx.Cursor(name)
-	}
 	return nil
 }
 
@@ -109,21 +107,17 @@ func (m *TxDb) KV() KV {
 	panic("not allowed to get KV interface because you will loose transaction, please use .Tx() method")
 }
 
-// Can only be called from the worker thread
+// Last can only be called from the transaction thread
 func (m *TxDb) Last(bucket string) ([]byte, []byte, error) {
-	c, ok := m.cursors[bucket]
-	if !ok {
-		panic(fmt.Sprintf("bucket doesn't exists: '%s'", bucket))
-	}
-	return c.Last()
+	return m.cursor(bucket).Last()
 }
 
 func (m *TxDb) Get(bucket string, key []byte) ([]byte, error) {
-	if metrics.Enabled {
-		defer dbGetTimer.UpdateSince(time.Now())
-	}
+	//if metrics.Enabled {
+	//	defer dbGetTimer.UpdateSince(time.Now())
+	//}
 
-	_, v, err := m.cursors[bucket].SeekExact(key)
+	_, v, err := m.cursor(bucket).SeekExact(key)
 	if err != nil {
 		return nil, err
 	}
@@ -131,13 +125,6 @@ func (m *TxDb) Get(bucket string, key []byte) ([]byte, error) {
 		return nil, ErrKeyNotFound
 	}
 	return v, nil
-}
-
-func (m *TxDb) GetIndexChunk(bucket string, key []byte, timestamp uint64) ([]byte, error) {
-	if m.db != nil {
-		return m.db.GetIndexChunk(bucket, key, timestamp)
-	}
-	return nil, ErrKeyNotFound
 }
 
 func (m *TxDb) Has(bucket string, key []byte) (bool, error) {
@@ -278,14 +265,8 @@ func ForEach(c Cursor, walker func(k, v []byte) (bool, error)) error {
 	return nil
 }
 
-func (m *TxDb) MultiWalk(bucket string, startkeys [][]byte, fixedbits []int, walker func(int, []byte, []byte) error) error {
-	m.panicOnEmptyDB()
-	c := m.tx.Cursor(bucket) // create new cursor, then call other methods of TxDb inside MultiWalk callback will not affect this cursor
-	defer c.Close()
-	return MultiWalk(c, startkeys, fixedbits, walker)
-}
-
-func MultiWalk(c Cursor, startkeys [][]byte, fixedbits []int, walker func(int, []byte, []byte) error) error {
+// MultiWalk is similar to multiple Walk calls folded into one.
+func MultiWalk(c Cursor, startkeys [][]byte, fixedbits []int, walker func(int, []byte, []byte) error) error { //nolint
 	rangeIdx := 0 // What is the current range we are extracting
 	fixedbytes, mask := Bytesmask(fixedbits[rangeIdx])
 	startkey := startkeys[rangeIdx]
@@ -345,12 +326,12 @@ func (m *TxDb) CommitAndBegin(ctx context.Context) error {
 		return err
 	}
 
-	return m.begin(ctx, m.ParentTx, m.txFlags)
+	return m.begin(ctx, m.txFlags)
 }
 
 func (m *TxDb) RollbackAndBegin(ctx context.Context) error {
 	m.Rollback()
-	return m.begin(ctx, m.ParentTx, m.txFlags)
+	return m.begin(ctx, m.txFlags)
 }
 
 func (m *TxDb) Commit() (uint64, error) {
@@ -365,7 +346,6 @@ func (m *TxDb) Commit() (uint64, error) {
 		return 0, err
 	}
 	m.tx = nil
-	m.ParentTx = nil
 	m.cursors = nil
 	m.len = 0
 	return 0, nil
@@ -378,7 +358,6 @@ func (m *TxDb) Rollback() {
 	m.tx.Rollback()
 	m.cursors = nil
 	m.tx = nil
-	m.ParentTx = nil
 	m.len = 0
 }
 

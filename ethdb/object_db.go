@@ -29,14 +29,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/common/debug"
-	"github.com/ledgerwatch/turbo-geth/core/types/accounts"
 	"github.com/ledgerwatch/turbo-geth/log"
-	"github.com/ledgerwatch/turbo-geth/metrics"
-)
-
-var (
-	dbGetTimer = metrics.NewRegisteredTimer("db/get", nil)
-	dbPutTimer = metrics.NewRegisteredTimer("db/put", nil)
 )
 
 type DbCopier interface {
@@ -198,51 +191,11 @@ func (db *ObjectDatabase) Last(bucket string) ([]byte, []byte, error) {
 	return key, value, nil
 }
 
-// GetIndexChunk returns proper index chunk or return error if index is not created.
-// key must contain inverted block number in the end
-func (db *ObjectDatabase) GetIndexChunk(bucket string, key []byte, timestamp uint64) ([]byte, error) {
-	var dat []byte
-	err := db.kv.View(context.Background(), func(tx Tx) error {
-		c := tx.Cursor(bucket)
-		k, v, err := c.Seek(dbutils.IndexChunkKey(key, timestamp))
-		if err != nil {
-			return err
-		}
-		if !bytes.HasPrefix(k, dbutils.CompositeKeyWithoutIncarnation(key)) {
-			return ErrKeyNotFound
-		}
-		dat = make([]byte, len(v))
-		copy(dat, v)
-		return nil
-	})
-	if dat == nil {
-		return nil, ErrKeyNotFound
-	}
-	return dat, err
-}
-
-func WalkChangeSetByBlock(db Getter, storage bool, timestamp uint64, f func(kk, k, v []byte) error) error {
-	bucket, keySize := dbutils.ChangeSetByIndexBucket(storage)
-	return db.Walk(bucket, dbutils.EncodeBlockNumber(timestamp), 8*8, func(k, v []byte) (bool, error) {
-		err := f(k, v[:keySize], v[keySize:])
-		if err != nil {
-			return false, nil
-		}
-		return true, nil
-	})
-}
-
 func (db *ObjectDatabase) Walk(bucket string, startkey []byte, fixedbits int, walker func(k, v []byte) (bool, error)) error {
 	err := db.kv.View(context.Background(), func(tx Tx) error {
 		return Walk(tx.Cursor(bucket), startkey, fixedbits, walker)
 	})
 	return err
-}
-
-func (db *ObjectDatabase) MultiWalk(bucket string, startkeys [][]byte, fixedbits []int, walker func(int, []byte, []byte) error) error {
-	return db.kv.View(context.Background(), func(tx Tx) error {
-		return MultiWalk(tx.Cursor(bucket), startkeys, fixedbits, walker)
-	})
 }
 
 // Delete deletes the key from the queue and database
@@ -388,7 +341,7 @@ func (db *ObjectDatabase) NewBatch() DbWithPendingMutations {
 
 func (db *ObjectDatabase) Begin(ctx context.Context, flags TxFlags) (DbWithPendingMutations, error) {
 	batch := &TxDb{db: db}
-	if err := batch.begin(ctx, nil, flags); err != nil {
+	if err := batch.begin(ctx, flags); err != nil {
 		panic(err)
 	}
 	return batch, nil
@@ -454,17 +407,6 @@ func Get(tx Tx, bucket string, key []byte) ([]byte, error) {
 		return nil, ErrKeyNotFound
 	}
 	return dat, err
-}
-
-func HackAddRootToAccountBytes(accNoRoot []byte, root []byte) (accWithRoot []byte, err error) {
-	var acc accounts.Account
-	if err := acc.DecodeForStorage(accNoRoot); err != nil {
-		return nil, err
-	}
-	acc.Root = common.BytesToHash(root)
-	accWithRoot = make([]byte, acc.EncodingLengthForStorage())
-	acc.EncodeForStorage(accWithRoot)
-	return accWithRoot, nil
 }
 
 func Bytesmask(fixedbits int) (fixedbytes int, mask byte) {

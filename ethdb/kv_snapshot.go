@@ -5,9 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"unsafe"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
-	"unsafe"
 )
 
 var (
@@ -62,7 +63,7 @@ type SnapshotKV2 struct {
 }
 
 func (s *SnapshotKV2) View(ctx context.Context, f func(tx Tx) error) error {
-	snTX, err := s.Begin(ctx, nil, RO)
+	snTX, err := s.Begin(ctx, RO)
 	if err != nil {
 		return err
 	}
@@ -71,7 +72,7 @@ func (s *SnapshotKV2) View(ctx context.Context, f func(tx Tx) error) error {
 }
 
 func (s *SnapshotKV2) Update(ctx context.Context, f func(tx Tx) error) error {
-	tx, err := s.Begin(ctx, nil, RW)
+	tx, err := s.Begin(ctx, RW)
 	if err != nil {
 		return err
 	}
@@ -91,8 +92,12 @@ func (s *SnapshotKV2) Close() {
 	}
 }
 
-func (s *SnapshotKV2) Begin(ctx context.Context, parent Tx, flags TxFlags) (Tx, error) {
-	dbTx, err := s.db.Begin(ctx, parent, flags)
+func (s *SnapshotKV2) CollectMetrics() {
+	s.db.CollectMetrics()
+}
+
+func (s *SnapshotKV2) Begin(ctx context.Context, flags TxFlags) (Tx, error) {
+	dbTx, err := s.db.Begin(ctx, flags)
 	if err != nil {
 		return nil, err
 	}
@@ -172,10 +177,6 @@ func (s *sn2TX) CursorDupSort(bucket string) CursorDupSort {
 	}
 }
 
-func (s *sn2TX) CursorDupFixed(bucket string) CursorDupFixed {
-	panic("implement me")
-}
-
 func (s *sn2TX) GetOne(bucket string, key []byte) (val []byte, err error) {
 	v, err := s.dbTX.GetOne(bucket, key)
 	if err != nil {
@@ -215,7 +216,7 @@ func (s *sn2TX) getSnapshotTX(bucket string) (Tx, error) {
 		return nil, fmt.Errorf("%s  %w", bucket, ErrUnavailableSnapshot)
 	}
 	var err error
-	tx, err = sn.snapshot.Begin(context.TODO(), nil, RO)
+	tx, err = sn.snapshot.Begin(context.TODO(), RO)
 	if err != nil {
 		return nil, err
 	}
@@ -308,12 +309,6 @@ type snCursor2 struct {
 	snCursor Cursor
 
 	currentKey []byte
-}
-
-func (s *snCursor2) Prefix(v []byte) Cursor {
-	s.dbCursor.Prefix(v)
-	s.snCursor.Prefix(v)
-	return s
 }
 
 func (s *snCursor2) Prefetch(v uint) Cursor {
@@ -679,14 +674,6 @@ func GenStateData(data []KvData) (KV, error) {
 
 //type cursorSnapshotDupsort struct {
 //
-//}
-//
-//func (c *cursorSnapshotDupsort) Prefix(v []byte) Cursor {
-//	panic("implement me")
-//}
-//
-//func (c *cursorSnapshotDupsort) Prefetch(v uint) Cursor {
-//	panic("implement me")
 //}
 //
 //func (c *cursorSnapshotDupsort) First() ([]byte, []byte, error) {

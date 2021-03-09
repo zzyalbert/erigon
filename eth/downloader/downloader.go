@@ -26,6 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/c2h5oh/datasize"
 	ethereum "github.com/ledgerwatch/turbo-geth"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/consensus"
@@ -40,6 +41,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/metrics"
 	"github.com/ledgerwatch/turbo-geth/params"
+	"github.com/ledgerwatch/turbo-geth/turbo/shards"
 )
 
 var (
@@ -114,7 +116,7 @@ type Downloader struct {
 	queue      *queue   // Scheduler for selecting the hashes to download
 	peers      *peerSet // Set of active peers from which download can proceed
 
-	stateDB *ethdb.ObjectDatabase // Database to state sync into (and deduplicate via)
+	stateDB ethdb.Database // Database to state sync into (and deduplicate via)
 	//stateBloom *trie.SyncBloom       // Bloom filter for fast trie node existence checks
 
 	// Statistics
@@ -165,9 +167,8 @@ type Downloader struct {
 
 	storageMode ethdb.StorageMode
 	tmpdir      string
-	cacheSize   int
-	batchSize   int
-	snapshotBlock uint64
+	cacheSize   datasize.ByteSize
+	batchSize   datasize.ByteSize
 
 	headersState    *stagedsync.StageState
 	headersUnwinder stagedsync.Unwinder
@@ -247,7 +248,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(checkpoint uint64, stateDB *ethdb.ObjectDatabase, mux *event.TypeMux, chainConfig *params.ChainConfig, chain BlockChain, lightchain LightChain, dropPeer peerDropFn, sm ethdb.StorageMode) *Downloader {
+func New(checkpoint uint64, stateDB ethdb.Database, mux *event.TypeMux, chainConfig *params.ChainConfig, chain BlockChain, lightchain LightChain, dropPeer peerDropFn, sm ethdb.StorageMode) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -286,12 +287,9 @@ func (d *Downloader) SetTmpDir(tmpdir string) {
 	d.tmpdir = tmpdir
 }
 
-func (d *Downloader) SetBatchSize(cacheSize, batchSize int) {
+func (d *Downloader) SetBatchSize(cacheSize, batchSize datasize.ByteSize) {
 	d.cacheSize = cacheSize
 	d.batchSize = batchSize
-}
-func (d *Downloader) SetSnapshotBlock(blockNum uint64) {
-	d.snapshotBlock = blockNum
 }
 
 func (d *Downloader) SetChainConfig(chainConfig *params.ChainConfig) {
@@ -487,11 +485,11 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, blockNumb
 	}
 	mode := d.getMode()
 
-	log.Info("Synchronising with the network", "peer", p.id, "eth", p.version, "head", hash, "blockNumber", blockNumber, "mode", mode)
+	log.Debug("Synchronising with the network", "peer", p.id, "eth", p.version, "head", hash, "blockNumber", blockNumber, "mode", mode)
 	defer func(start time.Time) {
 		log.Debug("Synchronisation terminated", "elapsed", common.PrettyDuration(time.Since(start)))
 	}(time.Now())
-	log.Info("Block number", "bn", blockNumber)
+
 	// Look up the sync boundaries: the common ancestor and the target block
 	height, err := d.fetchHeight(p)
 	if err != nil {
@@ -502,9 +500,6 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, blockNumb
 	if err != nil {
 		return err
 	}
-
-	log.Info("Block number", "bn", blockNumber, "origin", origin)
-
 
 	syncStatsChainHeight := d.GetSyncStatsChainHeight()
 	d.syncStatsLock.Lock()
@@ -555,6 +550,11 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, blockNumb
 		cc := &core.TinyChainContext{}
 		cc.SetDB(tx)
 		cc.SetEngine(d.blockchain.Engine())
+		var cache *shards.StateCache
+		if d.cacheSize > 0 {
+			cache = shards.NewStateCache(32, d.cacheSize)
+		}
+
 		d.stagedSyncState, err = d.stagedSync.Prepare(
 			d,
 			d.chainConfig,
@@ -565,7 +565,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, blockNumb
 			p.id,
 			d.storageMode,
 			d.tmpdir,
-			d.cacheSize,
+			cache,
 			d.batchSize,
 			d.quitCh,
 			fetchers,
@@ -847,50 +847,7 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeight uint64) (uint6
 	default:
 		localHeight = d.lightchain.CurrentHeader().Number.Uint64()
 	}
-	p.log.Info("Looking for common ancestor", "local", localHeight, "remote", remoteHeight)
-	//if d.snapshotBlock > 0 {
-	//	head:=rawdb.ReadHeaderByNumber(d.stateDB, localHeight)
-	//	go p.peer.RequestHeadersByNumber(d.snapshotBlock, 1, 0, false)
-	//	ttl := d.requestTTL()
-	//	timeout := time.After(ttl)
-	//	run:=true
-	//	for run {
-	//		select {
-	//		case <-d.cancelCh:
-	//			return 0, errCanceled
-	//
-	//		case packet := <-d.headerCh:
-	//			// Discard anything not from the origin peer
-	//			if packet.PeerId() != p.id {
-	//				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
-	//				break
-	//			}
-	//			// Make sure the peer actually gave something valid
-	//			headers := packet.(*headerPack).headers
-	//			if len(headers) == 0 {
-	//				p.log.Warn("Empty head header set")
-	//				return 0, errEmptyHeaderSet
-	//			}
-	//			for i:=range headers {
-	//				fmt.Println("received headers", headers[i].Number.Uint64(), headers[i].Hash().String())
-	//			}
-	//			fmt.Println(headers[0].Number.Uint64(), localHeight)
-	//			fmt.Println("receiver",headers[0].Hash() == head.Hash(),headers[0].Hash().String(), head.Hash().String())
-	//			if headers[0].Number.Uint64() == localHeight && headers[0].Hash() == head.Hash() {
-	//				p.log.Info("Remote has snapshot block", "number", localHeight, "hash", head.Hash())
-	//				if localHeight==d.snapshotBlock {
-	//					p.log.Info("Found common ancestor", "number", localHeight, "hash", head.Hash())
-	//					return localHeight, nil
-	//				}
-	//				run=false
-	//			}
-	//
-	//		case <-timeout:
-	//			p.log.Debug("Waiting for head header timed out", "elapsed", ttl)
-	//			return 0, errTimeout
-	//		}
-	//	}
-	//}
+	p.log.Debug("Looking for common ancestor", "local", localHeight, "remote", remoteHeight)
 
 	maxForkAncestry := fullMaxForkAncestry
 	if d.getMode() == LightSync {
@@ -923,7 +880,7 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeight uint64) (uint6
 
 	from, count, skip, max := calculateRequestSpan(remoteHeight, localHeight)
 
-	p.log.Info("Span searching for common ancestor", "count", count, "from", from, "skip", skip)
+	p.log.Trace("Span searching for common ancestor", "count", count, "from", from, "skip", skip)
 	go p.peer.RequestHeadersByNumber(uint64(from), count, skip, false)
 
 	// Wait for the remote response to the head fetch
@@ -967,7 +924,7 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeight uint64) (uint6
 				// Otherwise check if we already know the header or not
 				h := headers[i].Hash()
 				n := headers[i].Number.Uint64()
-				fmt.Println("check", h.String(), n)
+
 				var known bool
 				switch mode {
 				case FullSync:
@@ -1008,9 +965,6 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeight uint64) (uint6
 	if floor > 0 {
 		start = uint64(floor)
 	}
-	if start < d.snapshotBlock {
-		start = d.snapshotBlock
-	}
 	p.log.Trace("Binary searching for common ancestor", "start", start, "end", end)
 
 	for start+1 < end {
@@ -1031,7 +985,7 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeight uint64) (uint6
 			case packet := <-d.headerCh:
 				// Discard anything not from the origin peer
 				if packet.PeerId() != p.id {
-					log.Info("Received headers from incorrect peer", "peer", packet.PeerId())
+					log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
 					break
 				}
 				// Make sure the peer actually gave something valid
@@ -1058,7 +1012,6 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeight uint64) (uint6
 					known = d.lightchain.HasHeader(h, n)
 				}
 				if !known {
-					log.Warn("Known=false")
 					end = check
 					break
 				}
@@ -1077,7 +1030,7 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeight uint64) (uint6
 				hash = h
 
 			case <-timeout:
-				p.log.Info("Waiting for search header timed out", "elapsed", ttl)
+				p.log.Debug("Waiting for search header timed out", "elapsed", ttl)
 				return 0, errTimeout
 
 			case <-d.bodyCh:
@@ -1091,7 +1044,7 @@ func (d *Downloader) findAncestor(p *peerConnection, remoteHeight uint64) (uint6
 		p.log.Warn("Ancestor below allowance", "number", start, "hash", hash, "allowance", floor)
 		return 0, errInvalidAncestor
 	}
-	p.log.Info("Found common ancestor", "number", start, "hash", hash)
+	p.log.Debug("Found common ancestor", "number", start, "hash", hash)
 	return start, nil
 }
 
@@ -1236,14 +1189,9 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 
 			// If we received a skeleton batch, resolve internals concurrently
 			if skeleton {
-				s:=""
-				for i:=range headers {
-					s+= headers[i].Number.String() + " "
-				}
-				fmt.Println(s)
 				filled, proced, err := d.fillHeaderSkeleton(from, headers)
 				if err != nil {
-					p.log.Info("Skeleton chain invalid", "err", err)
+					p.log.Debug("Skeleton chain invalid", "err", err)
 					return fmt.Errorf("%w: %v", errInvalidChain, err)
 				}
 				headers = filled[proced:]
@@ -1374,7 +1322,7 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) (
 		d.queue.PendingHeaders, d.queue.InFlightHeaders, reserve,
 		nil, fetch, d.queue.CancelHeaders, capacity, d.peers.HeaderIdlePeers, setIdle, "headers")
 
-	log.Info("Skeleton fill terminated", "err", err)
+	log.Debug("Skeleton fill terminated", "err", err)
 
 	filled, proced := d.queue.RetrieveHeaders()
 	return filled, proced, err
@@ -1631,7 +1579,7 @@ func (d *Downloader) fetchParts(deliveryCh chan dataPack, deliver func(dataPack)
 // keeps processing and scheduling them into the header chain and downloader's
 // queue until the stream ends or a failure occurs.
 func (d *Downloader) processHeaders(origin uint64, pivot uint64, blockNumber uint64) error {
-	log.Info("processHeaders", "origin", origin, "bn", blockNumber)
+	log.Debug("processHeaders", "origin", origin, "bn", blockNumber)
 	// Keep a count of uncertain headers to roll back
 	var (
 		rollback    uint64 // Zero means no rollback (fine as you can't unroll the genesis)
@@ -1900,7 +1848,6 @@ func (d *Downloader) importBlockResults(logPrefix string, results []*fetchResult
 			// of the blocks delivered from the downloader, and the indexing will be off.
 			log.Debug("Downloaded item processing failed on sidechain import", "index", index, "err", err)
 		}
-		log.Info("importBlockResults err")
 		return 0, fmt.Errorf("%w: %v", errInvalidChain, err)
 	}
 	if d.getMode() == StagedSync && index > 0 && d.bodiesState != nil {

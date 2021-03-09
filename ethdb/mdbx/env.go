@@ -83,6 +83,21 @@ const (
 	DbgDoNotChange     = C.MDBX_DBG_DONTCHANGE
 )
 
+const (
+	OptMaxDB                        = C.MDBX_opt_max_db
+	OptMaxReaders                   = C.MDBX_opt_max_readers
+	OptSyncBytes                    = C.MDBX_opt_sync_bytes
+	OptSyncPeriod                   = C.MDBX_opt_sync_period
+	OptRpAugmentLimit               = C.MDBX_opt_rp_augment_limit
+	OptLooseLimit                   = C.MDBX_opt_loose_limit
+	OptDpReverseLimit               = C.MDBX_opt_dp_reserve_limit
+	OptTxnDpLimit                   = C.MDBX_opt_txn_dp_limit
+	OptTxnDpInitial                 = C.MDBX_opt_txn_dp_initial
+	OptSpillMaxDenominator          = C.MDBX_opt_spill_max_denominator
+	OptSpillMinDenominator          = C.MDBX_opt_spill_min_denominator
+	OptSpillParent4ChildDenominator = C.MDBX_opt_spill_parent4child_denominator
+)
+
 var (
 	LoggerDoNotChange = C.MDBX_LOGGER_DONTCHANGE
 )
@@ -160,10 +175,6 @@ func (env *Env) FD() (uintptr, error) {
 		return 0, errNotOpen
 	}
 	return fd, nil
-}
-
-func (env *Env) StderrLogger() *C.MDBX_debug_func {
-	return C.mdbxgo_stderr_logger()
 }
 
 // ReaderList dumps the contents of the reader lock table as text.  Readers
@@ -285,12 +296,7 @@ type Stat struct {
 func (env *Env) Stat() (*Stat, error) {
 	var _stat C.MDBX_stat
 	var ret C.int
-	if err := env.View(func(txn *Txn) error {
-		ret = C.mdbx_env_stat_ex(env._env, txn._txn, &_stat, C.size_t(unsafe.Sizeof(_stat)))
-		return nil
-	}); err != nil {
-		return nil, err
-	}
+	ret = C.mdbx_env_stat_ex(env._env, nil, &_stat, C.size_t(unsafe.Sizeof(_stat)))
 	if ret != success {
 		return nil, operrno("mdbx_env_stat_ex", ret)
 	}
@@ -308,8 +314,15 @@ func (env *Env) Stat() (*Stat, error) {
 //
 // See MDBX_envinfo.
 type EnvInfo struct {
-	MapSize                        int64 // Size of the data memory map
-	LastPNO                        int64 // ID of the last used page
+	MapSize int64 // Size of the data memory map
+	LastPNO int64 // ID of the last used page
+	Geo     struct {
+		Lower   uint64
+		Upper   uint64
+		Current uint64
+		Shrink  uint64
+		Grow    uint64
+	}
 	LastTxnID                      int64 // ID of the last committed transaction
 	MaxReaders                     uint  // maximum number of threads for the environment
 	NumReaders                     uint  // maximum number of threads used in the environment
@@ -338,7 +351,20 @@ func (env *Env) Info() (*EnvInfo, error) {
 		return nil, operrno("mdbx_env_info", ret)
 	}
 	info := EnvInfo{
-		MapSize:        int64(_info.mi_mapsize),
+		MapSize: int64(_info.mi_mapsize),
+		Geo: struct {
+			Lower   uint64
+			Upper   uint64
+			Current uint64
+			Shrink  uint64
+			Grow    uint64
+		}{
+			Lower:   uint64(_info.mi_geo.lower),
+			Upper:   uint64(_info.mi_geo.upper),
+			Current: uint64(_info.mi_geo.current),
+			Shrink:  uint64(_info.mi_geo.shrink),
+			Grow:    uint64(_info.mi_geo.grow),
+		},
 		LastPNO:        int64(_info.mi_last_pgno),
 		LastTxnID:      int64(_info.mi_recent_txnid),
 		MaxReaders:     uint(_info.mi_maxreaders),
@@ -440,6 +466,11 @@ func (env *Env) Path() (string, error) {
 //	ret := C.mdbx_env_set_mapsize(env._env, C.size_t(size))
 //	return operrno("mdbx_env_set_mapsize", ret)
 //}
+
+func (env *Env) SetOption(option uint, value uint64) error {
+	ret := C.mdbx_env_set_option(env._env, C.MDBX_option_t(option), C.uint64_t(value))
+	return operrno("mdbx_env_set_option", ret)
+}
 
 func (env *Env) SetGeometry(sizeLower int, sizeNow int, sizeUpper int, growthStep int, shrinkThreshold int, pageSize int) error {
 	ret := C.mdbx_env_set_geometry(env._env,

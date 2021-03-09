@@ -55,7 +55,7 @@ func StartGrpc(kv ethdb.KV, eth core.Backend, addr string, creds *credentials.Tr
 		grpc.NumStreamWorkers(cpus), // reduce amount of goroutines
 		grpc.WriteBufferSize(1024),  // reduce buffers to save mem
 		grpc.ReadBufferSize(1024),
-		grpc.MaxConcurrentStreams(100), // to force clients reduce concurrency level
+		grpc.MaxConcurrentStreams(200), // to force clients reduce concurrency level
 		// Don't drop the connection, settings accordign to this comment on GitHub
 		// https://github.com/grpc/grpc-go/issues/3171#issuecomment-552796779
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
@@ -93,7 +93,7 @@ func NewKvServer(kv ethdb.KV) *KvServer {
 }
 
 func (s *KvServer) Tx(stream remote.KV_TxServer) error {
-	tx, errBegin := s.kv.Begin(stream.Context(), nil, ethdb.RO)
+	tx, errBegin := s.kv.Begin(stream.Context(), ethdb.RO)
 	if errBegin != nil {
 		return fmt.Errorf("server-side error: %w", errBegin)
 	}
@@ -137,7 +137,7 @@ func (s *KvServer) Tx(stream remote.KV_TxServer) error {
 			}
 
 			tx.Rollback()
-			tx, errBegin = s.kv.Begin(stream.Context(), nil, ethdb.RO)
+			tx, errBegin = s.kv.Begin(stream.Context(), ethdb.RO)
 			if errBegin != nil {
 				return fmt.Errorf("server-side error: %w", errBegin)
 			}
@@ -145,17 +145,6 @@ func (s *KvServer) Tx(stream remote.KV_TxServer) error {
 			for _, c := range cursors { // restore all cursors position
 				c.c = tx.Cursor(c.bucket)
 				switch casted := c.c.(type) {
-				case ethdb.CursorDupFixed:
-					k, _, err := casted.SeekBothRange(c.k, c.v)
-					if err != nil {
-						return fmt.Errorf("server-side error: %w", err)
-					}
-					if k == nil { // it may happen that key where we stopped disappeared after transaction reopen, then just move to next key
-						_, _, err = casted.Next()
-						if err != nil {
-							return fmt.Errorf("server-side error: %w", err)
-						}
-					}
 				case ethdb.CursorDupSort:
 					k, _, err := casted.SeekBothRange(c.k, c.v)
 					if err != nil {
@@ -229,8 +218,6 @@ func handleOp(c ethdb.Cursor, stream remote.KV_TxServer, in *remote.Cursor) erro
 		k, v, err = c.(ethdb.CursorDupSort).SeekBothRange(in.K, in.V)
 	case remote.Op_CURRENT:
 		k, v, err = c.Current()
-	case remote.Op_GET_MULTIPLE:
-		v, err = c.(ethdb.CursorDupFixed).GetMulti()
 	case remote.Op_LAST:
 		k, v, err = c.Last()
 	case remote.Op_LAST_DUP:
@@ -239,8 +226,6 @@ func handleOp(c ethdb.Cursor, stream remote.KV_TxServer, in *remote.Cursor) erro
 		k, v, err = c.Next()
 	case remote.Op_NEXT_DUP:
 		k, v, err = c.(ethdb.CursorDupSort).NextDup()
-	case remote.Op_NEXT_MULTIPLE:
-		k, v, err = c.(ethdb.CursorDupFixed).NextMulti()
 	case remote.Op_NEXT_NO_DUP:
 		k, v, err = c.(ethdb.CursorDupSort).NextNoDup()
 	case remote.Op_PREV:

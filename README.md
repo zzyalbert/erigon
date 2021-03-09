@@ -25,14 +25,14 @@ Things can and will break.**
 
 
 
-The current version is currently based on Go-Ethereum 1.9.15.
+The current version is currently based on Go-Ethereum 1.9.24
 
 System Requirements
 ===================
 
-About 830 GB of free disk storage (630 GB state storage, 200GB temp files)
+Recommend 2Tb drive: 1Tb state, 200GB temp files (can symlink or mount folder `<datadir>/etl-tmp` to another disk). 
 
-16 or 32 GB of RAM is recommended
+RAM: 16GB, 64-bit architecture, (Golang version >= 1.15.6](https://golang.org/doc/install)
 
 <code>🔬 more info on disk storage is here [here](https://ledgerwatch.github.io/turbo_geth_release.html#Disk-space)) </code>
 
@@ -44,6 +44,8 @@ Usage
 > make tg
 > ./build/bin/tg
 ```
+
+On Windows please use Docker: see [docker-compose.yml](./docker-compose.yml)
 
 Key features
 ============ 
@@ -59,7 +61,7 @@ a simple way.
 
 **Preprocessing**. For some operations, turbo-geth uses temporary files to preprocess data before
 inserting it into the main DB. That reduces write amplification and 
-DB inserts sometimes are orders of magnitude quicker.
+DB inserts are orders of magnitude quicker.
 
 <code> 🔬 See our detailed ETL explanation [here](/common/etl/).</code>
 

@@ -37,8 +37,13 @@ func (s *PublicBlockChainAPI) GetProof(ctx context.Context, address common.Addre
 	db := s.b.ChainDb()
 	ts := dbutils.EncodeBlockNumber(block)
 	accountMap := make(map[string]*accounts.Account)
-	if err := changeset.Walk(db, dbutils.AccountChangeSetBucket, ts, 0, func(blockN uint64, k, v []byte) (bool, error) {
-		k, v = common.CopyBytes(k), common.CopyBytes(v)
+	if err := changeset.Walk(db, dbutils.PlainAccountChangeSetBucket, ts, 0, func(blockN uint64, a, v []byte) (bool, error) {
+		a, v = common.CopyBytes(a), common.CopyBytes(v)
+		var kHash, err = common.HashData(a)
+		if err != nil {
+			return false, err
+		}
+		k := kHash[:]
 		if _, ok := accountMap[string(k)]; !ok {
 			if len(v) > 0 {
 				var a accounts.Account
@@ -56,8 +61,13 @@ func (s *PublicBlockChainAPI) GetProof(ctx context.Context, address common.Addre
 	}
 
 	storageMap := make(map[string][]byte)
-	if err := changeset.Walk(db, dbutils.AccountChangeSetBucket, ts, 0, func(blockN uint64, k, v []byte) (bool, error) {
-		k, v = common.CopyBytes(k), common.CopyBytes(v)
+	if err := changeset.Walk(db, dbutils.PlainAccountChangeSetBucket, ts, 0, func(blockN uint64, a, v []byte) (bool, error) {
+		a, v = common.CopyBytes(a), common.CopyBytes(v)
+		var kHash, err = common.HashData(a)
+		if err != nil {
+			return true, err
+		}
+		k := kHash[:]
 		if _, ok := storageMap[string(k)]; !ok {
 			storageMap[string(k)] = v
 		}
@@ -181,6 +191,7 @@ func (r *Receiver) Receive(
 	accountValue *accounts.Account,
 	storageValue []byte,
 	hash []byte,
+	hasBranch bool,
 	cutoff int,
 ) error {
 	for r.currentIdx < len(r.unfurlList) {
@@ -196,19 +207,19 @@ func (r *Receiver) Receive(
 			c = -1
 		}
 		if c > 0 {
-			return r.defaultReceiver.Receive(itemType, accountKey, storageKey, accountValue, storageValue, hash, cutoff)
+			return r.defaultReceiver.Receive(itemType, accountKey, storageKey, accountValue, storageValue, hash, hasBranch, cutoff)
 		}
 		if len(k) > common.HashLength {
 			v := r.storageMap[ks]
 			if c <= 0 && len(v) > 0 {
-				if err := r.defaultReceiver.Receive(trie.StorageStreamItem, nil, k, nil, v, nil, 0); err != nil {
+				if err := r.defaultReceiver.Receive(trie.StorageStreamItem, nil, k, nil, v, nil, hasBranch, 0); err != nil {
 					return err
 				}
 			}
 		} else {
 			v := r.accountMap[ks]
 			if c <= 0 && v != nil {
-				if err := r.defaultReceiver.Receive(trie.AccountStreamItem, k, nil, v, nil, nil, 0); err != nil {
+				if err := r.defaultReceiver.Receive(trie.AccountStreamItem, k, nil, v, nil, nil, hasBranch, 0); err != nil {
 					return err
 				}
 			}
@@ -219,7 +230,7 @@ func (r *Receiver) Receive(
 		}
 	}
 	// We ran out of modifications, simply pass through
-	return r.defaultReceiver.Receive(itemType, accountKey, storageKey, accountValue, storageValue, hash, cutoff)
+	return r.defaultReceiver.Receive(itemType, accountKey, storageKey, accountValue, storageValue, hash, hasBranch, cutoff)
 }
 
 func (r *Receiver) Result() trie.SubTries {

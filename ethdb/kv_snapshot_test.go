@@ -401,7 +401,7 @@ func TestSnapshot2Get(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.HeaderPrefix}, sn1).
 		SnapshotDB([]string{dbutils.BlockBodyPrefix}, sn2).MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RO)
+	tx, err := kv.Begin(context.Background(), RO)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -547,7 +547,7 @@ func TestSnapshot2WritableTxAndGet(t *testing.T) {
 
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.HeaderPrefix}, sn1).
 		SnapshotDB([]string{dbutils.BlockBodyPrefix}, sn2).MustOpen()
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -580,7 +580,7 @@ func TestSnapshot2WritableTxAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tx, err = kv.Begin(context.Background(), nil, RO)
+	tx, err = kv.Begin(context.Background(), RO)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -676,7 +676,7 @@ func TestSnapshot2WritableTxWalkReplaceAndCreateNewKey(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.PlainStateBucket}, snapshotDB).
 		MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -744,7 +744,7 @@ func TestSnapshot2WritableTxWalkAndDeleteKey(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.PlainStateBucket}, snapshotDB).
 		MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -817,7 +817,7 @@ func TestSnapshot2WritableTxNextAndPrevAndDeleteKey(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.PlainStateBucket}, snapshotDB).
 		MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -921,7 +921,7 @@ func TestSnapshot2WritableTxWalkLastElementIsSnapshot(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.PlainStateBucket}, snapshotDB).
 		MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1004,7 +1004,7 @@ func TestSnapshot2WritableTxWalkForwardAndBackward(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.PlainStateBucket}, snapshotDB).
 		MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1100,7 +1100,7 @@ func TestSnapshot2WalkByEmptyDB(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.PlainStateBucket}, snapshotDB).
 		MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1136,7 +1136,7 @@ func TestSnapshot2WritablePrevAndDeleteKey(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.PlainStateBucket}, snapshotDB).
 		MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1204,7 +1204,7 @@ func TestSnapshot2WritableTxNextAndPrevWithDeleteAndPutKeys(t *testing.T) {
 	kv := NewSnapshot2KV().DB(mainDB).SnapshotDB([]string{dbutils.PlainStateBucket}, snapshotDB).
 		MustOpen()
 
-	tx, err := kv.Begin(context.Background(), nil, RW)
+	tx, err := kv.Begin(context.Background(), RW)
 	if err != nil {
 		t.Fatal(err)
 	}

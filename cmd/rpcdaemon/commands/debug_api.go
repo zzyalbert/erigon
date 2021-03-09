@@ -13,6 +13,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/eth"
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync/stages"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/ledgerwatch/turbo-geth/internal/ethapi"
 	"github.com/ledgerwatch/turbo-geth/rpc"
 	"github.com/ledgerwatch/turbo-geth/turbo/adapter"
 	"github.com/ledgerwatch/turbo-geth/turbo/transactions"
@@ -25,6 +26,8 @@ type PrivateDebugAPI interface {
 	AccountRange(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash, start []byte, maxResults int, nocode, nostorage, incompletes bool) (state.IteratorDump, error)
 	GetModifiedAccountsByNumber(ctx context.Context, startNum rpc.BlockNumber, endNum *rpc.BlockNumber) ([]common.Address, error)
 	GetModifiedAccountsByHash(_ context.Context, startHash common.Hash, endHash *common.Hash) ([]common.Address, error)
+	TraceCall(ctx context.Context, args ethapi.CallArgs, blockNrOrHash rpc.BlockNumberOrHash, config *eth.TraceConfig) (interface{}, error)
+	AccountAt(ctx context.Context, blockHash common.Hash, txIndex uint64, account common.Address) (*AccountResult, error)
 }
 
 // PrivateDebugAPIImpl is implementation of the PrivateDebugAPI interface based on remote Db access
@@ -32,13 +35,15 @@ type PrivateDebugAPIImpl struct {
 	*BaseAPI
 	dbReader     ethdb.Database
 	chainContext core.ChainContext
+	GasCap       uint64
 }
 
 // NewPrivateDebugAPI returns PrivateDebugAPIImpl instance
-func NewPrivateDebugAPI(dbReader ethdb.Database) *PrivateDebugAPIImpl {
+func NewPrivateDebugAPI(dbReader ethdb.Database, gascap uint64) *PrivateDebugAPIImpl {
 	return &PrivateDebugAPIImpl{
 		BaseAPI:  &BaseAPI{},
 		dbReader: dbReader,
+		GasCap:   gascap,
 	}
 }
 
@@ -199,4 +204,41 @@ func (api *PrivateDebugAPIImpl) GetModifiedAccountsByHash(ctx context.Context, s
 	}
 
 	return changeset.GetModifiedAccounts(tx, startNum, endNum)
+}
+
+func (api *PrivateDebugAPIImpl) AccountAt(ctx context.Context, blockHash common.Hash, txIndex uint64, address common.Address) (*AccountResult, error) {
+	tx, err := api.dbReader.Begin(ctx, ethdb.RO)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	bc := adapter.NewBlockGetter(tx)
+	cc := adapter.NewChainContext(tx)
+	genesis, err := rawdb.ReadBlockByNumber(tx, 0)
+	if err != nil {
+		return nil, err
+	}
+	genesisHash := genesis.Hash()
+	chainConfig, err := rawdb.ReadChainConfig(tx, genesisHash)
+	if err != nil {
+		return nil, err
+	}
+	_, _, ibs, _, err := transactions.ComputeTxEnv(ctx, bc, chainConfig, cc, tx.(ethdb.HasTx).Tx(), blockHash, txIndex)
+	if err != nil {
+		return nil, err
+	}
+	result := &AccountResult{}
+	result.Balance.ToInt().Set(ibs.GetBalance(address).ToBig())
+	result.Nonce = hexutil.Uint64(ibs.GetNonce(address))
+	result.Code = ibs.GetCode(address)
+	result.CodeHash = ibs.GetCodeHash(address)
+	return result, nil
+}
+
+type AccountResult struct {
+	Balance  hexutil.Big    `json:"balance"`
+	Nonce    hexutil.Uint64 `json:"nonce"`
+	Code     hexutil.Bytes  `json:"code"`
+	CodeHash common.Hash    `json:"codeHash"`
 }

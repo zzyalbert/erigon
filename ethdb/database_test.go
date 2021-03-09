@@ -37,7 +37,7 @@ func newTestLmdb() *ObjectDatabase {
 	return NewObjectDatabase(NewLMDB().InMem().MustOpen())
 }
 
-var testBucket = dbutils.CurrentStateBucket
+var testBucket = dbutils.HashedAccountsBucket
 var testValues = []string{"a", "1251", "\x00123\x00"}
 
 func TestMemoryDB_PutGet(t *testing.T) {
@@ -143,9 +143,9 @@ func testPutGet(db MinDatabase, t *testing.T) {
 }
 
 func testNoPanicAfterDbClosed(db Database, t *testing.T) {
-	tx, err := db.(HasKV).KV().Begin(context.Background(), nil, RO)
+	tx, err := db.(HasKV).KV().Begin(context.Background(), RO)
 	require.NoError(t, err)
-	writeTx, err := db.(HasKV).KV().Begin(context.Background(), nil, RW)
+	writeTx, err := db.(HasKV).KV().Begin(context.Background(), RW)
 	require.NoError(t, err)
 
 	closeCh := make(chan struct{}, 1)

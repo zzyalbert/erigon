@@ -23,7 +23,7 @@ import (
 // see https://calver.org
 const (
 	VersionMajor    = 2021    // Major version component of the current release
-	VersionMinor    = 1       // Minor version component of the current release
+	VersionMinor    = 3       // Minor version component of the current release
 	VersionMicro    = 1       // Patch version component of the current release
 	VersionModifier = "alpha" // Patch version component of the current release
 )

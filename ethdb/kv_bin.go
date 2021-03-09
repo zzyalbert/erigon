@@ -21,6 +21,11 @@ var (
 	_ Cursor         = &BinCursor{}
 )
 
+
+func (b *BinKV) CollectMetrics() {
+	panic("implement me")
+}
+
 func NewBinKV(dir string) (*BinKV, error)  {
 	index,err:=os.Open(dir+"/index.sn")
 	if err != nil {
@@ -64,7 +69,7 @@ func (b *BinKV) Close() {
 	b.data.Close()
 }
 
-func (b *BinKV) Begin(ctx context.Context, parent Tx, flags TxFlags) (Tx, error) {
+func (b *BinKV) Begin(ctx context.Context, flags TxFlags) (Tx, error) {
 	return &BinTX{kv: b, key: make([]byte,56)}, nil
 }
 
@@ -88,9 +93,6 @@ func (b *BinTX) CursorDupSort(bucket string) CursorDupSort {
 	panic("implement me")
 }
 
-func (b *BinTX) CursorDupFixed(bucket string) CursorDupFixed {
-	panic("implement me")
-}
 
 func (b *BinTX) GetOne(bucket string, seek []byte) (val []byte, err error) {
 	var index int

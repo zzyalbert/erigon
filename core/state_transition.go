@@ -165,8 +165,11 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
-func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, refunds bool) (*ExecutionResult, error) {
-	return NewStateTransition(evm, msg, gp).TransitionDb(refunds)
+// `refunds` is false when it is not required to apply gas refunds
+// `gasBailout` is true when it is not required to fail transaction if the balance is not enough to pay gas.
+// for trace_call to replicate OE/Pariry behaviour
+func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, refunds bool, gasBailout bool) (*ExecutionResult, error) {
+	return NewStateTransition(evm, msg, gp).TransitionDb(refunds, gasBailout)
 }
 
 // to returns the recipient of the message.
@@ -177,11 +180,15 @@ func (st *StateTransition) to() common.Address {
 	return *st.msg.To()
 }
 
-func (st *StateTransition) buyGas() error {
+func (st *StateTransition) buyGas(gasBailout bool) error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice.ToBig())
 	gasCost, overflow := uint256.FromBig(mgval)
 	if overflow || st.state.GetBalance(st.msg.From()).Lt(gasCost) {
-		return ErrInsufficientFunds
+		if !gasBailout {
+			return ErrInsufficientFunds
+		}
+	} else {
+		st.state.SubBalance(st.msg.From(), gasCost)
 	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
@@ -189,12 +196,11 @@ func (st *StateTransition) buyGas() error {
 	st.gas += st.msg.Gas()
 
 	st.initialGas = st.msg.Gas()
-	st.state.SubBalance(st.msg.From(), gasCost)
 	return nil
 }
 
 // DESCRIBED: docs/programmers_guide/guide.md#nonce
-func (st *StateTransition) preCheck() error {
+func (st *StateTransition) preCheck(gasBailout bool) error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
 		if bytes.Equal(st.msg.From().Bytes(), []byte{119, 218, 94, 108, 114, 251, 54, 188, 225, 217, 121, 143, 123, 205, 241, 209, 143, 69, 156, 46}) {
@@ -209,7 +215,7 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
-	return st.buyGas()
+	return st.buyGas(gasBailout)
 }
 
 // TransitionDb will transition the state by applying the current message and
@@ -225,7 +231,7 @@ func (st *StateTransition) preCheck() error {
 //
 // However if any consensus issue encountered, return the error directly with
 // nil evm execution result.
-func (st *StateTransition) TransitionDb(refunds bool) (*ExecutionResult, error) {
+func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*ExecutionResult, error) {
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses
 	//
@@ -237,7 +243,7 @@ func (st *StateTransition) TransitionDb(refunds bool) (*ExecutionResult, error) 
 	// 6. caller has enough balance to cover asset transfer for **topmost** call
 
 	// Check clauses 1-3, buy gas if everything is correct
-	if err := st.preCheck(); err != nil {
+	if err := st.preCheck(gasBailout); err != nil {
 		return nil, err
 	}
 	msg := st.msg
@@ -257,8 +263,13 @@ func (st *StateTransition) TransitionDb(refunds bool) (*ExecutionResult, error) 
 	st.gas -= gas
 
 	// Check clause 6
+	var bailout bool
 	if !msg.Value().IsZero() && !st.evm.CanTransfer(st.state, msg.From(), msg.Value()) {
-		return nil, ErrInsufficientFundsForTransfer
+		if gasBailout {
+			bailout = true
+		} else {
+			return nil, ErrInsufficientFundsForTransfer
+		}
 	}
 	var (
 		ret   []byte
@@ -273,7 +284,7 @@ func (st *StateTransition) TransitionDb(refunds bool) (*ExecutionResult, error) 
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value, bailout)
 	}
 	if refunds {
 		st.refundGas()

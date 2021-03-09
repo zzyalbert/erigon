@@ -104,6 +104,7 @@ func loadSnapshot(config *params.CliqueConfig, sigcache *lru.ARCCache, db ethdb.
 }
 
 // store inserts the snapshot into the database.
+//nolint:interfacer
 func (s *Snapshot) store(db ethdb.Database) error {
 	blob, err := json.Marshal(s)
 	if err != nil {
@@ -272,23 +273,23 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 					delete(snap.Recents, number-limit)
 				}
 				// Discard any previous votes the deauthorized signer cast
-				for i := 0; i < len(snap.Votes); i++ {
-					if snap.Votes[i].Signer == header.Coinbase {
+				for j := 0; j < len(snap.Votes); j++ {
+					if snap.Votes[j].Signer == header.Coinbase {
 						// Uncast the vote from the cached tally
-						snap.uncast(snap.Votes[i].Address, snap.Votes[i].Authorize)
+						snap.uncast(snap.Votes[j].Address, snap.Votes[j].Authorize)
 
 						// Uncast the vote from the chronological list
-						snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
+						snap.Votes = append(snap.Votes[:j], snap.Votes[j+1:]...)
 
-						i--
+						j--
 					}
 				}
 			}
 			// Discard any previous votes around the just changed account
-			for i := 0; i < len(snap.Votes); i++ {
+			for j := 0; j < len(snap.Votes); j++ {
 				if snap.Votes[i].Address == header.Coinbase {
-					snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
-					i--
+					snap.Votes = append(snap.Votes[:j], snap.Votes[j+1:]...)
+					j--
 				}
 			}
 			delete(snap.Tally, header.Coinbase)

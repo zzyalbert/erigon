@@ -3,13 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/ledgerwatch/lmdb-go/lmdb"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/c2h5oh/datasize"
+	"github.com/ledgerwatch/lmdb-go/lmdb"
 	"github.com/ledgerwatch/turbo-geth/cmd/utils"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
@@ -24,6 +24,7 @@ import (
 func init() {
 	withChaindata(cmdSnapshotCheck)
 	withBlock(cmdSnapshotCheck)
+	withBatchSize(cmdSnapshotCheck)
 	cmdSnapshotCheck.Flags().StringVar(&tmpDBPath, "tmp_db", "", "path to temporary db(for debug)")
 	cmdSnapshotCheck.Flags().BoolVar(&fastcheck, "fastcheck", false, "check only final root")
 	withChaindata(dbCopyCmd)
@@ -179,7 +180,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 		expectedRootHash := syncHeadHeader.Root
 
 		tt := time.Now()
-		err = stagedsync.RegenerateIntermediateHashes("", tx, true, tmpDir, expectedRootHash, ctx.Done())
+		err = stagedsync.RegenerateIntermediateHashes("", tx, true, nil, tmpDir, expectedRootHash, ctx.Done())
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("regenerateIntermediateHashes err: %w", err)
@@ -194,7 +195,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 		log.Info("Commit", "t", time.Since(tt))
 	}
 
-	cc, bc, st, progress := newSync(ctx.Done(), db, db, nil)
+	cc, bc, st, cache, progress := newSync(ctx.Done(), db, db, nil)
 	defer bc.Stop()
 	st.DisableStages(stages.Headers,
 		stages.BlockHashes,
@@ -208,7 +209,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 		stages.TxPool,
 		stages.Finish,
 	)
-	fmt.Println("lastBlockHeaderNumber",lastBlockHeaderNumber)
+
 	if isNew {
 		stage3 := progress(stages.Senders)
 		err = stage3.DoneAndUpdate(db, lastBlockHeaderNumber)
@@ -237,6 +238,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 	}
 
 	ch := ctx.Done()
+
 	var batchSize datasize.ByteSize
 	must(batchSize.UnmarshalText([]byte(batchSizeStr)))
 
@@ -279,23 +281,24 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 			stage4.BlockNumber = blockNumber - 1
 			log.Info("Stage4", "progress", stage4.BlockNumber)
 
-			err = stagedsync.SpawnExecuteBlocksStage(stage4, tx,
-				bc.Config(), cc, bc.GetVMConfig(),
-				ch,
-				stagedsync.ExecuteBlockStageParams{
-					ToBlock:       blockNumber, // limit execution to the specified block
-					WriteReceipts: false,
-					BatchSize:     int(batchSize),
-				})
-			if err != nil {
-				return fmt.Errorf("execution err %w", err)
-			}
+		err = stagedsync.SpawnExecuteBlocksStage(stage4, tx,
+			bc.Config(), cc, bc.GetVMConfig(),
+			ch,
+			stagedsync.ExecuteBlockStageParams{
+				ToBlock:       blockNumber, // limit execution to the specified block
+				WriteReceipts: false,
+				BatchSize:     batchSize,
+				Cache:         cache,
+			})
+		if err != nil {
+			return fmt.Errorf("execution err %w", err)
+		}
 
 			if !fastcheck {
 				stage5 := progress(stages.HashState)
 				stage5.BlockNumber = blockNumber - 1
 				log.Info("Stage5", "progress", stage5.BlockNumber)
-				err = stagedsync.SpawnHashStateStage(stage5, tx, tmpDir, ch)
+				err = stagedsync.SpawnHashStateStage(stage5, tx, nil, tmpDir, ch)
 				if err != nil {
 					return fmt.Errorf("spawnHashStateStage err %w", err)
 				}
@@ -303,7 +306,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 				stage6 := progress(stages.IntermediateHashes)
 				stage6.BlockNumber = blockNumber - 1
 				log.Info("Stage6", "progress", stage6.BlockNumber)
-				if err = stagedsync.SpawnIntermediateHashesStage(stage5, tx, true, tmpDir, ch); err != nil {
+				if err = stagedsync.SpawnIntermediateHashesStage(stage5, tx, true,nil, tmpDir, ch); err != nil {
 					log.Error("Error on ih", "err", err, "block", blockNumber)
 					return fmt.Errorf("spawnIntermediateHashesStage %w", err)
 				}

@@ -6,55 +6,8 @@ import (
 	"sort"
 
 	"github.com/ledgerwatch/turbo-geth/common"
-	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 )
-
-func walkReverse(c ethdb.CursorDupSort, from, to uint64, keyPrefixLen int, f func(blockNum uint64, k, v []byte) error) error {
-	_, _, err := c.Seek(dbutils.EncodeBlockNumber(to + 1))
-	if err != nil {
-		return err
-	}
-	fromDBFormat := FromDBFormat(keyPrefixLen)
-	var blockNum uint64
-	for k, v, err := c.Prev(); k != nil; k, v, err = c.Prev() {
-		if err != nil {
-			return err
-		}
-		blockNum, k, v = fromDBFormat(k, v)
-		if blockNum < from {
-			break
-		}
-
-		err = f(blockNum, k, v)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func walk(c ethdb.CursorDupSort, from, to uint64, keyPrefixLen int, f func(blockN uint64, k, v []byte) error) error {
-	fromDBFormat := FromDBFormat(keyPrefixLen)
-	var blockNum uint64
-	for k, v, err := c.Seek(dbutils.EncodeBlockNumber(from)); k != nil; k, v, err = c.Next() {
-		if err != nil {
-			return err
-		}
-		blockNum, k, v = fromDBFormat(k, v)
-		if blockNum > to {
-			break
-		}
-
-		err = f(blockNum, k, v)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 func findInStorageChangeSet2(c ethdb.CursorDupSort, blockNumber uint64, keyPrefixLen int, k []byte) ([]byte, error) {
 	return doSearch2(

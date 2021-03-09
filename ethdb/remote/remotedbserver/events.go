@@ -13,7 +13,7 @@ const (
 type HeaderSubscription func(*types.Header) error
 
 type Events struct {
-	headerSubscription HeaderSubscription
+	headerSubscriptions []HeaderSubscription
 }
 
 func NewEvents() *Events {
@@ -21,15 +21,18 @@ func NewEvents() *Events {
 }
 
 func (e *Events) AddHeaderSubscription(s HeaderSubscription) {
-	e.headerSubscription = s
+	e.headerSubscriptions = append(e.headerSubscriptions, s)
 }
 
 func (e *Events) OnNewHeader(newHeader *types.Header) {
-	if e.headerSubscription == nil {
-		return
-	}
-	err := e.headerSubscription(newHeader)
-	if err != nil {
-		e.headerSubscription = nil
+	for i, sub := range e.headerSubscriptions {
+		if err := sub(newHeader); err != nil {
+			// remove subscription
+			if i == len(e.headerSubscriptions)-1 {
+				e.headerSubscriptions = e.headerSubscriptions[:i]
+			} else {
+				e.headerSubscriptions = append(e.headerSubscriptions[:i], e.headerSubscriptions[i+1:]...)
+			}
+		}
 	}
 }

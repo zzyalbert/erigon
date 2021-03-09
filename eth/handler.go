@@ -26,6 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/c2h5oh/datasize"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/consensus"
 	"github.com/ledgerwatch/turbo-geth/core"
@@ -74,7 +75,7 @@ type ProtocolManager struct {
 	txpool      txPool
 	chainConfig *params.ChainConfig
 	blockchain  *core.BlockChain
-	chaindb     *ethdb.ObjectDatabase
+	chaindb     ethdb.Database
 	maxPeers    int
 
 	stagedSync   *stagedsync.StagedSync
@@ -104,15 +105,15 @@ type ProtocolManager struct {
 
 	mode          downloader.SyncMode // Sync mode passed from the command line
 	tmpdir        string
-	cacheSize     int
-	batchSize     int
+	cacheSize     datasize.ByteSize
+	batchSize     datasize.ByteSize
 	currentHeight uint64 // Atomic variable to contain chain height
 	snapshotBlock uint64
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb *ethdb.ObjectDatabase, whitelist map[uint64]common.Hash, stagedSync *stagedsync.StagedSync) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, whitelist map[uint64]common.Hash, stagedSync *stagedsync.StagedSync) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	if stagedSync == nil {
 		stagedSync = stagedsync.New(stagedsync.DefaultStages(), stagedsync.DefaultUnwindOrder(), stagedsync.OptionalParameters{})
@@ -175,22 +176,17 @@ func (pm *ProtocolManager) SetTmpDir(tmpdir string) {
 	}
 }
 
-func (pm *ProtocolManager) SetBatchSize(cacheSize, batchSize int) {
+func (pm *ProtocolManager) SetBatchSize(cacheSize, batchSize datasize.ByteSize) {
 	pm.cacheSize = cacheSize
 	pm.batchSize = batchSize
 	if pm.downloader != nil {
 		pm.downloader.SetBatchSize(cacheSize, batchSize)
 	}
 }
-func (pm *ProtocolManager) SetSnapshotBlock(blocknum uint64) {
-	pm.snapshotBlock = blocknum
-	if pm.downloader != nil {
-		pm.downloader.SetSnapshotBlock(blocknum)
-	}
-}
 
 
-func initPm(manager *ProtocolManager, engine consensus.Engine, chainConfig *params.ChainConfig, blockchain *core.BlockChain, chaindb *ethdb.ObjectDatabase) {
+
+func initPm(manager *ProtocolManager, engine consensus.Engine, chainConfig *params.ChainConfig, blockchain *core.BlockChain, chaindb ethdb.Database) {
 	sm, err := ethdb.GetStorageModeFromDB(chaindb)
 	if err != nil {
 		log.Error("Get storage mode", "err", err)
@@ -203,7 +199,6 @@ func initPm(manager *ProtocolManager, engine consensus.Engine, chainConfig *para
 	manager.downloader.SetTmpDir(manager.tmpdir)
 	manager.downloader.SetBatchSize(manager.cacheSize, manager.batchSize)
 	manager.downloader.SetStagedSync(manager.stagedSync)
-	manager.downloader.SetSnapshotBlock(manager.snapshotBlock)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
@@ -439,6 +434,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// Make sure that we first exchange headers and only then announce transactions
 	p.HandshakeOrderMux.Lock()
+
 	// Register the peer locally
 	if err := pm.peers.Register(p, pm.removePeer); err != nil {
 		p.Log().Error("Ethereum peer registration failed", "err", err)
@@ -722,7 +718,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == BlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
-		var request blockBodiesData
+		var request BlockBodiesData
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}

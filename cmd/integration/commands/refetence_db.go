@@ -20,9 +20,8 @@ import (
 )
 
 var stateBuckets = []string{
-	dbutils.CurrentStateBucket,
-	dbutils.AccountChangeSetBucket,
-	dbutils.StorageChangeSetBucket,
+	dbutils.HashedAccountsBucket,
+	dbutils.HashedStorageBucket,
 	dbutils.ContractCodeBucket,
 	dbutils.PlainStateBucket,
 	dbutils.PlainAccountChangeSetBucket,
@@ -30,7 +29,8 @@ var stateBuckets = []string{
 	dbutils.PlainContractCodeBucket,
 	dbutils.IncarnationMapBucket,
 	dbutils.CodeBucket,
-	dbutils.IntermediateTrieHashBucket,
+	dbutils.TrieOfAccountsBucket,
+	dbutils.TrieOfStorageBucket,
 	dbutils.AccountsHistoryBucket,
 	dbutils.StorageHistoryBucket,
 	dbutils.TxLookupPrefix,
@@ -38,7 +38,7 @@ var stateBuckets = []string{
 
 var cmdCompareBucket = &cobra.Command{
 	Use:   "compare_bucket",
-	Short: "compare bucket to the same bucket in '--reference_chaindata'",
+	Short: "compare bucket to the same bucket in '--chaindata.reference'",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := utils.RootContext()
 		if referenceChaindata == "" {
@@ -55,7 +55,7 @@ var cmdCompareBucket = &cobra.Command{
 
 var cmdCompareStates = &cobra.Command{
 	Use:   "compare_states",
-	Short: "compare state buckets to buckets in '--reference_chaindata'",
+	Short: "compare state buckets to buckets in '--chaindata.reference'",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := utils.RootContext()
 		if referenceChaindata == "" {
@@ -70,12 +70,40 @@ var cmdCompareStates = &cobra.Command{
 	},
 }
 
-var cmdToMdbx = &cobra.Command{
-	Use:   "to_mdbx",
-	Short: "copy data from '--chaindata' to '--reference_chaindata'",
+var cmdLmdbToMdbx = &cobra.Command{
+	Use:   "lmdb_to_mdbx",
+	Short: "copy data from '--chaindata' to '--chaindata.to'",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := utils.RootContext()
-		err := toMdbx(ctx, chaindata, toChaindata)
+		err := lmdbToMdbx(ctx, chaindata, toChaindata)
+		if err != nil {
+			log.Error(err.Error())
+			return err
+		}
+		return nil
+	},
+}
+
+var cmdLmdbToLmdb = &cobra.Command{
+	Use:   "lmdb_to_lmdb",
+	Short: "copy data from '--chaindata' to '--chaindata.to'",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := utils.RootContext()
+		err := lmdbToLmdb(ctx, chaindata, toChaindata)
+		if err != nil {
+			log.Error(err.Error())
+			return err
+		}
+		return nil
+	},
+}
+
+var cmdMdbxToMdbx = &cobra.Command{
+	Use:   "mdbx_to_mdbx",
+	Short: "copy data from '--chaindata' to '--chaindata.to'",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := utils.RootContext()
+		err := mdbxToMdbx(ctx, chaindata, toChaindata)
 		if err != nil {
 			log.Error(err.Error())
 			return err
@@ -86,7 +114,7 @@ var cmdToMdbx = &cobra.Command{
 
 var cmdFToMdbx = &cobra.Command{
 	Use:   "f_to_mdbx",
-	Short: "copy data from '--chaindata' to '--reference_chaindata'",
+	Short: "copy data from '--chaindata' to '--chaindata.to'",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := utils.RootContext()
 		err := fToMdbx(ctx, toChaindata)
@@ -111,11 +139,23 @@ func init() {
 
 	rootCmd.AddCommand(cmdCompareStates)
 
-	withChaindata(cmdToMdbx)
-	withToChaindata(cmdToMdbx)
-	withBucket(cmdToMdbx)
+	withChaindata(cmdLmdbToMdbx)
+	withToChaindata(cmdLmdbToMdbx)
+	withBucket(cmdLmdbToMdbx)
 
-	rootCmd.AddCommand(cmdToMdbx)
+	rootCmd.AddCommand(cmdLmdbToMdbx)
+
+	withChaindata(cmdLmdbToLmdb)
+	withToChaindata(cmdLmdbToLmdb)
+	withBucket(cmdLmdbToLmdb)
+
+	rootCmd.AddCommand(cmdLmdbToLmdb)
+
+	withChaindata(cmdMdbxToMdbx)
+	withToChaindata(cmdMdbxToMdbx)
+	withBucket(cmdMdbxToMdbx)
+
+	rootCmd.AddCommand(cmdMdbxToMdbx)
 
 	withToChaindata(cmdFToMdbx)
 	withFile(cmdFToMdbx)
@@ -244,7 +284,7 @@ func fToMdbx(ctx context.Context, to string) error {
 	defer file.Close()
 
 	dst := ethdb.NewMDBX().Path(to).MustOpen()
-	dstTx, err1 := dst.Begin(ctx, nil, ethdb.RW)
+	dstTx, err1 := dst.Begin(ctx, ethdb.RW)
 	if err1 != nil {
 		return err1
 	}
@@ -252,7 +292,7 @@ func fToMdbx(ctx context.Context, to string) error {
 		dstTx.Rollback()
 	}()
 
-	commitEvery := time.NewTicker(30 * time.Second)
+	commitEvery := time.NewTicker(5 * time.Second)
 	defer commitEvery.Stop()
 	fileScanner := bufio.NewScanner(file)
 	endData := []byte("DATA=END")
@@ -348,7 +388,7 @@ MainLoop:
 	if err != nil {
 		return err
 	}
-	dstTx, err = dst.Begin(ctx, nil, ethdb.RW)
+	dstTx, err = dst.Begin(ctx, ethdb.RW)
 	if err != nil {
 		return err
 	}
@@ -359,22 +399,35 @@ MainLoop:
 
 	return nil
 }
-func toMdbx(ctx context.Context, from, to string) error {
+
+func lmdbToMdbx(ctx context.Context, from, to string) error {
 	_ = os.RemoveAll(to)
+	src := ethdb.NewLMDB().Path(from).Flags(func(flags uint) uint { return (flags | lmdb.Readonly) ^ lmdb.NoReadahead }).MustOpen()
+	dst := ethdb.NewMDBX().Path(to).MustOpen()
+	return kv2kv(ctx, src, dst)
+}
 
-	src := ethdb.NewLMDB().Path(from).Flags(func(flags uint) uint {
-		return (flags | lmdb.Readonly) ^ lmdb.NoReadahead
-	}).MustOpen()
-	dst := ethdb.NewMDBX().Path(to).Flags(func(flags uint) uint {
-		return flags | mdbx.WriteMap | mdbx.NoMemInit
-	}).MustOpen()
+func lmdbToLmdb(ctx context.Context, from, to string) error {
+	_ = os.RemoveAll(to)
+	src := ethdb.NewLMDB().Path(from).Flags(func(flags uint) uint { return (flags | lmdb.Readonly) ^ lmdb.NoReadahead }).MustOpen()
+	dst := ethdb.NewLMDB().Path(to).MustOpen()
+	return kv2kv(ctx, src, dst)
+}
 
-	srcTx, err1 := src.Begin(ctx, nil, ethdb.RO)
+func mdbxToMdbx(ctx context.Context, from, to string) error {
+	_ = os.RemoveAll(to)
+	src := ethdb.NewMDBX().Path(from).Flags(func(flags uint) uint { return mdbx.Readonly | mdbx.Accede }).MustOpen()
+	dst := ethdb.NewMDBX().Path(to).MustOpen()
+	return kv2kv(ctx, src, dst)
+}
+
+func kv2kv(ctx context.Context, src, dst ethdb.KV) error {
+	srcTx, err1 := src.Begin(ctx, ethdb.RO)
 	if err1 != nil {
 		return err1
 	}
 	defer srcTx.Rollback()
-	dstTx, err1 := dst.Begin(ctx, nil, ethdb.RW)
+	dstTx, err1 := dst.Begin(ctx, ethdb.RW)
 	if err1 != nil {
 		return err1
 	}
@@ -382,7 +435,7 @@ func toMdbx(ctx context.Context, from, to string) error {
 		dstTx.Rollback()
 	}()
 
-	commitEvery := time.NewTicker(60 * time.Second)
+	commitEvery := time.NewTicker(30 * time.Second)
 	defer commitEvery.Stop()
 
 	for name, b := range src.AllBuckets() {
@@ -393,30 +446,31 @@ func toMdbx(ctx context.Context, from, to string) error {
 		c := dstTx.Cursor(name)
 		srcC := srcTx.Cursor(name)
 		var prevK []byte
+		casted, isDupsort := c.(ethdb.CursorDupSort)
+
 		for k, v, err := srcC.First(); k != nil; k, v, err = srcC.Next() {
 			if err != nil {
 				return err
 			}
 
-			if casted, ok := c.(ethdb.CursorDupSort); ok {
+			if isDupsort {
 				if bytes.Equal(k, prevK) {
 					if err = casted.AppendDup(k, v); err != nil {
-						return err
+						panic(err)
 					}
 				} else {
 					if err = casted.Append(k, v); err != nil {
-						return err
+						panic(err)
 					}
 				}
 				prevK = k
 			} else {
 				if err = c.Append(k, v); err != nil {
-					return err
+					panic(err)
 				}
 			}
 
 			select {
-			default:
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-commitEvery.C:
@@ -424,30 +478,32 @@ func toMdbx(ctx context.Context, from, to string) error {
 				if err2 := dstTx.Commit(ctx); err2 != nil {
 					return err2
 				}
-				dstTx, err = dst.Begin(ctx, nil, ethdb.RW)
+				dstTx, err = dst.Begin(ctx, ethdb.RW)
 				if err != nil {
 					return err
 				}
 				c = dstTx.Cursor(name)
+				casted, isDupsort = c.(ethdb.CursorDupSort)
+			default:
 			}
 		}
 		prevK = nil
 
 		// migrate bucket sequences to native mdbx implementation
-		currentID, err := srcTx.Sequence(name, 0)
-		if err != nil {
-			return err
-		}
-		_, err = dstTx.Sequence(name, currentID)
-		if err != nil {
-			return err
-		}
+		//currentID, err := srcTx.Sequence(name, 0)
+		//if err != nil {
+		//	return err
+		//}
+		//_, err = dstTx.Sequence(name, currentID)
+		//if err != nil {
+		//	return err
+		//}
 	}
 	err := dstTx.Commit(context.Background())
 	if err != nil {
 		return err
 	}
-	dstTx, err = dst.Begin(ctx, nil, ethdb.RW)
+	dstTx, err = dst.Begin(ctx, ethdb.RW)
 	if err != nil {
 		return err
 	}
@@ -456,5 +512,6 @@ func toMdbx(ctx context.Context, from, to string) error {
 		return err
 	}
 	srcTx.Rollback()
+	log.Info("done")
 	return nil
 }
