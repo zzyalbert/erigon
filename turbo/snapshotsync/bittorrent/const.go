@@ -11,6 +11,7 @@ import (
 const (
 	DefaultChunkSize = 1024 * 1024
 	LmdbFilename     = "data.mdb"
+	MdbxFilename     = "mdbx.dat"
 
 /*
 snapshot=bodies  active peers=0 seeding=true hash=ea86a38511daad97066fb4878d87fbede1dee4de

@@ -3,13 +3,16 @@ package debug
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
+	"github.com/ledgerwatch/turbo-geth/core/types"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/log"
+	"github.com/ledgerwatch/turbo-geth/rlp"
 	trnt "github.com/ledgerwatch/turbo-geth/turbo/snapshotsync/bittorrent"
 	"os"
 	"testing"
@@ -58,7 +61,7 @@ func TestCanonical(t *testing.T) {
 	t.Log(os.Remove(path2+"/LOCK"))
 	t.Log(os.Remove(path2+"/lock.mdb"))
 
-	info, err := trnt.BuildInfoBytesForLMDBSnapshot(path1)
+	info, err := trnt.BuildInfoBytesForLMDBSnapshot(path1,trnt.LmdbFilename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +72,7 @@ func TestCanonical(t *testing.T) {
 	t.Log(metainfo.HashBytes(infoBytes1))
 
 
-	info2, err := trnt.BuildInfoBytesForLMDBSnapshot(path2)
+	info2, err := trnt.BuildInfoBytesForLMDBSnapshot(path2, trnt.LmdbFilename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +151,7 @@ func TestHeadersCanonical(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info, err := trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath)
+	info, err := trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath,trnt.LmdbFilename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +231,7 @@ func TestAddHeadersToCanonical(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info, err := trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath)
+	info, err := trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath, trnt.LmdbFilename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +287,7 @@ func TestAddHeadersToCanonical(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info, err = trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath)
+	info, err = trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath, trnt.LmdbFilename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +347,7 @@ func TestAddHeadersToCanonical(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info, err = trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath)
+	info, err = trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath, trnt.LmdbFilename)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,4 +357,193 @@ func TestAddHeadersToCanonical(t *testing.T) {
 	}
 	t.Log("from scratch", metainfo.HashBytes(infoBytes1))
 
+}
+
+/*
+43fa9eb6d6678c759be2380cd63371b1b8cc1658
+7ed3ff06f22a7f035aa7f5f54b270c519298c9e8
+
+test1 - d5878339880cea7e07e9b7a6970d6be97301b1ea
+test2 - d5878339880cea7e07e9b7a6970d6be97301b1ea
+ */
+func TestBodiesCanonical(t *testing.T) {
+	snapshotPath1:="/media/b00ris/nvme/tmp/1/test"
+	snapshotPath2:="/media/b00ris/nvme/tmp/2/test"
+	dbPath:="/media/b00ris/nvme/fresh_sync/tg/chaindata/"
+	toBlock:=uint64(11000)
+	err := os.RemoveAll(snapshotPath1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.RemoveAll(snapshotPath2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kv := ethdb.NewLMDB().Path(dbPath).MustOpen()
+
+
+	snKV1 := ethdb.NewMDBX().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return dbutils.BucketsCfg{}
+	}).Path(snapshotPath1).MustOpen()
+	snKV2 := ethdb.NewMDBX().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return dbutils.BucketsCfg{}
+	}).Path(snapshotPath2).MustOpen()
+
+	db := ethdb.NewObjectDatabase(kv)
+	err = snKV1.Update(context.Background(), func(tx ethdb.Tx) error {
+		if err := tx.(ethdb.BucketMigrator).CreateBucket(dbutils.BlockBodyPrefix); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.(ethdb.BucketMigrator).CreateBucket(dbutils.EthTx); err != nil {
+			t.Fatal(err)
+		}
+		return nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	err = snKV2.Update(context.Background(), func(tx ethdb.Tx) error {
+		if err := tx.(ethdb.BucketMigrator).CreateBucket(dbutils.BlockBodyPrefix); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.(ethdb.BucketMigrator).CreateBucket(dbutils.EthTx); err != nil {
+			t.Fatal(err)
+		}
+		return nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	snDB1 := ethdb.NewObjectDatabase(snKV1)
+	snDB2 := ethdb.NewObjectDatabase(snKV2)
+	tx1,err:=snDB1.Begin(context.Background(), ethdb.RW)
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	defer tx1.Rollback()
+
+	tx2,err:=snDB2.Begin(context.Background(), ethdb.RW)
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	defer tx2.Rollback()
+
+	var hash common.Hash
+	var body []byte
+	for i := uint64(1); i <= toBlock; i++ {
+		hash, err = rawdb.ReadCanonicalHash(db, i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body = rawdb.ReadStorageBodyRLP(db, hash, i)
+		if len(body) == 0 {
+			t.Fatal(err)
+		}
+		bodyForStorage := new(types.BodyForStorage)
+		err := rlp.DecodeBytes(body, bodyForStorage)
+		if err != nil {
+			log.Error("Invalid block body RLP", "hash", hash, "err", err)
+			t.Fatal(err)
+		}
+
+		err = tx1.Append(dbutils.BlockBodyPrefix, dbutils.BlockBodyKey(i, hash), body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = tx2.Append(dbutils.BlockBodyPrefix, dbutils.BlockBodyKey(i, hash), body)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if bodyForStorage.TxAmount == 0 {
+			continue
+		}
+		txIdKey := make([]byte, 8)
+		binary.BigEndian.PutUint64(txIdKey, bodyForStorage.BaseTxId)
+		i := uint32(0)
+
+		if err := db.Walk(dbutils.EthTx, txIdKey, 0, func(k, txRlp []byte) (bool, error) {
+
+			innerErr:= tx1.Append(dbutils.EthTx, common.CopyBytes(k), common.CopyBytes(txRlp))
+			if innerErr!=nil {
+				return false, fmt.Errorf("%d %s %s err:%w",i, common.Bytes2Hex(k), common.Bytes2Hex(txRlp), innerErr)
+			}
+			innerErr= tx2.Append(dbutils.EthTx, common.CopyBytes(k), common.CopyBytes(txRlp))
+			if innerErr!=nil {
+				return false, fmt.Errorf("%d %s %s err:%w",i, common.Bytes2Hex(k), common.Bytes2Hex(txRlp), innerErr)
+			}
+			i++
+			return i < bodyForStorage.TxAmount, nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_,err=tx1.Commit()
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	_,err=tx2.Commit()
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	snDB1.Close()
+	snDB2.Close()
+	if true {
+		err = rmMdbxLock(snapshotPath1)
+		if err!=nil {
+			t.Fatal(err)
+		}
+		err = rmMdbxLock(snapshotPath2)
+		if err!=nil {
+			t.Fatal(err)
+		}
+
+	} else {
+		err = rmLmdbLock(snapshotPath1)
+		if err!=nil {
+			t.Fatal(err)
+		}
+
+		err = rmLmdbLock(snapshotPath2)
+		if err!=nil {
+			t.Fatal(err)
+		}
+	}
+
+	info1, err := trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath1, trnt.MdbxFilename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	infoBytes1, err := bencode.Marshal(info1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(metainfo.HashBytes(infoBytes1))
+
+	info2, err := trnt.BuildInfoBytesForLMDBSnapshot(snapshotPath2, trnt.MdbxFilename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	infoBytes2, err := bencode.Marshal(info2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(metainfo.HashBytes(infoBytes2))
+
+}
+
+func rmLmdbLock(snapshotPath string) error  {
+	err := os.Remove(snapshotPath + "/lock.mdb")
+	if err != nil {
+		return err
+	}
+	return os.Remove(snapshotPath + "/LOCK")
+}
+func rmMdbxLock(path string) error  {
+	return os.Remove(path + "/mdbx.lck")
 }

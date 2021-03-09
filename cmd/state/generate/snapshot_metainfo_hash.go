@@ -11,7 +11,7 @@ import (
 func MetaInfoHash(path string) error {
 	t := time.Now()
 	mi := metainfo.MetaInfo{}
-	info, err := bittorrent.BuildInfoBytesForLMDBSnapshot(path)
+	info, err := bittorrent.BuildInfoBytesForLMDBSnapshot(path, bittorrent.LmdbFilename)
 	if err != nil {
 		return err
 	}
