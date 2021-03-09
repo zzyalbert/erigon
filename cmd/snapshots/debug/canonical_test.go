@@ -466,7 +466,6 @@ func TestBodiesCanonical(t *testing.T) {
 		i := uint32(0)
 
 		if err := db.Walk(dbutils.EthTx, txIdKey, 0, func(k, txRlp []byte) (bool, error) {
-
 			innerErr:= tx1.Append(dbutils.EthTx, common.CopyBytes(k), common.CopyBytes(txRlp))
 			if innerErr!=nil {
 				return false, fmt.Errorf("%d %s %s err:%w",i, common.Bytes2Hex(k), common.Bytes2Hex(txRlp), innerErr)
