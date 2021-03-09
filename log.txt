@@ -927,9 +927,4 @@ Date:   Tue Mar 9 09:04:03 2021 +0100
     
     * les: omit '.' in metric namespace
 
-commit be87f769f676cbe3bf028e856160396ed08c64fc
-Author: Marius van der Wijden <m.vanderwijden@live.de>
-Date:   Mon Mar 8 14:23:28 2021 +0100
-
-    core/types: reduce allocations in GasPriceCmp (#22456)
 
