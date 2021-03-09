@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/RoaringBitmap/roaring/roaring64"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/changeset"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
-	"github.com/ledgerwatch/turbo-geth/core/state"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/ethdb/bitmapdb"
 	"github.com/ledgerwatch/turbo-geth/turbo/snapshotsync"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 func init() {
@@ -35,46 +36,7 @@ var generateStateSnapshotV2Cmd = &cobra.Command{
 	},
 }
 
-func GenerateStateSnapshotV2(ctx context.Context, dbPath, snapshotPath string, toBlock uint64, snapshotDir string, snapshotMode string) error {
-	toBlock = 1000
-	dbPath = "/media/b00ris/nvme/fresh_sync/tg/chaindata/"
-	//if snapshotPath == "" {
-	//	return errors.New("empty snapshot path")
-	//}
-
-	//err := os.RemoveAll(snapshotPath)
-	//if err != nil {
-	//	return err
-	//}
-	kv := ethdb.NewLMDB().Path(dbPath).MustOpen()
-
-	if snapshotDir != "" {
-		var mode snapshotsync.SnapshotMode
-		mode, err := snapshotsync.SnapshotModeFromString(snapshotMode)
-		if err != nil {
-			return err
-		}
-
-		kv, err = snapshotsync.WrapBySnapshotsFromDir(kv, snapshotDir, mode)
-		if err != nil {
-			return err
-		}
-	}
-
-	//snkv := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
-	//	return dbutils.BucketsCfg{
-	//		dbutils.PlainStateBucket:        dbutils.BucketConfigItem{},
-	//		dbutils.PlainContractCodeBucket: dbutils.BucketConfigItem{},
-	//		dbutils.CodeBucket:              dbutils.BucketConfigItem{},
-	//		dbutils.StateSnapshotInfoBucket: dbutils.BucketConfigItem{},
-	//	}
-	//}).Path(snapshotPath).MustOpen()
-	//
-	//sndb := ethdb.NewObjectDatabase(snkv)
-	//mt := sndb.NewBatch()
-
-	tx, err := kv.Begin(context.Background(), nil, ethdb.RO)
-	defer tx.Rollback()
+func WalkThroughState(ctx context.Context, tx ethdb.Tx, toBlock uint64, walker func(k,v []byte) (bool,error)) error  {
 	mainCursor := tx.Cursor(dbutils.PlainStateBucket)
 	defer mainCursor.Close()
 	ahCursorBase := tx.Cursor(dbutils.AccountsHistoryBucket)
@@ -106,39 +68,180 @@ func GenerateStateSnapshotV2(ctx context.Context, dbPath, snapshotPath string, t
 	)
 
 	k,v,err:=mainCursor.First()
-	fmt.Println(common.Bytes2Hex(k), common.Bytes2Hex(v), err)
+	if err != nil {
+		return err
+	}
+
+	//fmt.Println(common.Bytes2Hex(k), common.Bytes2Hex(v), err)
 	hAccAddr, aTsEnc, _, ahV,err:=ahCursor.Seek()
 	for hAccAddr != nil && binary.BigEndian.Uint64(aTsEnc) < toBlock {
+		fmt.Println("acc next", binary.BigEndian.Uint64(aTsEnc))
 		hAccAddr, aTsEnc, _, ahV,err = ahCursor.Next()
 		if err != nil {
 			return err
 		}
 	}
-	fmt.Println(common.Bytes2Hex(hAccAddr), len(ahV),  binary.BigEndian.Uint64(aTsEnc), err)
+	//fmt.Println(common.Bytes2Hex(hAccAddr), len(ahV),  binary.BigEndian.Uint64(aTsEnc), err)
 	hStorageAddr, hStorageLoc, tsStorageEnc, hStorageV, err:=shCursor.Seek()
-	for binary.BigEndian.Uint64(tsStorageEnc) < toBlock {
+	for hStorageAddr!=nil && binary.BigEndian.Uint64(tsStorageEnc) < toBlock {
+		fmt.Println(fmt.Println("storage next", binary.BigEndian.Uint64(aTsEnc)))
 		if 	hStorageAddr, hStorageLoc, tsStorageEnc, hStorageV, err = shCursor.Next(); err != nil {
 			return err
 		}
 	}
-	fmt.Println(common.Bytes2Hex(hStorageAddr), common.Bytes2Hex(hStorageLoc), binary.BigEndian.Uint64(tsStorageEnc), len(hStorageV), err)
+	//fmt.Println(common.Bytes2Hex(hStorageAddr), common.Bytes2Hex(hStorageLoc), binary.BigEndian.Uint64(tsStorageEnc), len(hStorageV), err)
 
+	fmt.Println("first")
+	fmt.Println("current", common.Bytes2Hex(k))
+	fmt.Println("acc    ",common.Bytes2Hex(hAccAddr), aTsEnc)
+	fmt.Println("storage",common.Bytes2Hex(hStorageAddr),tsStorageEnc,hStorageLoc)
 	fmt.Println("cycle")
 	goOn := true
 	//var err error
 	for goOn {
-		if common.Bytes2Hex(k)=="0000000000000000ffffffffffffffffffffffff" {
-			fmt.Println()
+		if hStorageAddr==nil&&hAccAddr==nil&&k==nil {
+			break
 		}
-		if len(k)==20 {
-			cmp, br := common.KeyCmp(k, hAccAddr)
-			if br {
-				break
-			}
-			if cmp < 0 {
-				fmt.Println("addr cmp<0", len(k), common.Bytes2Hex(k), len(v))
-				//goOn, err = walker(k, v)
+		if k!=nil {
+			if len(k)==20 {
+				cmp, br := common.KeyCmp(k, hAccAddr)
+				if br {
+					continue
+				}
+				if cmp < 0 {
+					fmt.Println("addr cmp<0", len(k), common.Bytes2Hex(k), len(v))
+					goOn, err = walker(k, v)
+				} else {
+					index := roaring64.New()
+					_, err = index.ReadFrom(bytes.NewReader(ahV))
+					if err != nil {
+						return err
+					}
+					found, ok := bitmapdb.SeekInBitmap64(index, toBlock)
+					changeSetBlock := found
+					if ok {
+						// Extract value from the changeSet
+						csKey := dbutils.EncodeBlockNumber(changeSetBlock)
+						kData, data, err3 := acsCursor.SeekBothRange(csKey, hAccAddr)
+						if err3 != nil {
+							return err3
+						}
+						if !bytes.Equal(kData, csKey) || !bytes.HasPrefix(data, hAccAddr) {
+							return fmt.Errorf("inconsistent account history and changesets, kData %x, csKey %x, data %x, hK %x", kData, csKey, data, hAccAddr)
+						}
+						data = data[common.AddressLength:]
+						if len(data) > 0 { // Skip accounts did not exist
+							goOn, err = walker(hAccAddr, data)
+						}
+					} else if cmp == 0 {
+						fmt.Println("cmp==0", common.Bytes2Hex(k))
+						goOn, err = walker(k, v)
+					}
+				}
+				if err != nil {
+					return err
+				}
+				if goOn {
+					if cmp <= 0 {
+						k, v, err = mainCursor.Next()
+						if err != nil {
+							return err
+						}
+					}
+					if cmp >= 0 {
+						hAccAddr0 := hAccAddr
+						for hAccAddr != nil && (bytes.Equal(hAccAddr0, hAccAddr) || binary.BigEndian.Uint64(aTsEnc) < toBlock) {
+							hAccAddr, aTsEnc, _, ahV, err = ahCursor.Next()
+							if err != nil {
+								return err
+							}
+						}
+					}
+				}
+
+			} else if len(k)==60 {
+				addr:=k[:common.AddressLength]
+				loc:=k[common.AddressLength+common.IncarnationLength:]
+				//incarnationBytes:=k[common.AddressLength:common.AddressLength+common.IncarnationLength]
+				//incarnation:=binary.BigEndian.Uint64(incarnationBytes)
+
+				cmp, br := common.KeyCmp(addr, hStorageAddr)
+				if br {
+					continue
+				}
+				if cmp == 0 {
+					cmp, br = common.KeyCmp(loc, hStorageLoc)
+				}
+				if br {
+					continue
+				}
+
+				//next key in state
+				if cmp < 0 {
+					goOn, err = walker(append(addr, loc...), v)
+					fmt.Println("str cmp<0", common.Bytes2Hex(k), len(v))
+				} else {
+					index := roaring64.New()
+					if _, err = index.ReadFrom(bytes.NewReader(hStorageV)); err != nil {
+						return err
+					}
+					found, ok := bitmapdb.SeekInBitmap64(index, toBlock)
+					changeSetBlock := found
+
+					if ok {
+						// Extract value from the changeSet
+						csKey := make([]byte, 8+common.AddressLength+common.IncarnationLength)
+						copy(csKey[:], dbutils.EncodeBlockNumber(changeSetBlock))
+						copy(csKey[8:], hStorageAddr[:]) // address + incarnation
+						//todo remove default incarnation
+						binary.BigEndian.PutUint64(csKey[8+common.AddressLength:], changeset.DefaultIncarnation)
+						kData, data, err3 := scsCursor.SeekBothRange(csKey, hStorageLoc)
+						if err3 != nil {
+							return err3
+						}
+						if !bytes.Equal(kData, csKey) || !bytes.HasPrefix(data, hStorageLoc) {
+							return fmt.Errorf("inconsistent storage changeset and history kData %x, csKey %x, data %x, hLoc %x", kData, csKey, data, hStorageLoc)
+						}
+						data = data[common.HashLength:]
+						if len(data) > 0 { // Skip deleted entries
+							fmt.Println("cs data>=0", common.Bytes2Hex(hStorageAddr), common.Bytes2Hex(hStorageLoc))
+							goOn, err = walker(append(common.CopyBytes(hStorageAddr), common.CopyBytes(hStorageLoc)...), data)
+						}
+					} else if cmp == 0 {
+						fmt.Println("cmp==0", common.Bytes2Hex(k))
+						goOn, err = walker(append(common.CopyBytes(addr), common.CopyBytes(loc)...), v)
+					}
+				}
+				if err != nil {
+					return err
+				}
+				if goOn {
+					if cmp <= 0 {
+						if k, v, err = mainCursor.Next(); err != nil {
+							return err
+						}
+					}
+					if cmp >= 0 {
+						hAddr0 := hStorageAddr
+						hLoc0 := hStorageLoc
+						//todo почему bytes.Equal(hAddr0, hStorageAddr) &&
+						for hStorageAddr!=nil && hStorageLoc != nil && ((bytes.Equal(hAddr0, hStorageAddr) && bytes.Equal(hLoc0, hStorageLoc)) || binary.BigEndian.Uint64(tsStorageEnc) < toBlock) {
+							if hStorageAddr, hStorageLoc, tsStorageEnc, hStorageV, err = shCursor.Next(); err != nil {
+								return err
+							}
+						}
+					}
+				}
+
 			} else {
+				fmt.Println("incorrect key", len(k), common.Bytes2Hex(k))
+			}
+		} else {
+			cmp, br := common.KeyCmp(hAccAddr, hStorageAddr)
+			if br {
+				continue
+			}
+			if cmp<=0 {
 				index := roaring64.New()
 				_, err = index.ReadFrom(bytes.NewReader(ahV))
 				if err != nil {
@@ -158,63 +261,12 @@ func GenerateStateSnapshotV2(ctx context.Context, dbPath, snapshotPath string, t
 					}
 					data = data[common.AddressLength:]
 					if len(data) > 0 { // Skip accounts did not exist
-						fmt.Println("hst", common.Bytes2Hex(hAccAddr))
-						//goOn, err = walker(hK, data)
+						goOn, err = walker(hAccAddr, data)
 					}
 				} else if cmp == 0 {
 					fmt.Println("cmp==0", common.Bytes2Hex(k))
-					//goOn, err = walker(k, v)
+					goOn, err = walker(k, v)
 				}
-			}
-			if err != nil {
-				return err
-			}
-			if goOn {
-				if cmp <= 0 {
-					k, v, err = mainCursor.Next()
-					if err != nil {
-						return err
-					}
-					for k != nil  {
-						//fmt.Println("skip", len(k), common.Bytes2Hex(k))
-						k, v, err = mainCursor.Next()
-						if err != nil {
-							return err
-						}
-					}
-				}
-				if cmp >= 0 {
-					hAccAddr0 := hAccAddr
-					for hAccAddr != nil && (bytes.Equal(hAccAddr0, hAccAddr) || binary.BigEndian.Uint64(aTsEnc) < toBlock) {
-						hAccAddr, aTsEnc, _, ahV, err = ahCursor.Next()
-						if err != nil {
-							return err
-						}
-					}
-				}
-			}
-
-		} else if len(k)==60 {
-			addr:=k[:common.AddressLength]
-			loc:=k[common.AddressLength+common.IncarnationLength:]
-			//incarnationBytes:=k[common.AddressLength:common.AddressLength+common.IncarnationLength]
-			//incarnation:=binary.BigEndian.Uint64(incarnationBytes)
-
-			cmp, br := common.KeyCmp(addr, hStorageAddr)
-			if br {
-				break
-			}
-			if cmp == 0 {
-				cmp, br = common.KeyCmp(loc, hStorageLoc)
-			}
-			if br {
-				break
-			}
-
-			//next key in state
-			if cmp < 0 {
-				//goOn, err = walker(addr, loc, v)
-				fmt.Println("str cmp<0", common.Bytes2Hex(k), len(v))
 			} else {
 				index := roaring64.New()
 				if _, err = index.ReadFrom(bytes.NewReader(hStorageV)); err != nil {
@@ -235,42 +287,100 @@ func GenerateStateSnapshotV2(ctx context.Context, dbPath, snapshotPath string, t
 						return err3
 					}
 					if !bytes.Equal(kData, csKey) || !bytes.HasPrefix(data, hStorageLoc) {
-						return fmt.Errorf("inconsistent storage changeset and history kData %x, csKey %x, data %x, hLoc %x", kData, csKey, data, hLoc)
+						return fmt.Errorf("inconsistent storage changeset and history kData %x, csKey %x, data %x, hLoc %x", kData, csKey, data, hStorageLoc)
 					}
 					data = data[common.HashLength:]
 					if len(data) > 0 { // Skip deleted entries
-						//goOn, err = walker(hAddr, hLoc, data)
 						fmt.Println("cs data>=0", common.Bytes2Hex(hStorageAddr), common.Bytes2Hex(hStorageLoc))
-					}
-				} else if cmp == 0 {
-					fmt.Println("cmp==0", common.Bytes2Hex(k))
-					//goOn, err = walker(addr, loc, v)
-				}
-			}
-			if err != nil {
-				return err
-			}
-			if goOn {
-				if cmp <= 0 {
-					if k, v, err = mainCursor.Next(); err != nil {
-						return err
-					}
-				}
-				if cmp >= 0 {
-					hLoc0 := hStorageLoc
-					for hLoc != nil && (bytes.Equal(hLoc0, hStorageLoc) || binary.BigEndian.Uint64(tsStorageEnc) < toBlock) {
-						if hAddr, hLoc, tsEnc, hV, err2 = hCursor.Next(); err2 != nil {
-							return err2
-						}
+						goOn, err = walker(append(common.CopyBytes(hStorageAddr), common.CopyBytes(hStorageLoc)...), data)
 					}
 				}
 			}
 
-		} else {
-			fmt.Println("incorrect key", common.Bytes2Hex(k))
+			if goOn {
+				if cmp <= 0 {
+					hAccAddr0 := hAccAddr
+					for hAccAddr != nil && (bytes.Equal(hAccAddr0, hAccAddr) || binary.BigEndian.Uint64(aTsEnc) < toBlock) {
+						hAccAddr, aTsEnc, _, ahV, err = ahCursor.Next()
+						if err != nil {
+							return err
+						}
+					}
+				}
+				if cmp > 0 {
+					hAddr0 := hStorageAddr
+					hLoc0 := hStorageLoc
+					for hStorageAddr!=nil && hStorageLoc != nil && ((bytes.Equal(hAddr0, hStorageAddr)&& bytes.Equal(hLoc0, hStorageLoc)) || binary.BigEndian.Uint64(tsStorageEnc) < toBlock) {
+						if hStorageAddr, hStorageLoc, tsStorageEnc, hStorageV, err = shCursor.Next(); err != nil {
+							return err
+						}
+					}
+				}
+			}
 		}
 	}
 	return err
+
+}
+
+func GenerateStateSnapshotV2(ctx context.Context, dbPath, snapshotPath string, toBlock uint64, snapshotDir string, snapshotMode string) error {
+	toBlock = 1000
+	snapshotPath="/media/b00ris/nvme/tmp/statev2"
+	dbPath = "/media/b00ris/nvme/fresh_sync/tg/chaindata/"
+	if snapshotPath == "" {
+		return errors.New("empty snapshot path")
+	}
+	snKV:=ethdb.NewLMDB().Path(snapshotPath).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_state]
+	}).MustOpen()
+	err := os.RemoveAll(snapshotPath)
+	if err != nil {
+		return err
+	}
+	kv := ethdb.NewLMDB().Path(dbPath).MustOpen()
+
+	if snapshotDir != "" {
+		var mode snapshotsync.SnapshotMode
+		mode, err := snapshotsync.SnapshotModeFromString(snapshotMode)
+		if err != nil {
+			return err
+		}
+
+		kv, err = snapshotsync.WrapBySnapshotsFromDir(kv, snapshotDir, mode)
+		if err != nil {
+			return err
+		}
+	}
+
+	sndb:=ethdb.NewObjectDatabase(snKV)
+	batch:=sndb.NewBatch()
+	tx, err:=kv.Begin(ctx, nil, ethdb.RO)
+	if err!=nil {
+		return err
+	}
+	err=WalkThroughState(ctx, tx, toBlock, func(k, v []byte) (bool, error) {
+		innerErr:=batch.Put(dbutils.PlainStateBucket, k, v)
+		if innerErr!=nil {
+			return false, innerErr
+		}
+		return true, nil
+	})
+	if err!=nil {
+		return fmt.Errorf("walk %w", err)
+	}
+
+	//snkv := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+	//	return dbutils.BucketsCfg{
+	//		dbutils.PlainStateBucket:        dbutils.BucketConfigItem{},
+	//		dbutils.PlainContractCodeBucket: dbutils.BucketConfigItem{},
+	//		dbutils.CodeBucket:              dbutils.BucketConfigItem{},
+	//		dbutils.StateSnapshotInfoBucket: dbutils.BucketConfigItem{},
+	//	}
+	//}).Path(snapshotPath).MustOpen()
+	//
+	//sndb := ethdb.NewObjectDatabase(snkv)
+	//mt := sndb.NewBatch()
+
 	//for i:=0; i<1000; i++ {
 	//	k,v,err:=mainCursor.Next()
 	//	fmt.Println(len(k), common.Bytes2Hex(k), common.Bytes2Hex(v), err)

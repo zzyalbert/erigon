@@ -901,6 +901,176 @@ func TestCustomHeadersSnapshot(t *testing.T) {
 	//t.Log(keysNum)
 }
 
+func TestCustomStateSnapshot(t *testing.T) {
+	pathState :="/media/b00ris/nvme/tmp/bnstate/state.sn"
+	//pathData:="/media/b00ris/nvme/tmp/bnstate/data.sn"
+	os.Remove(pathState)
+	//os.Remove(pathData)
+	fkeys, err:=os.Create(pathState)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	//fdata, err:=os.Create(pathData)
+	//if err!=nil {
+	//	t.Fatal(err)
+	//}
+
+	kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/state/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_state]
+	}).MustOpen()
+	db:=ethdb.NewObjectDatabase(kv)
+	var i uint64 =0
+	var contractsWithStorageNum uint64 =0
+	var accounts uint64 =0
+	var storage uint64 =0
+	prevKey:=[]byte{}
+
+	err = db.Walk(dbutils.PlainStateBucket, []byte{}, 0, func(k, v []byte) (bool, error) {
+		kkk:=common.CopyBytes(k)
+		if len(prevKey)==20 && len(k)>20 {
+			contractsWithStorageNum++
+			_, err = fkeys.Write(kkk[:28])
+			if err!=nil {
+				t.Fatal(err)
+			}
+		}
+		if len(k)==20 {
+			accounts++
+		}
+		if len(k)>20 {
+			storage++
+			kkk=kkk[28:]
+
+		}
+		_, err = fkeys.Write(common.CopyBytes(kkk))
+		if err!=nil {
+			t.Fatal(err)
+		}
+		_, err = fkeys.Write([]byte{uint8(len(v))})
+		if err!=nil {
+			t.Fatal(err)
+		}
+
+		_, err = fkeys.Write(common.CopyBytes(v))
+		if err!=nil {
+			t.Fatal(err)
+		}
+		i++
+		if i%1000000 == 0 {
+			fmt.Println(i, len(k), common.Bytes2Hex(k), contractsWithStorageNum, accounts, storage)
+		}
+		prevKey=common.CopyBytes(k)
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	t.Log(contractsWithStorageNum)
+	t.Log(i)
+	/*
+	508000000 60 ff488fd296c38a24cccc60b43dd7254810dab64e000000000000000198264eb92dda6c692c7363b9e3a8061d4b8b3b650599834b5970330da5feb4bc 13002513 112135508 395864492
+	509000000 60 ffe02ee4c69edf1b340fcad64fbd6b37a7b9e2650000000000000001f4f5f27cdb929e95d582add19104f5bfdebb05df585b44d17caa79f36d371dca 13032579 112392744 396607256
+	    debug_test.go:963: 13038776
+	    debug_test.go:964: 509211221
+	--- PASS: TestCustomStateSnapshot (2564.29s)
+	 */
+}
+
+func TestSizesCheck0(t *testing.T) {
+	for i:=1; i<=32; i++ {
+		num:=1
+		for j:=1;j<=i; j++ {
+			num*=16
+		}
+		fmt.Println(i, (i+8)*num, (i+8)*num/1024)
+	}
+}
+func TestSizesCheck1(t *testing.T) {
+	pathWith :="/media/b00ris/nvme/tmp/with.json"
+	pathWithout :="/media/b00ris/nvme/tmp/without.json"
+	os.Remove(pathWithout)
+	os.Remove(pathWith)
+	fw,err:=os.Create(pathWith)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	fwo,err:=os.Create(pathWithout)
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+
+	kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/state/").Flags(func(u uint) uint {
+		return u|lmdb.Readonly
+	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_state]
+	}).MustOpen()
+	db:=ethdb.NewObjectDatabase(kv)
+	mpWithoutStorage:=make(map[int]map[string]uint64)
+	mpWithStorage:=make(map[int]map[string]uint64)
+	numOfBytes:=4
+	for i:=0;i<=numOfBytes; i++ {
+		mpWithStorage[i]= map[string]uint64{}
+		mpWithoutStorage[i]= map[string]uint64{}
+	}
+	y:=uint64(0)
+	err = db.Walk(dbutils.PlainStateBucket, []byte{}, 0, func(k, v []byte) (bool, error) {
+		kk:=common.Bytes2Hex(k)
+		if len(k)==20 {
+			for i:=0; i<numOfBytes; i++ {
+				mpWithoutStorage[i][kk[:i]]++
+			}
+		}
+		for i:=0; i<numOfBytes; i++ {
+			mpWithStorage[i][kk[:i]]++
+		}
+		y++
+		if y%1000000 ==0 {
+			fmt.Println(y, common.Bytes2Hex(k))
+			fmt.Println()
+			for i:=0; i<=numOfBytes; i++ {
+				maxNum:=uint64(0)
+				for _,v:=range mpWithoutStorage[i] {
+					if v>maxNum {
+						maxNum=v
+					}
+				}
+				fmt.Println("i", i, maxNum)
+			}
+		}
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	fmt.Println(len(mpWithStorage))
+	fmt.Println(len(mpWithoutStorage))
+	err = json.NewEncoder(fw).Encode(mpWithStorage)
+	if err!=nil {
+		t.Fatal(err)
+	}
+
+	err = json.NewEncoder(fwo).Encode(mpWithoutStorage)
+	if err!=nil {
+		t.Fatal(err)
+	}
+/*
+	509000000 ffe02ee4c69edf1b340fcad64fbd6b37a7b9e2650000000000000001f4f5f27cdb929e95d582add19104f5bfdebb05df585b44d17caa79f36d371dca
+
+	i 0 112392744
+	i 1 7271663
+	i 2 603207
+	i 3 53501
+	i 4 0
+	5
+	5
+	--- PASS: TestSizesCheck1 (411.60s)
+
+*/
+}
+
 func TestName1(t *testing.T) {
 
 	//kv:=ethdb.NewLMDB().Path("/media/b00ris/nvme/sync115/tg/snapshots/headers/").Flags(func(u uint) uint {
@@ -997,6 +1167,7 @@ func TestName3(t *testing.T) {
 		k1,v1 = k, v
 		//fmt.Println("k:",common.Bytes2Hex(k))
 		//fmt.Println("v:", common.Bytes2Hex(v))
+		fmt.Println(len(v))
 		//if i>3 {
 		//	return false, nil
 		//}
@@ -1483,8 +1654,8 @@ func TestRandomReadBothTest(t *testing.T) {
 		t.Fatal(err)
 	}
 	_=origDB
-	numOfKeys :=100000
-	numOfCycles:=10000
+	numOfKeys :=1000000
+	numOfCycles:=10
 	keysList:=make([][]byte, 0, numOfKeys)
 	for i:=0; i< numOfKeys; i++ {
 		id:=rand.Int31n(11499998)+1
@@ -1574,7 +1745,20 @@ func TestRandomReadBothTest(t *testing.T) {
 	numOfCycles:=10000
 	bindb 58m52.936712543s
 	lmdb 41m46.417327109s
+
+
+	numOfKeys :=100000
+	numOfCycles:=10
+	bindb 18.425298557s
+	lmdb 14.996675294s
+
+	numOfKeys :=1000000
+	numOfCycles:=10
+	bindb 1m25.070405663s
+	lmdb 1m38.314928144s
+
 	 */
+	t.Log(os.Getpagesize())
 }
 /*
 10000000
@@ -1701,3 +1885,28 @@ total:  23654
 Total hashed: 32965
 Total plain: 27138
  */
+
+func TestHeaderSize(t *testing.T) {
+	t.Log(common.HashLength*5 + common.AddressLength + 8*3+256+common.HashLength+2*8+8)
+}
+
+/*
+
+type Header struct {
+	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+	Coinbase    common.Address `json:"miner"            gencodec:"required"`
+	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
+	Number      *big.Int       `json:"number"           gencodec:"required"`
+	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
+	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
+	Time        uint64         `json:"timestamp"        gencodec:"required"`
+	Extra       []byte         `json:"extraData"        gencodec:"required"`
+	MixDigest   common.Hash    `json:"mixHash"`
+	Nonce       BlockNonce     `json:"nonce"`
+} */
+

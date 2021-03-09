@@ -118,12 +118,14 @@ func (b *BinTX) GetOne(bucket string, seek []byte) (val []byte, err error) {
 		}
 	}
 
-	_,err=b.kv.index.Seek(int64(8+index*(40+8+8)), io.SeekStart)
-	if err!=nil {
-		return  nil, err
-	}
+	//_,err=b.kv.index.Seek(int64(8+index*(40+8+8)), io.SeekStart)
+	//if err!=nil {
+	//	return  nil, err
+	//}
 
-	_, err=io.ReadFull(b.kv.index, b.key)
+
+	//_, err=io.ReadFull(b.kv.index, b.key)
+	_,err=b.kv.index.ReadAt(b.key, int64(8+index*(40+8+8)))
 	if err!=nil {
 		return  nil, err
 	}
@@ -135,12 +137,13 @@ func (b *BinTX) GetOne(bucket string, seek []byte) (val []byte, err error) {
 		return nil, ErrKeyNotFound
 	}
 	v:=make([]byte, binary.BigEndian.Uint64(b.key[48:56]))
-	_, err = b.kv.data.Seek(int64(binary.BigEndian.Uint64(b.key[40:48])), io.SeekStart)
-	if err!=nil {
-		return  nil, err
-	}
+	//_, err = b.kv.data.Seek(int64(binary.BigEndian.Uint64(b.key[40:48])), io.SeekStart)
+	//if err!=nil {
+	//	return  nil, err
+	//}
 
-	_, err=io.ReadFull(b.kv.data, v)
+	_,err=b.kv.data.ReadAt(v, int64(binary.BigEndian.Uint64(b.key[40:48])))
+	//_, err=io.ReadFull(b.kv.data, v)
 	if err!=nil {
 		return  nil, err
 	}
