@@ -621,7 +621,7 @@ func cacheWarmUpIfNeed(db ethdb.Tx, cache *shards.StateCache) error {
 		if len(k) > 2 {
 			return true, nil
 		}
-		hasState, hasTree, hasHash, hashes, _ := trie.UnmarshalTrieNodeTyped(v)
+		hasState, hasTree, hasHash, hashes := trie.UnmarshalTrieNodeTyped(v)
 		cache.SetAccountHashesRead(k, hasState, hasTree, hasHash, hashes)
 		return true, nil
 	}); err != nil {
