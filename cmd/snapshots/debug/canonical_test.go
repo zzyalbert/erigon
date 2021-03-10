@@ -370,7 +370,7 @@ func TestBodiesCanonical(t *testing.T) {
 	snapshotPath1:="/media/b00ris/nvme/tmp/1/test"
 	snapshotPath2:="/media/b00ris/nvme/tmp/2/test"
 	dbPath:="/media/b00ris/nvme/fresh_sync/tg/chaindata/"
-	toBlock:=uint64(11000)
+	toBlock:=uint64(50000)
 	err := os.RemoveAll(snapshotPath1)
 	if err != nil {
 		t.Fatal(err)
@@ -449,6 +449,7 @@ func TestBodiesCanonical(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		fmt.Println(i, hash.String(), bodyForStorage.BaseTxId, bodyForStorage.TxAmount)
 		err = tx1.Append(dbutils.BlockBodyPrefix, dbutils.BlockBodyKey(i, hash), body)
 		if err != nil {
 			t.Fatal(err)
@@ -466,6 +467,7 @@ func TestBodiesCanonical(t *testing.T) {
 		i := uint32(0)
 
 		if err := db.Walk(dbutils.EthTx, txIdKey, 0, func(k, txRlp []byte) (bool, error) {
+			fmt.Println("k:", binary.BigEndian.Uint64(k), common.Bytes2Hex(k), common.Bytes2Hex(txRlp))
 			innerErr:= tx1.Append(dbutils.EthTx, common.CopyBytes(k), common.CopyBytes(txRlp))
 			if innerErr!=nil {
 				return false, fmt.Errorf("%d %s %s err:%w",i, common.Bytes2Hex(k), common.Bytes2Hex(txRlp), innerErr)

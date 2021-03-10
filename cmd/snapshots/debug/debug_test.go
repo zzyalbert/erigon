@@ -39,7 +39,7 @@ func TestDebugState(t *testing.T) {
 	addr := []byte{119, 218, 94, 108, 114, 251, 54, 188, 225, 217, 121, 143, 123, 205, 241, 209, 143, 69, 156, 46}
 	t.Log(dbNew.Get(dbutils.PlainStateBucket, addr))
 	//i:=0
-	err = dbNew.ClearBuckets(dbutils.CurrentStateBucket, dbutils.ContractCodeBucket, dbutils.IntermediateTrieHashBucket)
+	err = dbNew.ClearBuckets(dbutils.HashedAccountsBucket, dbutils.ContractCodeBucket,dbutils.HashedStorageBucket, dbutils.TrieOfAccountsBucket, dbutils.TrieOfStorageBucket)
 	if err!=nil {
 		t.Fatal()
 	}
@@ -436,7 +436,7 @@ func TestTxLookupData(t *testing.T) {
 	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_bodies]
 	}).MustOpen()
-	tx,err:=kvb.Begin(context.Background(), nil, ethdb.RO)
+	tx,err:=kvb.Begin(context.Background(), ethdb.RO)
 	if err!=nil {
 		t.Fatal(err)
 	}
@@ -1206,7 +1206,7 @@ func TestBinKVCheck(t *testing.T) {
 	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
 	}).MustOpen()
-	tx,err:=kv2.Begin(context.Background(), nil, ethdb.RO)
+	tx,err:=kv2.Begin(context.Background(), ethdb.RO)
 	if err!=nil {
 		t.Fatal(err)
 	}
@@ -1252,7 +1252,7 @@ func TestBinKVCheckV2(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer kv.Close()
-	tx,err:=kv.Begin(context.Background(), nil, ethdb.RO)
+	tx,err:=kv.Begin(context.Background(), ethdb.RO)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1263,7 +1263,7 @@ func TestBinKVCheckV2(t *testing.T) {
 	}).WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
 		return snapshotsync.BucketConfigs[snapshotsync.SnapshotType_headers]
 	}).MustOpen()
-	tx2,err:=kv2.Begin(context.Background(), nil, ethdb.RO)
+	tx2,err:=kv2.Begin(context.Background(), ethdb.RO)
 	if err!=nil {
 		t.Fatal(err)
 	}
@@ -1498,7 +1498,7 @@ func TestCompareWithPostProcessing(t *testing.T) {
 
 
 
-	tx,err:=snkv2.Begin(context.Background(), nil, ethdb.RO)
+	tx,err:=snkv2.Begin(context.Background(), ethdb.RO)
 	c:=tx.Cursor(dbutils.HeaderPrefix)
 	korig, vorig,err:=c.First()
 	if err!=nil {

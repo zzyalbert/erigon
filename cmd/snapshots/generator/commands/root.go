@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+
 func init() {
 	utils.CobraFlags(rootCmd, append(debug.Flags, utils.MetricFlags...))
 
@@ -46,6 +47,7 @@ var (
 	chaindata    string
 	snapshotFile string
 	block        uint64
+	dbType       string
 	snapshotDir  string
 	snapshotMode string
 )
@@ -72,6 +74,10 @@ func must(err error) {
 func withBlock(cmd *cobra.Command) {
 	cmd.Flags().Uint64Var(&block, "block", 1, "specifies a block number for operation")
 }
+
+func withDbType(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&dbType, "dbtype", "lmdb", "specifies a block number for operation")
+}
 func withSnapshotData(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&snapshotMode, "snapshotMode", "", "set of snapshots to use")
 	cmd.Flags().StringVar(&snapshotDir, "snapshotDir", "", "snapshot dir")
@@ -85,3 +91,4 @@ func withChaindata(cmd *cobra.Command) {
 func withSnapshotFile(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&snapshotFile, "snapshot", "", "path where to write the snapshot file")
 }
+
