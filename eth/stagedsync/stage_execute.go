@@ -424,16 +424,16 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 			if err := writeAccountPlain(logPrefix, tx, key, acc); err != nil {
 				return err
 			}
-			if params.Cache != nil {
-				params.Cache.SetAccountWrite([]byte(key), &acc)
-			}
+			//if params.Cache != nil {
+			//	params.Cache.SetAccountWrite([]byte(key), &acc)
+			//}
 		} else {
 			if err := deleteAccountPlain(tx, key); err != nil {
 				return err
 			}
-			if params.Cache != nil {
-				params.Cache.SetAccountDelete([]byte(key))
-			}
+			//if params.Cache != nil {
+			//	params.Cache.SetAccountDelete([]byte(key))
+			//}
 		}
 	}
 
@@ -443,16 +443,16 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 			if err := tx.Put(stateBucket, k[:storageKeyLength], value); err != nil {
 				return err
 			}
-			if params.Cache != nil {
-				params.Cache.SetStorageWrite(k[:20], binary.BigEndian.Uint64(k[20:28]), k[28:], value)
-			}
+			//if params.Cache != nil {
+			//	params.Cache.SetStorageWrite(k[:20], binary.BigEndian.Uint64(k[20:28]), k[28:], value)
+			//}
 		} else {
 			if err := tx.Delete(stateBucket, k[:storageKeyLength], nil); err != nil {
 				return err
 			}
-			if params.Cache != nil {
-				params.Cache.SetStorageDelete(k[:20], binary.BigEndian.Uint64(k[20:28]), k[28:])
-			}
+			//if params.Cache != nil {
+			//	params.Cache.SetStorageDelete(k[:20], binary.BigEndian.Uint64(k[20:28]), k[28:])
+			//}
 		}
 	}
 
