@@ -267,7 +267,7 @@ func GenStructStep(
 					hasBranch[maxLen-1] |= 1 << curr[maxLen-1]
 				}
 				if trace {
-					fmt.Printf("Branch: %x, %b, %b, %b\n", curr[:maxLen], hasHash, hasBranch, groups)
+					//fmt.Printf("Branch: %x, %b, %b, %b\n", curr[:maxLen], hasHash, hasBranch, groups)
 				}
 			}
 

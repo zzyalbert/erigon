@@ -35,16 +35,22 @@ go run -trimpath -tags 'mdbx' ./cmd/integration stage_trie --chaindata=/media/al
 
 go run -trimpath -tags 'mdbx' ./cmd/integration stage_hash_state --chaindata=/home/alex/data/lmdb/tg/chaindata --unwind=1500
 go run -trimpath -tags 'mdbx' ./cmd/integration stage_exec --chaindata=/home/alex/data/lmdb/tg/chaindata --unwind=1500
-go run -trimpath -tags 'mdbx' ./cmd/integration stage_trie --chaindata=/home/alex/data/lmdb/tg/chaindata
+go run -trimpath -tags 'mdbx' ./cmd/integration stage_trie --chaindata=/home/alex/data/lmdb/tg/chaindata --reset
 
 
+
+./build/bin/mdb_dump -s trie_account /home/alex/data/lmdb/tg/chaindata  > trie_account.dump
+./build/bin/mdb_dump -s trie_storage /home/alex/data/lmdb/tg/chaindata > trie_storage.dump
 
 go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020000 --integrity.slow=false > 1.txt
 go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020000 > 2.txt
 
 
-go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020400 --integrity.slow=false > 1.txt
-go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020100 --integrity.slow=false > 2.txt
+go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --unwind=1 > 1.txt
+go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020918 --integrity.slow=false --integrity.fast=false  > 1.txt
+go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020919 --integrity.slow=false --integrity.fast=false  > 1.txt
+go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020918 --integrity.slow=false --integrity.fast=false > 2.txt
+go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020919 --integrity.slow=false --integrity.fast=false > 2.txt
 */
 
 // ReadDatabaseVersion retrieves the version number of the database.
