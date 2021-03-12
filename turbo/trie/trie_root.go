@@ -361,7 +361,7 @@ func (r *RootHashAggregator) Receive(itemType StreamItem,
 	hasBranch bool,
 	cutoff int,
 ) error {
-	r.traceIf("39782bd9", "0a")
+	r.traceIf("39782bd9e53a08de8b77ea37515cbdab08791dbdce533861171f5e34b20f0f3e", "0a")
 	if storageKey == nil {
 		if r.trace {
 			fmt.Printf("1: %d, %x, %x\n", itemType, accountKey, hash)
