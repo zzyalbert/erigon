@@ -17,6 +17,7 @@
 package trie
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/holiman/uint256"
@@ -271,7 +272,7 @@ func GenStructStep(
 				}
 			}
 
-			if trace && maxLen < 3 {
+			if trace && bytes.HasPrefix(curr[:maxLen], common.FromHex("030907")) {
 				e.printTopHashes(curr[:maxLen], 0, groups[maxLen])
 			}
 			if retain(curr[:maxLen]) {
