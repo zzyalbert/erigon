@@ -350,6 +350,7 @@ func incrementIntermediateHashes(logPrefix string, s *StageState, db ethdb.Datab
 	p.TempDir = tmpdir
 	rl := trie.NewRetainList(0)
 	collect := func(k, v []byte, _ etl.CurrentTableReader, _ etl.LoadNextFunc) error {
+		fmt.Printf("ex: %x,%t\n", k, len(v) == 0)
 		rl.AddKeyWithMarker(k, len(v) == 0)
 		return nil
 	}
