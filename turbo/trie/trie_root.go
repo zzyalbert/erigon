@@ -364,12 +364,12 @@ func (r *RootHashAggregator) Receive(itemType StreamItem,
 	r.traceIf("39782bd9", "")
 	if storageKey == nil {
 		if r.trace {
-			//fmt.Printf("1: %d, %x, %x\n", itemType, accountKey, hash)
+			fmt.Printf("1: %d, %x, %x\n", itemType, accountKey, hash)
 		}
 	} else {
 		if r.trace {
 			//fmt.Printf("%x\n", storageKey)
-			//fmt.Printf("1: %d, %x, %x, %x\n", itemType, accountKey, storageKey, hash)
+			fmt.Printf("1: %d, %x, %x, %x\n", itemType, accountKey, storageKey, hash)
 		}
 	}
 
