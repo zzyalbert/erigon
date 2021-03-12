@@ -42,8 +42,8 @@ import (
 //go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020000
 //
 //
-//go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020100
-//go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020100
+//go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020100 > 1.txt
+//go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020100 > 2.txt
 
 // ReadDatabaseVersion retrieves the version number of the database.
 func ReadDatabaseVersion(db databaseReader) *uint64 {
