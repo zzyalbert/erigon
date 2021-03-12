@@ -149,14 +149,14 @@ func GenStructStep(
 			switch v := data.(type) {
 			case *GenStructStepHashData:
 				if trace {
-					//fmt.Printf("HashData before: %x, %t,%b,%b,%b\n", curr, v.IsBranch, hasHash, hasBranch, groups)
+					fmt.Printf("HashData before: %x, %t,%b,%b,%b\n", curr, v.IsBranch, hasHash, hasBranch, groups)
 				}
 				if v.IsBranch {
 					hasBranch[len(curr)-1] |= 1 << curr[len(curr)-1] // keep track of existing records in DB
 				}
 				hasHash[len(curr)-1] |= 1 << curr[len(curr)-1] // register myself in parent bitmap
 				if trace {
-					//fmt.Printf("HashData: %x, %t,%b,%b,%b\n", curr, v.IsBranch, hasHash, hasBranch, groups)
+					fmt.Printf("HashData: %x, %t,%b,%b,%b\n", curr, v.IsBranch, hasHash, hasBranch, groups)
 				}
 				/* building a hash */
 				if err := e.hash(v.Hash[:]); err != nil {
@@ -192,7 +192,7 @@ func GenStructStep(
 		if buildExtensions {
 			if remainderLen > 0 {
 				if trace {
-					//fmt.Printf("Extension before: %x->%x,%b, %b, %b\n", curr[:remainderStart], curr[remainderStart:remainderStart+remainderLen], hasHash, hasBranch, groups)
+					fmt.Printf("Extension before: %x->%x,%b, %b, %b\n", curr[:remainderStart], curr[remainderStart:remainderStart+remainderLen], hasHash, hasBranch, groups)
 				}
 				// can't use hash of extension node
 				// but must propagate hasBranch bits to keep tracking all existing DB records
@@ -239,7 +239,7 @@ func GenStructStep(
 		if h != nil {
 			if hasHash[maxLen] != 0 || hasBranch[maxLen] != 0 {
 				if trace {
-					//fmt.Printf("why now: %x,%b,%b,%b\n", curr[:maxLen], hasHash, hasBranch, groups)
+					fmt.Printf("why now: %x,%b,%b,%b\n", curr[:maxLen], hasHash, hasBranch, groups)
 				}
 				usefulHashes = e.topHashes(curr[:maxLen], hasHash[maxLen], groups[maxLen])
 				if maxLen != 0 {
@@ -267,7 +267,7 @@ func GenStructStep(
 					hasBranch[maxLen-1] |= 1 << curr[maxLen-1]
 				}
 				if trace {
-					//fmt.Printf("Branch: %x, %b, %b, %b\n", curr[:maxLen], hasHash, hasBranch, groups)
+					fmt.Printf("Branch: %x, %b, %b, %b\n", curr[:maxLen], hasHash, hasBranch, groups)
 				}
 			}
 
