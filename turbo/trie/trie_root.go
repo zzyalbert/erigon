@@ -645,7 +645,7 @@ func (r *RootHashAggregator) genStructAccount() error {
 		//}
 		return r.hc(keyHex, hasState, hasBranch, hasHash, hashes, rootHash)
 	}, data, r.groups, r.hasBranch, r.hasHash,
-		false,
+		true,
 		//r.trace,
 	); err != nil {
 		return err

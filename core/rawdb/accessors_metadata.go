@@ -30,6 +30,21 @@ import (
 	"github.com/ledgerwatch/turbo-geth/rlp"
 )
 
+//go run -trimpath -tags 'mdbx' ./cmd/integration stage_trie --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx
+//
+//go run -trimpath -tags 'mdbx' ./cmd/integration stage_hash_state --chaindata=/home/alex/data/lmdb/tg/chaindata --unwind=1500
+//go run -trimpath -tags 'mdbx' ./cmd/integration stage_exec --chaindata=/home/alex/data/lmdb/tg/chaindata --unwind=1500
+//go run -trimpath -tags 'mdbx' ./cmd/integration stage_trie --chaindata=/home/alex/data/lmdb/tg/chaindata
+//
+//
+//
+//go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020000
+//go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020000
+//
+//
+//go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020100
+//go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020100
+
 // ReadDatabaseVersion retrieves the version number of the database.
 func ReadDatabaseVersion(db databaseReader) *uint64 {
 	var version uint64
