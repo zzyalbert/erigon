@@ -51,6 +51,7 @@ go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/
 go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/media/alex/evo/mdbx2/tg/chaindata --database=mdbx --block=12020919 --integrity.slow=false --integrity.fast=false  > 1.txt
 go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020918 --integrity.slow=false --integrity.fast=false > 2.txt
 go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --block=12020919 --integrity.slow=false --integrity.fast=false > 2.txt
+go run -trimpath -tags 'mdbx' ./cmd/integration state_stages --chaindata=/home/alex/data/lmdb/tg/chaindata --unwind=1000 --integrity.slow=false --integrity.fast=false > 3.txt
 */
 
 // ReadDatabaseVersion retrieves the version number of the database.

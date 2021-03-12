@@ -215,7 +215,7 @@ func GenStructStep(
 				hasBranch = hasBranch[:from]
 				hasHash = hasHash[:from]
 				if trace {
-					//fmt.Printf("Extension: %x, %b, %b, %b\n", curr[remainderStart:remainderStart+remainderLen], hasHash, hasBranch, groups)
+					fmt.Printf("Extension: %x, %b, %b, %b\n", curr[remainderStart:remainderStart+remainderLen], hasHash, hasBranch, groups)
 				}
 				/* building extensions */
 				if retain(curr[:maxLen]) {
