@@ -433,6 +433,23 @@ func (sdb *IntraBlockState) GetCodeHash(addr common.Address) common.Hash {
 	return common.BytesToHash(stateObject.CodeHash())
 }
 
+func (sdb *IntraBlockState) JumpsValid(addr common.Address) bool {
+	sdb.Lock()
+	defer sdb.Unlock()
+
+	if sdb.tracer != nil {
+		err := sdb.tracer.CaptureAccountRead(addr)
+		if sdb.trace {
+			fmt.Println("CaptureAccountRead err", err)
+		}
+	}
+	stateObject := sdb.getStateObject(addr)
+	if stateObject == nil || stateObject.deleted {
+		return false
+	}
+	return stateObject.JumpsValid()
+}
+
 // GetState retrieves a value from the given account's storage trie.
 // DESCRIBED: docs/programmers_guide/guide.md#address---identifier-of-an-account
 func (sdb *IntraBlockState) GetState(addr common.Address, key *common.Hash, value *uint256.Int) {

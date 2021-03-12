@@ -69,6 +69,20 @@ func (r *PlainStateReader) ReadAccountCodeSize(address common.Address, incarnati
 	return len(code), err
 }
 
+func (r *PlainStateReader) ReadAccountJumpsValid(codeHash common.Hash) (bool, error) {
+	if bytes.Equal(codeHash.Bytes(), emptyCodeHash) {
+		return true, nil
+	}
+	res, err := r.db.Get(dbutils.JumpsValidBucket, codeHash.Bytes())
+	if err != nil {
+		return false, err
+	}
+	if err == ethdb.ErrKeyNotFound {
+		return false, nil
+	}
+	return res[0] == 1, nil
+}
+
 func (r *PlainStateReader) ReadAccountIncarnation(address common.Address) (uint64, error) {
 	if b, err := r.db.Get(dbutils.IncarnationMapBucket, address.Bytes()); err == nil {
 		return binary.BigEndian.Uint64(b), nil

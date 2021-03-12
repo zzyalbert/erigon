@@ -80,6 +80,12 @@ var (
 	//value - code hash
 	ContractCodeBucket = "contractCode"
 
+	//key - block number
+	//value - list of addresses whose code are set by the block
+	BlockCodeUpdateBucket = "newCode"
+
+	JumpsValidBucket = "jumpsValid"
+
 	// Incarnations for deleted accounts
 	//key - address
 	//value - incarnation of account when it was last deleted

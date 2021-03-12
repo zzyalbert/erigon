@@ -18,6 +18,7 @@ package vm
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -266,7 +267,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			addrCopy := addr
 			// If the account has no code, we can abort here
 			// The depth-check is already done, and precompiles handled above
-			contract := NewContract(caller, AccountRef(addrCopy), value, gas, evm.vmConfig.SkipAnalysis)
+			jumpsValid := evm.IntraBlockState.JumpsValid(addrCopy)
+			fmt.Printf("******JumpsValid %v->%v\n", addrCopy, jumpsValid)
+			contract := NewContract(caller, AccountRef(addrCopy), value, gas, jumpsValid || evm.vmConfig.SkipAnalysis)
 			contract.SetCallCode(&addrCopy, evm.IntraBlockState.GetCodeHash(addrCopy), code)
 			ret, err = run(evm, contract, input, false)
 			gas = contract.Gas

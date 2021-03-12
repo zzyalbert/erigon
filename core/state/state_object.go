@@ -81,6 +81,7 @@ type stateObject struct {
 	// Write caches.
 	//trie Trie // storage trie, which becomes non-nil on first access
 	code Code // contract bytecode, which gets set when code is loaded
+	jumpsValid bool
 
 	originStorage Storage // Storage cache of original entries to dedup rewrites
 	// blockOriginStorage keeps the values of storage items at the beginning of the block
@@ -93,10 +94,10 @@ type stateObject struct {
 	// Cache flags.
 	// When an object is marked suicided it will be delete from the trie
 	// during the "update" phase of the state transition.
-	dirtyCode bool // true if the code was updated
-	suicided  bool
-	deleted   bool // true if account was deleted during the lifetime of this object
-	created   bool // true if this object represents a newly created contract
+	dirtyCode  bool // true if the code was updated
+	suicided   bool
+	deleted    bool // true if account was deleted during the lifetime of this object
+	created    bool // true if this object represents a newly created contract
 }
 
 // empty returns whether the account is considered empty.
@@ -295,6 +296,7 @@ func (so *stateObject) setIncarnation(incarnation uint64) {
 func (so *stateObject) deepCopy(db *IntraBlockState) *stateObject {
 	stateObject := newObject(db, so.address, &so.data, &so.original)
 	stateObject.code = so.code
+	stateObject.jumpsValid = so.jumpsValid
 	stateObject.dirtyStorage = so.dirtyStorage.Copy()
 	stateObject.originStorage = so.originStorage.Copy()
 	stateObject.blockOriginStorage = so.blockOriginStorage.Copy()
@@ -313,6 +315,11 @@ func (so *stateObject) Address() common.Address {
 	return so.address
 }
 
+func (so *stateObject) JumpsValid() bool {
+	so.Code()
+	return so.jumpsValid
+}
+
 // Code returns the contract code associated with this object, if any.
 func (so *stateObject) Code() []byte {
 	if so.code != nil {
@@ -326,6 +333,13 @@ func (so *stateObject) Code() []byte {
 		so.setError(fmt.Errorf("can't load code hash %x: %v", so.CodeHash(), err))
 	}
 	so.code = code
+
+	jumpsValid, err := so.db.stateReader.ReadAccountJumpsValid(common.BytesToHash(so.CodeHash()))
+	if err != nil {
+		so.setError(fmt.Errorf("can't load code hash %x: %v", so.CodeHash(), err))
+	}
+	so.jumpsValid = jumpsValid
+
 	return code
 }
 
@@ -343,6 +357,11 @@ func (so *stateObject) setCode(codeHash common.Hash, code []byte) {
 	so.code = code
 	so.data.CodeHash = codeHash
 	so.dirtyCode = true
+	jumpsValid, err := so.db.stateReader.ReadAccountJumpsValid(codeHash)
+	if err != nil {
+		so.setError(fmt.Errorf("can't load code hash %x: %v", so.CodeHash(), err))
+	}
+	so.jumpsValid = jumpsValid
 }
 
 func (so *stateObject) SetNonce(nonce uint64) {

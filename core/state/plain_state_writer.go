@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 
 	"github.com/holiman/uint256"
 	"github.com/ledgerwatch/turbo-geth/common/changeset"
@@ -48,6 +50,21 @@ func (w *PlainStateWriter) UpdateAccountCode(address common.Address, incarnation
 	if err := w.db.Put(dbutils.CodeBucket, codeHash[:], code); err != nil {
 		return err
 	}
+
+	var b [8]byte
+	binary.BigEndian.PutUint64(b[:], w.blockNumber)
+	pre, err := w.db.Get(dbutils.BlockCodeUpdateBucket, b[:])
+	if err != nil {
+		return err
+	}
+	post := make([]byte, 0)
+	post = append(post, pre...)
+	post = append(post, codeHash[:]...)
+	if err := w.db.Put(dbutils.BlockCodeUpdateBucket, b[:], post); err != nil {
+		return err
+	}
+	fmt.Printf("new code %v->%v\n", w.blockNumber, hex.EncodeToString(codeHash[:]))
+
 	return w.db.Put(dbutils.PlainContractCodeBucket, dbutils.PlainGenerateStoragePrefix(address[:], incarnation), codeHash[:])
 }
 

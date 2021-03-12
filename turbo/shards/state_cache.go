@@ -1024,3 +1024,7 @@ func (sc *StateCache) WriteSize() int {
 func (sc *StateCache) ReadSize() int {
 	return sc.readSize
 }
+
+func (sc *StateCache) GetJumpsValid(hash common.Hash) (bool, interface{}) {
+
+}

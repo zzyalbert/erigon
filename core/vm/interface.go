@@ -73,6 +73,7 @@ type IntraBlockState interface {
 
 	AddLog(*types.Log)
 	AddPreimage(common.Hash, []byte)
+	JumpsValid(addr common.Address) bool
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM

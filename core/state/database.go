@@ -90,6 +90,7 @@ type StateReader interface {
 	ReadAccountCode(address common.Address, incarnation uint64, codeHash common.Hash) ([]byte, error)
 	ReadAccountCodeSize(address common.Address, incarnation uint64, codeHash common.Hash) (int, error)
 	ReadAccountIncarnation(address common.Address) (uint64, error)
+	ReadAccountJumpsValid(codeHash common.Hash) (bool, error)
 }
 
 type StateWriter interface {
@@ -98,6 +99,7 @@ type StateWriter interface {
 	DeleteAccount(ctx context.Context, address common.Address, original *accounts.Account) error
 	WriteAccountStorage(ctx context.Context, address common.Address, incarnation uint64, key *common.Hash, original, value *uint256.Int) error
 	CreateContract(address common.Address) error
+
 }
 
 type WriterWithChangeSets interface {
@@ -268,6 +270,10 @@ type TrieDbState struct {
 	loader            *trie.SubTrieLoader
 	pw                *PreimageWriter
 	incarnationMap    map[common.Address]uint64 // Temporary map of incarnation for the cases when contracts are deleted and recreated within 1 block
+}
+
+func (tds *TrieDbState) ReadAccountJumpsValid(codeHash common.Hash) (bool, error) {
+	return false, nil
 }
 
 func NewTrieDbState(root common.Hash, db ethdb.Database, blockNr uint64) *TrieDbState {

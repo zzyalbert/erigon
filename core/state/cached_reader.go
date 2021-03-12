@@ -73,6 +73,23 @@ func (cr *CachedReader) ReadAccountCode(address common.Address, incarnation uint
 	return c, nil
 }
 
+func (cr *CachedReader) ReadAccountJumpsValid(codeHash common.Hash) (bool, error) {
+	if bytes.Equal(codeHash[:], emptyCodeHash) {
+		return true, nil
+	}
+	if c, ok := cr.cache.GetJumpsValid(codeHash); ok {
+		return c, nil
+	}
+	c, err := cr.r.ReadAccountJumpsValid(codeHash)
+	if err != nil {
+		return false, err
+	}
+	if cr.cache != nil {
+		cr.cache.SetJumpsValid(codeHash, c)
+	}
+	return c, nil
+}
+
 func (cr *CachedReader) ReadAccountCodeSize(address common.Address, incarnation uint64, codeHash common.Hash) (int, error) {
 	c, err := cr.ReadAccountCode(address, incarnation, codeHash)
 	return len(c), err
