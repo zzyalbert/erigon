@@ -890,16 +890,4 @@ Date:   Sun Mar 14 16:13:25 2021 +0100
     
     * eth/tracers: apply @karalabe's suggested fix
 
-commit 3f74c8e0e504fe7606bc970dff71cf1266a4a9ed
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Sat Mar 13 21:33:30 2021 +0100
-
-    cmd/devp2p: better testcase failure output for ethtests (#22482)
-
-commit 6387c520b724525861539c43b8da98372fc42534
-Author: michael1011 <me@michael1011.at>
-Date:   Fri Mar 12 10:16:19 2021 +0100
-
-    cmd/geth: add ancient datadir flag to snapshot subcommands (#22486)
-
 
