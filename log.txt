@@ -876,18 +876,4 @@ Date:   Mon Mar 15 15:25:45 2021 +0100
     
     * eth/downloader: remove fakepeer
 
-commit c6d45009f1ab46f61ebaa66d71d08d48097cc1a9
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Sun Mar 14 16:13:25 2021 +0100
-
-    eth, les: properly init statedb accesslist during tracing (#22480)
-    
-    * eth/state, les/state: properly init statedb accesslist when tracing, fixes #22475
-    
-    * eth: review comments
-    
-    * eth/tracers: fix compilation err
-    
-    * eth/tracers: apply @karalabe's suggested fix
-
 
