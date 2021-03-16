@@ -815,18 +815,3 @@ Date:   Tue Mar 16 12:53:54 2021 +0100
     
     Metrics are also added on the server side that count the positive and negative replies to served connection queries.
 
-commit 94ab4ea341c34ee692b707928a6da285fab85ea3
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Tue Mar 16 11:15:14 2021 +0100
-
-    core/rawdb: fix transaction indexing/unindexing hashing error (#22457)
-    
-    * core/rawdb: more verbose error logs + better hashing
-    
-    * core/rawdb: add failing testcase
-    
-    * core/rawdb: properly hash transactions while indexing/unindexing
-    
-    * core/rawdb: exit on error + better log msg
-
-
