@@ -843,28 +843,4 @@ Date:   Tue Mar 16 09:53:43 2021 +0100
 
     cmd/clef: docs - link to ethereum org repo (#22400)
 
-commit 99830720f681e5120fc131daaf0ad74d329bb074
-Author: lightclient <14004106+lightclient@users.noreply.github.com>
-Date:   Tue Mar 16 02:48:54 2021 -0600
-
-    core/types: improve comments in new EIP-2718 code (#22402)
-    
-    Responding to these comments:
-    
-        https://github.com/ethereum/go-ethereum/pull/21502/files#r579010962
-        https://github.com/ethereum/go-ethereum/pull/21502/files#r579021565
-        https://github.com/ethereum/go-ethereum/pull/21502/files#r579023510
-        https://github.com/ethereum/go-ethereum/pull/21502/files#r578983734
-
-commit bc47993692a446437b0d91cae758fb6be664050e
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Tue Mar 16 09:43:33 2021 +0100
-
-    tests/fuzzers: fix goroutine leak in les fuzzer (#22455)
-    
-    The oss-fuzz fuzzer has been reporting some failing testcases for les. They're all spurious, and cannot reliably be reproduced. However, running them showed that there was a goroutine leak: the tests created a lot of new clients, which started an exec queue that was never torn down.
-    
-    This PR fixes the goroutine leak, and also a log message which was erroneously formatted.
-
-
 
