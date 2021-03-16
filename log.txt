@@ -866,14 +866,5 @@ Date:   Tue Mar 16 09:43:33 2021 +0100
     
     This PR fixes the goroutine leak, and also a log message which was erroneously formatted.
 
-commit faacc8e0faa89f5b3a7055e86924a95b6a9be944
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Mon Mar 15 15:25:45 2021 +0100
-
-    cmd/geth, eth/downloader: remove copydb command (#22501)
-    
-    * cmd/geth: remove copydb command
-    
-    * eth/downloader: remove fakepeer
 
 
