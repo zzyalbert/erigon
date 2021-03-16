@@ -829,11 +829,4 @@ Date:   Tue Mar 16 11:15:14 2021 +0100
     
     * core/rawdb: exit on error + better log msg
 
-commit 7cbf1d70a7428fdd247882a840c416c80c30454f
-Author: ligi <ligi@ligi.de>
-Date:   Tue Mar 16 09:55:03 2021 +0100
-
-    cmd/clef (docs): fix image background (#22399)
-    
-    Flatten the image so we do not have dark text on dark background
 
