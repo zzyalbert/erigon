@@ -34,7 +34,7 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>. */
 
-#define MDBX_BUILD_SOURCERY f8467b2f2f730d8c516231ac1a197fafb5f8b8a6758e5c978d7e6b38f4b39fb7_v0_9_3_40_g4b8b7d5a
+#define MDBX_BUILD_SOURCERY 715c038673d011f21fe0459c223e6a680ef393328c3fea09d32637ba45d17d89_v0_9_3_35_g21b0f9df
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -1617,6 +1617,14 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
 #error MDBX_ENABLE_REFUND must be defined as 0 or 1
 #endif /* MDBX_ENABLE_REFUND */
 
+/** Controls use of POSIX madvise() hints and friends. */
+#ifndef MDBX_ENABLE_MADVISE
+#define MDBX_ENABLE_MADVISE 1
+#endif
+#if !(MDBX_ENABLE_MADVISE == 0 || MDBX_ENABLE_MADVISE == 1)
+#error MDBX_ENABLE_MADVISE must be defined as 0 or 1
+#endif /* MDBX_ENABLE_MADVISE */
+
 /** Disable some checks to reduce an overhead and detection probability of
  * database corruption to a values closer to the LMDB. */
 #ifndef MDBX_DISABLE_PAGECHECKS
@@ -1860,19 +1868,6 @@ typedef union {
   };
 #endif
 } MDBX_atomic_uint64_t;
-
-/* The minimum number of keys required in a database page.
- * Setting this to a larger value will place a smaller bound on the
- * maximum size of a data item. Data items larger than this size will
- * be pushed into overflow pages instead of being stored directly in
- * the B-tree node. This value used to default to 4. With a page size
- * of 4096 bytes that meant that any item larger than 1024 bytes would
- * go into an overflow page. That also meant that on average 2-3KB of
- * each overflow page was wasted space. The value cannot be lower than
- * 2 because then there would no longer be a tree structure. With this
- * value, items larger than 2KB will go into overflow pages, and on
- * average only 1KB will be wasted. */
-#define MDBX_MINKEYS 2
 
 /* A stamp that identifies a file as an MDBX file.
  * There's nothing special about this value other than that it is easily
@@ -2589,8 +2584,9 @@ struct MDBX_env {
 #define me_lfd me_lck_mmap.fd
 #define me_lck me_lck_mmap.lck
 
-  unsigned me_psize;    /* DB page size, initialized from me_os_psize */
-  uint8_t me_psize2log; /* log2 of DB page size */
+  unsigned me_psize;        /* DB page size, initialized from me_os_psize */
+  unsigned me_leaf_nodemax; /* max size of a leaf-node */
+  uint8_t me_psize2log;     /* log2 of DB page size */
   int8_t me_stuck_meta; /* recovery-only: target meta page or less that zero */
   unsigned me_os_psize; /* OS page size, from mdbx_syspagesize() */
   unsigned me_maxreaders; /* size of the reader table */
@@ -2625,9 +2621,8 @@ struct MDBX_env {
   MDBX_PNL me_retired_pages;
   /* Number of freelist items that can fit in a single overflow page */
   unsigned me_maxgc_ov1page;
-  unsigned me_branch_nodemax; /* max size of a branch-node */
-  uint32_t me_live_reader;    /* have liveness lock in reader table */
-  void *me_userctx;           /* User-settable context */
+  uint32_t me_live_reader; /* have liveness lock in reader table */
+  void *me_userctx;        /* User-settable context */
   MDBX_atomic_uint64_t *me_sync_timestamp;
   MDBX_atomic_uint64_t *me_autosync_period;
   atomic_pgno_t *me_unsynced_pages;
@@ -2916,7 +2911,7 @@ static __maybe_unused __inline void mdbx_jitter4testing(bool tiny) {
 
 /* Default size of memory map.
  * This is certainly too small for any actual applications. Apps should
- * always set the size explicitly using mdbx_env_set_geometry(). */
+ * always set  the size explicitly using mdbx_env_set_mapsize(). */
 #define DEFAULT_MAPSIZE MEGABYTE
 
 /* Number of slots in the reader table.
@@ -3187,17 +3182,14 @@ static void signal_handler(int sig) {
 #endif /* !WINDOWS */
 
 static char *prog;
-static bool quiet = false;
 static size_t lineno;
 static void error(const char *func, int rc) {
-  if (!quiet) {
-    if (lineno)
-      fprintf(stderr, "%s: at input line %" PRIiSIZE ": %s() error %d, %s\n",
-              prog, lineno, func, rc, mdbx_strerror(rc));
-    else
-      fprintf(stderr, "%s: %s() error %d %s\n", prog, func, rc,
-              mdbx_strerror(rc));
-  }
+  if (lineno)
+    fprintf(stderr, "%s: at input line %" PRIiSIZE ": %s() error %d, %s\n",
+            prog, lineno, func, rc, mdbx_strerror(rc));
+  else
+    fprintf(stderr, "%s: %s() error %d %s\n", prog, func, rc,
+            mdbx_strerror(rc));
 }
 
 static char *valstr(char *line, const char *item) {
@@ -3207,10 +3199,8 @@ static char *valstr(char *line, const char *item) {
   if (line[len] != '=') {
     if (line[len] > ' ')
       return nullptr;
-    if (!quiet)
-      fprintf(stderr,
-              "%s: line %" PRIiSIZE ": unexpected line format for '%s'\n", prog,
-              lineno, item);
+    fprintf(stderr, "%s: line %" PRIiSIZE ": unexpected line format for '%s'\n",
+            prog, lineno, item);
     exit(EXIT_FAILURE);
   }
   char *ptr = strchr(line, '\n');
@@ -3227,10 +3217,9 @@ static bool valnum(char *line, const char *item, uint64_t *value) {
   char *end = nullptr;
   *value = strtoull(str, &end, 0);
   if (end && *end) {
-    if (!quiet)
-      fprintf(stderr,
-              "%s: line %" PRIiSIZE ": unexpected number format for '%s'\n",
-              prog, lineno, item);
+    fprintf(stderr,
+            "%s: line %" PRIiSIZE ": unexpected number format for '%s'\n", prog,
+            lineno, item);
     exit(EXIT_FAILURE);
   }
   return true;
@@ -3242,9 +3231,8 @@ static bool valbool(char *line, const char *item, bool *value) {
     return false;
 
   if (u64 > 1) {
-    if (!quiet)
-      fprintf(stderr, "%s: line %" PRIiSIZE ": unexpected value for '%s'\n",
-              prog, lineno, item);
+    fprintf(stderr, "%s: line %" PRIiSIZE ": unexpected value for '%s'\n", prog,
+            lineno, item);
     exit(EXIT_FAILURE);
   }
   *value = u64 != 0;
@@ -3271,17 +3259,17 @@ static MDBX_val kbuf, dbuf;
 
 typedef struct flagbit {
   unsigned bit;
-  unsigned len;
   char *name;
+  unsigned len;
 } flagbit;
 
-#define S(s) STRLENOF(s), s
+#define S(s) s, STRLENOF(s)
 
 flagbit dbflags[] = {
     {MDBX_REVERSEKEY, S("reversekey")}, {MDBX_DUPSORT, S("duplicates")},
     {MDBX_DUPSORT, S("dupsort")},       {MDBX_INTEGERKEY, S("integerkey")},
     {MDBX_DUPFIXED, S("dupfixed")},     {MDBX_INTEGERDUP, S("integerdup")},
-    {MDBX_REVERSEDUP, S("reversedup")}, {0, 0, nullptr}};
+    {MDBX_REVERSEDUP, S("reversedup")}, {0, nullptr, 0}};
 
 static int readhdr(void) {
   /* reset parameters */
@@ -3305,30 +3293,27 @@ static int readhdr(void) {
 
     if (valnum(dbuf.iov_base, "VERSION", &u64)) {
       if (u64 != 3) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": unsupported value %" PRIu64
-                  " for %s\n",
-                  prog, lineno, u64, "VERSION");
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": unsupported value %" PRIu64
+                " for %s\n",
+                prog, lineno, u64, "VERSION");
         exit(EXIT_FAILURE);
       }
       continue;
     }
 
     if (valnum(dbuf.iov_base, "db_pagesize", &u64)) {
-      if (!(mode & GLOBAL) && envinfo.mi_dxb_pagesize != u64) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore value %" PRIu64
-                  " for '%s' in non-global context\n",
-                  prog, lineno, u64, "db_pagesize");
-      } else if (u64 < MDBX_MIN_PAGESIZE || u64 > MDBX_MAX_PAGESIZE) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore unsupported value %" PRIu64
-                  " for %s\n",
-                  prog, lineno, u64, "db_pagesize");
-      } else
+      if (!(mode & GLOBAL) && envinfo.mi_dxb_pagesize != u64)
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore value %" PRIu64
+                " for '%s' in non-global context\n",
+                prog, lineno, u64, "db_pagesize");
+      else if (u64 < MDBX_MIN_PAGESIZE || u64 > MDBX_MAX_PAGESIZE)
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore unsupported value %" PRIu64
+                " for %s\n",
+                prog, lineno, u64, "db_pagesize");
+      else
         envinfo.mi_dxb_pagesize = (uint32_t)u64;
       continue;
     }
@@ -3343,10 +3328,8 @@ static int readhdr(void) {
         mode &= ~PRINT;
         continue;
       }
-      if (!quiet)
-        fprintf(stderr,
-                "%s: line %" PRIiSIZE ": unsupported value '%s' for %s\n", prog,
-                lineno, str, "format");
+      fprintf(stderr, "%s: line %" PRIiSIZE ": unsupported value '%s' for %s\n",
+              prog, lineno, str, "format");
       exit(EXIT_FAILURE);
     }
 
@@ -3356,8 +3339,7 @@ static int readhdr(void) {
         free(subname);
         subname = mdbx_strdup(str);
         if (!subname) {
-          if (!quiet)
-            perror("strdup()");
+          perror("strdup()");
           exit(EXIT_FAILURE);
         }
       }
@@ -3367,10 +3349,9 @@ static int readhdr(void) {
     str = valstr(dbuf.iov_base, "type");
     if (str) {
       if (strcmp(str, "btree") != 0) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": unsupported value '%s' for %s\n",
-                  prog, lineno, str, "type");
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": unsupported value '%s' for %s\n", prog,
+                lineno, str, "type");
         free(subname);
         exit(EXIT_FAILURE);
       }
@@ -3378,61 +3359,53 @@ static int readhdr(void) {
     }
 
     if (valnum(dbuf.iov_base, "mapaddr", &u64)) {
-      if (u64) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore unsupported value 0x%" PRIx64
-                  " for %s\n",
-                  prog, lineno, u64, "mapaddr");
-      }
+      if (u64)
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore unsupported value 0x%" PRIx64
+                " for %s\n",
+                prog, lineno, u64, "mapaddr");
       continue;
     }
 
     if (valnum(dbuf.iov_base, "mapsize", &u64)) {
-      if (!(mode & GLOBAL)) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore value %" PRIu64
-                  " for '%s' in non-global context\n",
-                  prog, lineno, u64, "mapsize");
-      } else if (u64 < MIN_MAPSIZE || u64 > MAX_MAPSIZE64) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore unsupported value 0x%" PRIx64
-                  " for %s\n",
-                  prog, lineno, u64, "mapsize");
-      } else
+      if (!(mode & GLOBAL))
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore value %" PRIu64
+                " for '%s' in non-global context\n",
+                prog, lineno, u64, "mapsize");
+      else if (u64 < MIN_MAPSIZE || u64 > MAX_MAPSIZE64)
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore unsupported value 0x%" PRIx64
+                " for %s\n",
+                prog, lineno, u64, "mapsize");
+      else
         envinfo.mi_mapsize = (size_t)u64;
       continue;
     }
 
     if (valnum(dbuf.iov_base, "maxreaders", &u64)) {
-      if (!(mode & GLOBAL)) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore value %" PRIu64
-                  " for '%s' in non-global context\n",
-                  prog, lineno, u64, "maxreaders");
-      } else if (u64 < 1 || u64 > MDBX_READERS_LIMIT) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore unsupported value 0x%" PRIx64
-                  " for %s\n",
-                  prog, lineno, u64, "maxreaders");
-      } else
+      if (!(mode & GLOBAL))
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore value %" PRIu64
+                " for '%s' in non-global context\n",
+                prog, lineno, u64, "maxreaders");
+      else if (u64 < 1 || u64 > MDBX_READERS_LIMIT)
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore unsupported value 0x%" PRIx64
+                " for %s\n",
+                prog, lineno, u64, "maxreaders");
+      else
         envinfo.mi_maxreaders = (int)u64;
       continue;
     }
 
     if (valnum(dbuf.iov_base, "txnid", &u64)) {
-      if (u64 < MIN_TXNID || u64 > MAX_TXNID) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore unsupported value 0x%" PRIx64
-                  " for %s\n",
-                  prog, lineno, u64, "txnid");
-      } else
-        txnid = u64;
+      if (u64 < MIN_TXNID || u64 > MAX_TXNID)
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore unsupported value 0x%" PRIx64
+                " for %s\n",
+                prog, lineno, u64, "txnid");
+      txnid = u64;
       continue;
     }
 
@@ -3443,22 +3416,20 @@ static int readhdr(void) {
 
     str = valstr(dbuf.iov_base, "geometry");
     if (str) {
-      if (!(mode & GLOBAL)) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore values %s"
-                  " for '%s' in non-global context\n",
-                  prog, lineno, str, "geometry");
-      } else if (sscanf(str,
-                        "l%" PRIu64 ",c%" PRIu64 ",u%" PRIu64 ",s%" PRIu64
-                        ",g%" PRIu64,
-                        &envinfo.mi_geo.lower, &envinfo.mi_geo.current,
-                        &envinfo.mi_geo.upper, &envinfo.mi_geo.shrink,
-                        &envinfo.mi_geo.grow) != 5) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": unexpected line format for '%s'\n",
-                  prog, lineno, "geometry");
+      if (!(mode & GLOBAL))
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore values %s"
+                " for '%s' in non-global context\n",
+                prog, lineno, str, "geometry");
+      else if (sscanf(str,
+                      "l%" PRIu64 ",c%" PRIu64 ",u%" PRIu64 ",s%" PRIu64
+                      ",g%" PRIu64,
+                      &envinfo.mi_geo.lower, &envinfo.mi_geo.current,
+                      &envinfo.mi_geo.upper, &envinfo.mi_geo.shrink,
+                      &envinfo.mi_geo.grow) != 5) {
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": unexpected line format for '%s'\n",
+                prog, lineno, "geometry");
         exit(EXIT_FAILURE);
       }
       continue;
@@ -3466,18 +3437,16 @@ static int readhdr(void) {
 
     str = valstr(dbuf.iov_base, "canary");
     if (str) {
-      if (!(mode & GLOBAL)) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": ignore values %s"
-                  " for '%s' in non-global context\n",
-                  prog, lineno, str, "canary");
-      } else if (sscanf(str, "v%" PRIu64 ",x%" PRIu64 ",y%" PRIu64 ",z%" PRIu64,
-                        &canary.v, &canary.x, &canary.y, &canary.z) != 4) {
-        if (!quiet)
-          fprintf(stderr,
-                  "%s: line %" PRIiSIZE ": unexpected line format for '%s'\n",
-                  prog, lineno, "canary");
+      if (!(mode & GLOBAL))
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": ignore values %s"
+                " for '%s' in non-global context\n",
+                prog, lineno, str, "canary");
+      else if (sscanf(str, "v%" PRIu64 ",x%" PRIu64 ",y%" PRIu64 ",z%" PRIu64,
+                      &canary.v, &canary.x, &canary.y, &canary.z) != 4) {
+        fprintf(stderr,
+                "%s: line %" PRIiSIZE ": unexpected line format for '%s'\n",
+                prog, lineno, "canary");
         exit(EXIT_FAILURE);
       }
       continue;
@@ -3500,23 +3469,21 @@ static int readhdr(void) {
         return MDBX_SUCCESS;
     }
 
-    if (!quiet)
-      fprintf(stderr,
-              "%s: line %" PRIiSIZE ": unrecognized keyword ignored: %s\n",
-              prog, lineno, (char *)dbuf.iov_base);
+    fprintf(stderr,
+            "%s: line %" PRIiSIZE ": unrecognized keyword ignored: %s\n", prog,
+            lineno, (char *)dbuf.iov_base);
   next:;
   }
   return EOF;
 }
 
 static int badend(void) {
-  if (!quiet)
-    fprintf(stderr, "%s: line %" PRIiSIZE ": unexpected end of input\n", prog,
-            lineno);
+  fprintf(stderr, "%s: line %" PRIiSIZE ": unexpected end of input\n", prog,
+          lineno);
   return errno ? errno : MDBX_ENODATA;
 }
 
-static __inline int unhex(unsigned char *c2) {
+static int unhex(unsigned char *c2) {
   int x, c;
   x = *c2++ & 0x4f;
   if (x & 0x40)
@@ -3529,7 +3496,7 @@ static __inline int unhex(unsigned char *c2) {
   return c;
 }
 
-__hot static int readline(MDBX_val *out, MDBX_val *buf) {
+static int readline(MDBX_val *out, MDBX_val *buf) {
   unsigned char *c1, *c2, *end;
   size_t len, l2;
   int c;
@@ -3564,10 +3531,8 @@ __hot static int readline(MDBX_val *out, MDBX_val *buf) {
   while (c1[len - 1] != '\n') {
     buf->iov_base = mdbx_realloc(buf->iov_base, buf->iov_len * 2);
     if (!buf->iov_base) {
-      if (!quiet)
-        fprintf(stderr,
-                "%s: line %" PRIiSIZE ": out of memory, line too long\n", prog,
-                lineno);
+      fprintf(stderr, "%s: line %" PRIiSIZE ": out of memory, line too long\n",
+              prog, lineno);
       return MDBX_ENOMEM;
     }
     c1 = buf->iov_base;
@@ -3653,6 +3618,7 @@ int main(int argc, char *argv[]) {
   MDBX_dbi dbi;
   char *envname = nullptr;
   int envflags = MDBX_SAFE_NOSYNC | MDBX_ACCEDE, putflags = MDBX_UPSERT;
+  bool quiet = false;
   bool rescue = false;
   bool purge = false;
 
@@ -3691,9 +3657,8 @@ int main(int argc, char *argv[]) {
       break;
     case 'f':
       if (freopen(optarg, "r", stdin) == nullptr) {
-        if (!quiet)
-          fprintf(stderr, "%s: %s: open: %s\n", prog, optarg,
-                  mdbx_strerror(errno));
+        fprintf(stderr, "%s: %s: open: %s\n", prog, optarg,
+                mdbx_strerror(errno));
         exit(EXIT_FAILURE);
       }
       break;
@@ -3789,12 +3754,11 @@ int main(int argc, char *argv[]) {
           envinfo.mi_dxb_pagesize ? (intptr_t)envinfo.mi_dxb_pagesize : -1);
     } else {
       if (envinfo.mi_mapsize > MAX_MAPSIZE) {
-        if (!quiet)
-          fprintf(
-              stderr,
-              "Database size is too large for current system (mapsize=%" PRIu64
-              " is great than system-limit %zu)\n",
-              envinfo.mi_mapsize, (size_t)MAX_MAPSIZE);
+        fprintf(
+            stderr,
+            "Database size is too large for current system (mapsize=%" PRIu64
+            " is great than system-limit %zu)\n",
+            envinfo.mi_mapsize, (size_t)MAX_MAPSIZE);
         goto env_close;
       }
       rc = mdbx_env_set_geometry(
@@ -3816,9 +3780,8 @@ int main(int argc, char *argv[]) {
 
   kbuf.iov_len = mdbx_env_get_maxvalsize_ex(env, 0) + 1;
   if (kbuf.iov_len >= INTPTR_MAX / 2) {
-    if (!quiet)
-      fprintf(stderr, "mdbx_env_get_maxkeysize() failed, returns %zu\n",
-              kbuf.iov_len);
+    fprintf(stderr, "mdbx_env_get_maxkeysize() failed, returns %zu\n",
+            kbuf.iov_len);
     goto env_close;
   }
 
@@ -3869,11 +3832,10 @@ int main(int argc, char *argv[]) {
       goto txn_abort;
     }
     if (present_sequence > sequence) {
-      if (!quiet)
-        fprintf(stderr,
-                "present sequence for '%s' value (%" PRIu64
-                ") is greater than loaded (%" PRIu64 ")\n",
-                dbi_name, present_sequence, sequence);
+      fprintf(stderr,
+              "present sequence for '%s' value (%" PRIu64
+              ") is greater than loaded (%" PRIu64 ")\n",
+              dbi_name, present_sequence, sequence);
       rc = MDBX_RESULT_TRUE;
       goto txn_abort;
     }
@@ -3913,9 +3875,8 @@ int main(int argc, char *argv[]) {
       if (rc == MDBX_SUCCESS)
         rc = readline(&data, &dbuf);
       if (rc) {
-        if (!quiet)
-          fprintf(stderr, "%s: line %" PRIiSIZE ": failed to read key value\n",
-                  prog, lineno);
+        fprintf(stderr, "%s: line %" PRIiSIZE ": failed to read key value\n",
+                prog, lineno);
         goto txn_abort;
       }
 
@@ -3923,9 +3884,8 @@ int main(int argc, char *argv[]) {
       if (rc == MDBX_KEYEXIST && putflags)
         continue;
       if (rc == MDBX_BAD_VALSIZE && rescue) {
-        if (!quiet)
-          fprintf(stderr, "%s: skip line %" PRIiSIZE ": due %s\n", prog, lineno,
-                  mdbx_strerror(rc));
+        fprintf(stderr, "%s: skip line %" PRIiSIZE ": due %s\n", prog, lineno,
+                mdbx_strerror(rc));
         continue;
       }
       if (unlikely(rc != MDBX_SUCCESS)) {
@@ -3994,8 +3954,7 @@ int main(int argc, char *argv[]) {
   case MDBX_SUCCESS:
     break;
   case MDBX_EINTR:
-    if (!quiet)
-      fprintf(stderr, "Interrupted by signal/user\n");
+    fprintf(stderr, "Interrupted by signal/user\n");
     break;
   default:
     if (unlikely(rc != MDBX_SUCCESS))

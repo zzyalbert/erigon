@@ -34,7 +34,7 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>. */
 
-#define MDBX_BUILD_SOURCERY f8467b2f2f730d8c516231ac1a197fafb5f8b8a6758e5c978d7e6b38f4b39fb7_v0_9_3_40_g4b8b7d5a
+#define MDBX_BUILD_SOURCERY 715c038673d011f21fe0459c223e6a680ef393328c3fea09d32637ba45d17d89_v0_9_3_35_g21b0f9df
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -1617,6 +1617,14 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
 #error MDBX_ENABLE_REFUND must be defined as 0 or 1
 #endif /* MDBX_ENABLE_REFUND */
 
+/** Controls use of POSIX madvise() hints and friends. */
+#ifndef MDBX_ENABLE_MADVISE
+#define MDBX_ENABLE_MADVISE 1
+#endif
+#if !(MDBX_ENABLE_MADVISE == 0 || MDBX_ENABLE_MADVISE == 1)
+#error MDBX_ENABLE_MADVISE must be defined as 0 or 1
+#endif /* MDBX_ENABLE_MADVISE */
+
 /** Disable some checks to reduce an overhead and detection probability of
  * database corruption to a values closer to the LMDB. */
 #ifndef MDBX_DISABLE_PAGECHECKS
@@ -1860,19 +1868,6 @@ typedef union {
   };
 #endif
 } MDBX_atomic_uint64_t;
-
-/* The minimum number of keys required in a database page.
- * Setting this to a larger value will place a smaller bound on the
- * maximum size of a data item. Data items larger than this size will
- * be pushed into overflow pages instead of being stored directly in
- * the B-tree node. This value used to default to 4. With a page size
- * of 4096 bytes that meant that any item larger than 1024 bytes would
- * go into an overflow page. That also meant that on average 2-3KB of
- * each overflow page was wasted space. The value cannot be lower than
- * 2 because then there would no longer be a tree structure. With this
- * value, items larger than 2KB will go into overflow pages, and on
- * average only 1KB will be wasted. */
-#define MDBX_MINKEYS 2
 
 /* A stamp that identifies a file as an MDBX file.
  * There's nothing special about this value other than that it is easily
@@ -2589,8 +2584,9 @@ struct MDBX_env {
 #define me_lfd me_lck_mmap.fd
 #define me_lck me_lck_mmap.lck
 
-  unsigned me_psize;    /* DB page size, initialized from me_os_psize */
-  uint8_t me_psize2log; /* log2 of DB page size */
+  unsigned me_psize;        /* DB page size, initialized from me_os_psize */
+  unsigned me_leaf_nodemax; /* max size of a leaf-node */
+  uint8_t me_psize2log;     /* log2 of DB page size */
   int8_t me_stuck_meta; /* recovery-only: target meta page or less that zero */
   unsigned me_os_psize; /* OS page size, from mdbx_syspagesize() */
   unsigned me_maxreaders; /* size of the reader table */
@@ -2625,9 +2621,8 @@ struct MDBX_env {
   MDBX_PNL me_retired_pages;
   /* Number of freelist items that can fit in a single overflow page */
   unsigned me_maxgc_ov1page;
-  unsigned me_branch_nodemax; /* max size of a branch-node */
-  uint32_t me_live_reader;    /* have liveness lock in reader table */
-  void *me_userctx;           /* User-settable context */
+  uint32_t me_live_reader; /* have liveness lock in reader table */
+  void *me_userctx;        /* User-settable context */
   MDBX_atomic_uint64_t *me_sync_timestamp;
   MDBX_atomic_uint64_t *me_autosync_period;
   atomic_pgno_t *me_unsynced_pages;
@@ -2916,7 +2911,7 @@ static __maybe_unused __inline void mdbx_jitter4testing(bool tiny) {
 
 /* Default size of memory map.
  * This is certainly too small for any actual applications. Apps should
- * always set the size explicitly using mdbx_env_set_geometry(). */
+ * always set  the size explicitly using mdbx_env_set_mapsize(). */
 #define DEFAULT_MAPSIZE MEGABYTE
 
 /* Number of slots in the reader table.

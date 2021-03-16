@@ -36,7 +36,7 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>. */
 
-#define MDBX_BUILD_SOURCERY f8467b2f2f730d8c516231ac1a197fafb5f8b8a6758e5c978d7e6b38f4b39fb7_v0_9_3_40_g4b8b7d5a
+#define MDBX_BUILD_SOURCERY 5cc07788c27747541205b15b551db6f063a8e607c3abf72efac06f32ac95e8e9_v0_9_3_43_gbd2c3d1c
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -3281,39 +3281,46 @@ int main(int argc, char *argv[]) {
   fflush(nullptr);
 
   rc = mdbx_env_create(&env);
-  if (rc) {
+  if (unlikely(rc != MDBX_SUCCESS)) {
     error("mdbx_env_create", rc);
     return EXIT_FAILURE;
   }
 
-  mdbx_env_set_maxdbs(env, 2);
+  if (subname) {
+    rc = mdbx_env_set_maxdbs(env, 2);
+    if (unlikely(rc != MDBX_SUCCESS)) {
+      error("mdbx_env_set_maxdbs", rc);
+      goto env_close;
+    }
+  }
 
-  rc = mdbx_env_open(env, envname, envflags, 0664);
-  if (rc) {
+  rc = mdbx_env_open(env, envname, envflags, 0);
+  if (unlikely(rc != MDBX_SUCCESS)) {
     error("mdbx_env_open", rc);
     goto env_close;
   }
 
   rc = mdbx_txn_begin(env, NULL, 0, &txn);
-  if (rc) {
+  if (unlikely(rc != MDBX_SUCCESS)) {
     error("mdbx_txn_begin", rc);
     goto env_close;
   }
 
-  rc = mdbx_dbi_open(txn, subname, 0, &dbi);
-  if (rc) {
-    error("mdbx_open failed", rc);
+  rc = mdbx_dbi_open(txn, subname, MDBX_DB_ACCEDE, &dbi);
+  if (unlikely(rc != MDBX_SUCCESS)) {
+    error("mdbx_open", rc);
     goto txn_abort;
   }
 
   rc = mdbx_drop(txn, dbi, delete);
-  if (rc) {
-    error("mdbx_drop failed", rc);
+  if (unlikely(rc != MDBX_SUCCESS)) {
+    error("mdbx_drop", rc);
     goto txn_abort;
   }
+
   rc = mdbx_txn_commit(txn);
-  if (rc) {
-    error("mdbx_txn_commit failed", rc);
+  if (unlikely(rc != MDBX_SUCCESS)) {
+    error("mdbx_txn_commit", rc);
     goto txn_abort;
   }
   txn = nullptr;
