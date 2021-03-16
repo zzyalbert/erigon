@@ -837,10 +837,3 @@ Date:   Tue Mar 16 09:55:03 2021 +0100
     
     Flatten the image so we do not have dark text on dark background
 
-commit 7076e8e42ff528e0ff058da3e357343dfb6fd71d
-Author: ligi <ligi@ligi.de>
-Date:   Tue Mar 16 09:53:43 2021 +0100
-
-    cmd/clef: docs - link to ethereum org repo (#22400)
-
-
