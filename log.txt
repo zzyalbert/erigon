@@ -788,17 +788,4 @@ Date:   Tue Mar 16 12:55:43 2021 +0100
 
     les: allow either full enode strings or raw hex ids in the API (#22423)
 
-commit 6d9707a458ad0d82e7f53722219656c432c9bb92
-Author: Felföldi Zsolt <zsfelfoldi@gmail.com>
-Date:   Tue Mar 16 12:54:45 2021 +0100
-
-    les: fix UDP connection query (#22451)
-    
-    This PR fixes multiple issues with the UDP connection pre-negotiation feature:
-    - the enable condition was wrong (it checked the existence of the DiscV5 struct where it wasn't initialized yet, disabling the feature even if discv5 was enabled)
-    - the server pool queried already connected nodes when the discovery iterators returned them again
-    - servers responded positively before they were synced and really willing to accept connections
-    
-    Metrics are also added on the server side that count the positive and negative replies to served connection queries.
-
 
