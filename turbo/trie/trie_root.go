@@ -803,7 +803,7 @@ func (c *AccTrieCursor) _seek(seek []byte, withinPrefix []byte, useNext bool) (b
 		// - k is not child of current key
 		// - looking for first child, means: c.childID[c.lvl] <= int16(bits.TrailingZeros16(c.hasTree[c.lvl]))
 		// otherwise do .Seek call
-		if useNext {
+		if useNext || c.hasTree[c.lvl] == 0 {
 			k, v, err = c.c.Next()
 		} else {
 			c.is++
@@ -886,7 +886,7 @@ func (c *AccTrieCursor) _nextSiblingInDB() error {
 		c.k[c.lvl] = nil
 		return nil
 	}
-	if _, err := c._seek(c.next, []byte{}, c.hasTree[c.lvl] == 0); err != nil {
+	if _, err := c._seek(c.next, []byte{}, false); err != nil {
 		return err
 	}
 	return nil
