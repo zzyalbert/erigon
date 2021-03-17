@@ -314,6 +314,7 @@ func (l *FlatDBTrieLoader) CalcTrieRoot(db ethdb.Database, prefix []byte, quit <
 			return EmptyRoot, err
 		}
 	}
+	fmt.Printf("seeks: %d,%d\n", accTrie.is, storageTrie.is)
 	return l.receiver.Root(), nil
 }
 
@@ -714,7 +715,7 @@ func AccTrie(canUse func([]byte) (bool, []byte), hc HashCollector2, c ethdb.Curs
 func (c *AccTrieCursor) _preOrderTraversalStep() error {
 	if c._hasTree() {
 		c.next = append(append(c.next[:0], c.k[c.lvl]...), byte(c.childID[c.lvl]))
-		ok, err := c._seek(c.next, c.next)
+		ok, err := c._seek(c.next, c.next, c.childID[c.lvl] <= int8(bits.TrailingZeros16(c.hasTree[c.lvl])))
 		if err != nil {
 			return err
 		}
@@ -748,7 +749,7 @@ func (c *AccTrieCursor) AtPrefix(prefix []byte) (k, v []byte, hasTree bool, err 
 	_, c.nextCreated = c.canUse([]byte{})
 	c.prev = append(c.prev[:0], c.cur...)
 	c.prefix = prefix
-	ok, err := c._seek(prefix, []byte{})
+	ok, err := c._seek(prefix, []byte{}, false)
 	if err != nil {
 		return []byte{}, nil, false, err
 	}
@@ -791,7 +792,7 @@ func (c *AccTrieCursor) Next() (k, v []byte, hasTree bool, err error) {
 	return c._next()
 }
 
-func (c *AccTrieCursor) _seek(seek []byte, withinPrefix []byte) (bool, error) {
+func (c *AccTrieCursor) _seek(seek []byte, withinPrefix []byte, useNext bool) (bool, error) {
 	var k, v []byte
 	var err error
 	if len(seek) == 0 {
@@ -802,14 +803,12 @@ func (c *AccTrieCursor) _seek(seek []byte, withinPrefix []byte) (bool, error) {
 		// - k is not child of current key
 		// - looking for first child, means: c.childID[c.lvl] <= int16(bits.TrailingZeros16(c.hasTree[c.lvl]))
 		// otherwise do .Seek call
-		//k, v, err = c.c.Next()
-		//if err != nil {
-		//	return false, err
-		//}
-		//if bytes.HasPrefix(k, c.k[c.lvl]) {
-		//	c.is++
-		k, v, err = c.c.Seek(seek)
-		//}
+		if useNext {
+			k, v, err = c.c.Next()
+		} else {
+			c.is++
+			k, v, err = c.c.Seek(seek)
+		}
 	}
 	if err != nil {
 		return false, err
@@ -862,7 +861,7 @@ func (c *AccTrieCursor) _nextSiblingOfParentInMem() bool {
 			}
 			c.next = append(append(c.next[:0], c.k[c.lvl]...), uint8(c.childID[c.lvl]))
 			c.kBuf = append(append(c.kBuf[:0], c.k[nonNilLvl]...), uint8(c.childID[nonNilLvl]))
-			ok, err := c._seek(c.next, c.kBuf)
+			ok, err := c._seek(c.next, c.kBuf, false)
 			if err != nil {
 				panic(err)
 			}
@@ -887,8 +886,7 @@ func (c *AccTrieCursor) _nextSiblingInDB() error {
 		c.k[c.lvl] = nil
 		return nil
 	}
-	c.is++
-	if _, err := c._seek(c.next, []byte{}); err != nil {
+	if _, err := c._seek(c.next, []byte{}, false); err != nil {
 		return err
 	}
 	return nil
@@ -1034,7 +1032,7 @@ func (c *StorageTrieCursor) SeekToAccount(accWithInc []byte) (k, v []byte, hasTr
 	c.seek = append(c.seek[:0], c.accWithInc...)
 	c.prev = c.cur
 	var ok bool
-	ok, err = c._seek(accWithInc, []byte{})
+	ok, err = c._seek(accWithInc, []byte{}, false)
 	if err != nil {
 		return []byte{}, nil, false, err
 	}
@@ -1115,7 +1113,7 @@ func (c *StorageTrieCursor) _consume() (bool, error) {
 	return false, nil
 }
 
-func (c *StorageTrieCursor) _seek(seek, withinPrefix []byte) (bool, error) {
+func (c *StorageTrieCursor) _seek(seek, withinPrefix []byte, useNext bool) (bool, error) {
 	var k, v []byte
 	var err error
 	if len(seek) == 40 {
@@ -1126,14 +1124,12 @@ func (c *StorageTrieCursor) _seek(seek, withinPrefix []byte) (bool, error) {
 		// - no child found, means: len(k) <= c.lvl
 		// - looking for first child, means: c.childID[c.lvl] <= int8(bits.TrailingZeros16(c.hasTree[c.lvl]))
 		// otherwise do .Seek call
-		//k, v, err = c.c.Next()
-		//if err != nil {
-		//	return false, err
-		//}
-		//if len(k) > c.lvl && c.childID[c.lvl] > int8(bits.TrailingZeros16(c.hasTree[c.lvl])) {
-		c.is++
-		k, v, err = c.c.Seek(seek)
-		//}
+		if useNext {
+			k, v, err = c.c.Next()
+		} else {
+			c.is++
+			k, v, err = c.c.Seek(seek)
+		}
 	}
 	if err != nil {
 		return false, err
@@ -1166,7 +1162,7 @@ func (c *StorageTrieCursor) _seek(seek, withinPrefix []byte) (bool, error) {
 func (c *StorageTrieCursor) _preOrderTraversalStep() error {
 	if c._hasTree() {
 		c.seek = append(append(c.seek[:40], c.k[c.lvl]...), byte(c.childID[c.lvl]))
-		ok, err := c._seek(c.seek, []byte{})
+		ok, err := c._seek(c.seek, []byte{}, c.childID[c.lvl] <= int8(bits.TrailingZeros16(c.hasTree[c.lvl])))
 		if err != nil {
 			return err
 		}
@@ -1222,7 +1218,7 @@ func (c *StorageTrieCursor) _nextSiblingOfParentInMem() bool {
 			}
 			c.seek = append(append(c.seek[:40], c.k[c.lvl]...), uint8(c.childID[c.lvl]))
 			c.next = append(append(c.next[:0], c.k[nonNilLvl]...), uint8(c.childID[nonNilLvl]))
-			ok, err := c._seek(c.seek, c.next)
+			ok, err := c._seek(c.seek, c.next, false)
 			if err != nil {
 				panic(err)
 			}
@@ -1248,7 +1244,7 @@ func (c *StorageTrieCursor) _nextSiblingInDB() error {
 		return nil
 	}
 	c.seek = append(c.seek[:40], c.next...)
-	if _, err := c._seek(c.seek, []byte{}); err != nil {
+	if _, err := c._seek(c.seek, []byte{}, false); err != nil {
 		return err
 	}
 	return nil
