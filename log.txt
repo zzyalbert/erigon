@@ -782,10 +782,3 @@ Date:   Wed Mar 17 09:36:34 2021 +0100
 
     eth/protocols/snap, eth/downloader: don't use bloom filter in snap sync
 
-commit 91726e8aadeebc4bda8f136aebf4b5c7da8b9d74
-Author: Felföldi Zsolt <zsfelfoldi@gmail.com>
-Date:   Tue Mar 16 12:55:43 2021 +0100
-
-    les: allow either full enode strings or raw hex ids in the API (#22423)
-
-
