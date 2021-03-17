@@ -715,7 +715,7 @@ func AccTrie(canUse func([]byte) (bool, []byte), hc HashCollector2, c ethdb.Curs
 func (c *AccTrieCursor) _preOrderTraversalStep() error {
 	if c._hasTree() {
 		c.next = append(append(c.next[:0], c.k[c.lvl]...), byte(c.childID[c.lvl]))
-		ok, err := c._seek(c.next, c.next, c.childID[c.lvl] <= int8(bits.TrailingZeros16(c.hasTree[c.lvl])))
+		ok, err := c._seek(c.next, c.next, c._isFirstTree())
 		if err != nil {
 			return err
 		}
@@ -924,6 +924,9 @@ func (c *AccTrieCursor) _hasTree() bool  { return (1<<c.childID[c.lvl])&c.hasTre
 func (c *AccTrieCursor) _hasHash() bool  { return (1<<c.childID[c.lvl])&c.hasHash[c.lvl] != 0 }
 func (c *AccTrieCursor) _hash(i int8) []byte {
 	return c.v[c.lvl][common.HashLength*int(i) : common.HashLength*(int(i)+1)]
+}
+func (c *AccTrieCursor) _isFirstTree() bool {
+	return c.childID[c.lvl] == int8(bits.TrailingZeros16(c.hasTree[c.lvl]))
 }
 
 func (c *AccTrieCursor) _consume() (bool, error) {
@@ -1162,7 +1165,7 @@ func (c *StorageTrieCursor) _seek(seek, withinPrefix []byte, useNext bool) (bool
 func (c *StorageTrieCursor) _preOrderTraversalStep() error {
 	if c._hasTree() {
 		c.seek = append(append(c.seek[:40], c.k[c.lvl]...), byte(c.childID[c.lvl]))
-		ok, err := c._seek(c.seek, []byte{}, c.childID[c.lvl] <= int8(bits.TrailingZeros16(c.hasTree[c.lvl])))
+		ok, err := c._seek(c.seek, []byte{}, c._isFirstTree())
 		if err != nil {
 			return err
 		}
@@ -1191,6 +1194,9 @@ func (c *StorageTrieCursor) _hasHash() bool  { return (1<<c.childID[c.lvl])&c.ha
 func (c *StorageTrieCursor) _hasTree() bool  { return (1<<c.childID[c.lvl])&c.hasTree[c.lvl] != 0 }
 func (c *StorageTrieCursor) _hash(i int8) []byte {
 	return c.v[c.lvl][int(i)*common.HashLength : (int(i)+1)*common.HashLength]
+}
+func (c *StorageTrieCursor) _isFirstTree() bool {
+	return c.childID[c.lvl] == int8(bits.TrailingZeros16(c.hasTree[c.lvl]))
 }
 
 func (c *StorageTrieCursor) _nextSiblingInMem() bool {
