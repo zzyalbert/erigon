@@ -803,10 +803,10 @@ func (c *AccTrieCursor) _seek(seek []byte, withinPrefix []byte, useNext bool) (b
 		// - k is not child of current key
 		// - looking for first child, means: c.childID[c.lvl] <= int16(bits.TrailingZeros16(c.hasTree[c.lvl]))
 		// otherwise do .Seek call
+		c.is++
 		if useNext {
 			k, v, err = c.c.Next()
 		} else {
-			c.is++
 			k, v, err = c.c.Seek(seek)
 		}
 	}
@@ -1124,10 +1124,10 @@ func (c *StorageTrieCursor) _seek(seek, withinPrefix []byte, useNext bool) (bool
 		// - no child found, means: len(k) <= c.lvl
 		// - looking for first child, means: c.childID[c.lvl] <= int8(bits.TrailingZeros16(c.hasTree[c.lvl]))
 		// otherwise do .Seek call
+		c.is++
 		if useNext {
 			k, v, err = c.c.Next()
 		} else {
-			c.is++
 			k, v, err = c.c.Seek(seek)
 		}
 	}
