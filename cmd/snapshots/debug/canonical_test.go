@@ -16,6 +16,7 @@ import (
 	trnt "github.com/ledgerwatch/turbo-geth/turbo/snapshotsync/bittorrent"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestCanonical(t *testing.T) {
@@ -84,6 +85,8 @@ func TestCanonical(t *testing.T) {
 
 }
 //301a763f9516b3605e0be39335e5df67eadc8ada
+//d52204becd17c2a6212dac5cc578694b2f0a077f
+//d52204becd17c2a6212dac5cc578694b2f0a077f
 func TestHeadersCanonical(t *testing.T) {
 	snapshotPath:="/media/b00ris/nvme/tmp/canonical1"
 	dbPath:="/media/b00ris/nvme/fresh_sync/tg/chaindata/"
@@ -101,16 +104,16 @@ func TestHeadersCanonical(t *testing.T) {
 	}).Path(snapshotPath).MustOpen()
 
 	db := ethdb.NewObjectDatabase(kv)
-	k,_,err:=db.Last(dbutils.HeaderPrefix)
-	if err!=nil{
-		t.Fatal()
-	}
-	t.Log(common.Bytes2Hex(k))
-	t.Log(binary.BigEndian.Uint64(k))
-
-	if err==nil {
-		t.Fatal()
-	}
+	//k,_,err:=db.Last(dbutils.HeaderPrefix)
+	//if err!=nil{
+	//	t.Fatal()
+	//}
+	//t.Log(common.Bytes2Hex(k))
+	//t.Log(binary.BigEndian.Uint64(k))
+	//
+	//if err==nil {
+	//	t.Fatal()
+	//}
 	snDB := ethdb.NewObjectDatabase(snKV)
 	tx,err:=snDB.Begin(context.Background(), ethdb.RW)
 	if err!=nil {
@@ -133,12 +136,17 @@ func TestHeadersCanonical(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if i%500000 == 0 {
+			tt:=time.Now()
+			fmt.Println("commit",i)
+			err=tx.CommitAndBegin(context.Background())
+			if err!=nil {
+				t.Fatal(err)
+			}
+			fmt.Println("commited",i, time.Since(tt))
+		}
 	}
-	_,err=tx.Commit()
-	if err!=nil {
-		t.Fatal(err)
-	}
-
+	tx.Rollback()
 	snDB.Close()
 	err = os.Remove(snapshotPath + "/lock.mdb")
 	if err != nil {
