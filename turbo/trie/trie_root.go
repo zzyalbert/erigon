@@ -886,7 +886,7 @@ func (c *AccTrieCursor) _nextSiblingInDB() error {
 		c.k[c.lvl] = nil
 		return nil
 	}
-	if _, err := c._seek(c.next, []byte{}, false); err != nil {
+	if _, err := c._seek(c.next, []byte{}, c.hasTree[c.lvl] == 0); err != nil {
 		return err
 	}
 	return nil
@@ -1250,7 +1250,7 @@ func (c *StorageTrieCursor) _nextSiblingInDB() error {
 		return nil
 	}
 	c.seek = append(c.seek[:40], c.next...)
-	if _, err := c._seek(c.seek, []byte{}, false); err != nil {
+	if _, err := c._seek(c.seek, []byte{}, c.hasTree[c.lvl] == 0); err != nil {
 		return err
 	}
 	return nil
