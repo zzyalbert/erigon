@@ -886,7 +886,7 @@ func (c *AccTrieCursor) _nextSiblingInDB() error {
 		c.k[c.lvl] = nil
 		return nil
 	}
-	if _, err := c._seek(c.next, []byte{}, false); err != nil {
+	if _, err := c._seek(c.next, []byte{}, c.hasTree[c.lvl] == 0); err != nil {
 		return err
 	}
 	return nil
