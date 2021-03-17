@@ -861,7 +861,7 @@ func (c *AccTrieCursor) _nextSiblingOfParentInMem() bool {
 			}
 			c.next = append(append(c.next[:0], c.k[c.lvl]...), uint8(c.childID[c.lvl]))
 			c.kBuf = append(append(c.kBuf[:0], c.k[nonNilLvl]...), uint8(c.childID[nonNilLvl]))
-			ok, err := c._seek(c.next, c.kBuf, false)
+			ok, err := c._seek(c.next, c.kBuf, c._isFirstTree())
 			if err != nil {
 				panic(err)
 			}
@@ -1224,7 +1224,7 @@ func (c *StorageTrieCursor) _nextSiblingOfParentInMem() bool {
 			}
 			c.seek = append(append(c.seek[:40], c.k[c.lvl]...), uint8(c.childID[c.lvl]))
 			c.next = append(append(c.next[:0], c.k[nonNilLvl]...), uint8(c.childID[nonNilLvl]))
-			ok, err := c._seek(c.seek, c.next, false)
+			ok, err := c._seek(c.seek, c.next, c._isFirstTree())
 			if err != nil {
 				panic(err)
 			}
