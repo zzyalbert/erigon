@@ -776,9 +776,3 @@ Date:   Fri Mar 19 15:49:24 2021 +0800
 
     eth/protocols/snap: fix typo (#22530)
 
-commit 410089afea1907d4abbf1dc4d1b42bda1094a5e5
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Wed Mar 17 09:36:34 2021 +0100
-
-    eth/protocols/snap, eth/downloader: don't use bloom filter in snap sync
-
