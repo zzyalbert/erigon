@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/ledgerwatch/turbo-geth/cmd/snapshots/utils"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
@@ -14,6 +15,9 @@ import (
 	"testing"
 )
 
+/*
+24eeae876413056319e0e602623b4cc252dc7b17
+ */
 func TestDbSwitch(t *testing.T) {
 	snapshotPath:="/media/b00ris/nvme/tmp/canonicalswitch"
 	dbPath:="/media/b00ris/nvme/fresh_sync/tg/chaindata/"
@@ -23,6 +27,7 @@ func TestDbSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	kvMain:=ethdb.NewLMDB().InMem().Path(dbPath).MustOpen()
 	kv := ethdb.NewLMDB().Path(dbPath).MustOpen()
 
 	snKV := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
@@ -31,7 +36,7 @@ func TestDbSwitch(t *testing.T) {
 		}
 	}).Path(snapshotPath).MustOpen()
 
-	snKV:=ethdb.NewSnapshot2KV().DB(snKV).MustOpen()
+	snKV=ethdb.NewSnapshot2KV().DB(kvMain).SnapshotDB([]string{dbutils.HeaderPrefix}, snKV).MustOpen()
 
 	db := ethdb.NewObjectDatabase(kv)
 	snDB := ethdb.NewObjectDatabase(snKV)
@@ -56,28 +61,25 @@ func TestDbSwitch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if i%uint64(epoch) == 0 {
+		if i%uint64(epoch) ==0 {
 			_, err=tx.Commit()
 			if err!=nil {
 				t.Fatal(err)
 			}
-			snKVSwitch := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
-				return dbutils.BucketsCfg{
-					dbutils.HeaderPrefix:              dbutils.BucketConfigItem{},
-				}
-			}).Path(snapshotPath).MustOpen()
-			snDB.KV().(*ethdb.SnapshotKV2).DbSwitch(snKVSwitch)
 
 		}
+		//if i-100%uint64(epoch) == 0 {
+		//	err=snDB.KV().(*ethdb.SnapshotKV2).Migrate(dbutils.HeaderPrefix)
+		//	if err!=nil {
+		//		t.Fatal(err)
+		//	}
+		//
+		//
+		//}
 	}
 	tx.Rollback()
 	snDB.Close()
-	err = os.Remove(snapshotPath + "/lock.mdb")
-	if err != nil {
-		log.Warn("Remove lock", "err", err)
-		t.Fatal(err)
-	}
-	err = os.Remove(snapshotPath + "/LOCK")
+	err = utils.RmTmpFiles(utils.TypeLMDB, snapshotPath)
 	if err != nil {
 		log.Warn("Remove lock", "err", err)
 		t.Fatal(err)

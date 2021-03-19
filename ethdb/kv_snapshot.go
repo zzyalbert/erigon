@@ -60,7 +60,6 @@ func (opts snapshotOpts2) MustOpen() KV {
 type SnapshotKV2 struct {
 	db        KV
 	snapshots map[string]snapshotData
-	dbs map[string]snapshotData
 }
 
 func (s *SnapshotKV2) View(ctx context.Context, f func(tx Tx) error) error {
@@ -117,8 +116,8 @@ func (s *SnapshotKV2) DbSwitch(kv KV)  {
 
 }
 
-func (s *SnapshotKV2) Migrate()  {
-
+func (s *SnapshotKV2) Migrate(bucket string)  {
+	//s.snapshots
 }
 
 var ErrUnavailableSnapshot = errors.New("unavailable snapshot")
@@ -171,15 +170,11 @@ func (s *snapshotTX) CursorDupSort(bucket string) CursorDupSort {
 		panic(err.Error())
 	}
 
-	dbTX, err:=s.getDBTX(bucket)
-	if err!= nil {
-		panic(err)
-	}
 	//process only db buckets
 	if errors.Is(err, ErrUnavailableSnapshot) {
-		return dbTX.CursorDupSort(bucket)
+		return s.dbTX.CursorDupSort(bucket)
 	}
-	dbc := dbTX.CursorDupSort(bucket)
+	dbc := s.dbTX.CursorDupSort(bucket)
 	sncbc := tx.CursorDupSort(bucket)
 	return &snCursor2Dup{
 		snCursor2{
@@ -192,11 +187,7 @@ func (s *snapshotTX) CursorDupSort(bucket string) CursorDupSort {
 }
 
 func (s *snapshotTX) GetOne(bucket string, key []byte) (val []byte, err error) {
-	dbTX, err:=s.getDBTX(bucket)
-	if err!= nil {
-		return nil, err
-	}
-	v, err := dbTX.GetOne(bucket, key)
+	v, err := s.dbTX.GetOne(bucket, key)
 	if err != nil {
 		return nil, err
 	}
@@ -243,11 +234,7 @@ func (s *snapshotTX) getSnapshotTX(bucket string) (Tx, error) {
 	return tx, nil
 }
 func (s *snapshotTX) HasOne(bucket string, key []byte) (bool, error) {
-	dbTx, err:=s.getDBTX(bucket)
-	if err!= nil {
-		return false, err
-	}
-	vv, err := dbTx.GetOne(bucket, key)
+	vv, err := s.dbTX.GetOne(bucket, key)
 	if err != nil {
 		return false, err
 	}
@@ -282,12 +269,6 @@ func (s *snapshotTX) HasOne(bucket string, key []byte) (bool, error) {
 func (s *snapshotTX) Commit(ctx context.Context) error {
 	for i := range s.snTX {
 		defer s.snTX[i].Rollback()
-	}
-	for i := range s.dbsTX {
-		err:= s.dbsTX[i].Commit(context.Background())
-		if err!=nil {
-			return err
-		}
 	}
 	return s.dbTX.Commit(ctx)
 }

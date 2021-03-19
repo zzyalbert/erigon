@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/ledgerwatch/lmdb-go/lmdb"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
@@ -14,7 +15,9 @@ import (
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/rlp"
 	trnt "github.com/ledgerwatch/turbo-geth/turbo/snapshotsync/bittorrent"
+	"math/rand"
 	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -87,10 +90,14 @@ func TestCanonical(t *testing.T) {
 //301a763f9516b3605e0be39335e5df67eadc8ada
 //d52204becd17c2a6212dac5cc578694b2f0a077f
 //d52204becd17c2a6212dac5cc578694b2f0a077f
+
+/*
+36e155c85036f18750b7305d5957e0eb05e0d7ea
+ */
 func TestHeadersCanonical(t *testing.T) {
 	snapshotPath:="/media/b00ris/nvme/tmp/canonical1"
 	dbPath:="/media/b00ris/nvme/fresh_sync/tg/chaindata/"
-	toBlock:=uint64(11500000)
+	toBlock:=uint64(100000)
 	err := os.RemoveAll(snapshotPath)
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +110,10 @@ func TestHeadersCanonical(t *testing.T) {
 		}
 	}).Path(snapshotPath).MustOpen()
 
+
 	db := ethdb.NewObjectDatabase(kv)
+	ctx,cancel:=context.WithCancel(context.Background())
+
 	//k,_,err:=db.Last(dbutils.HeaderPrefix)
 	//if err!=nil{
 	//	t.Fatal()
@@ -122,6 +132,7 @@ func TestHeadersCanonical(t *testing.T) {
 	defer tx.Rollback()
 	var hash common.Hash
 	var header []byte
+	onece:=&sync.Once{}
 	for i := uint64(1); i <= toBlock; i++ {
 		hash, err = rawdb.ReadCanonicalHash(db, i)
 		if err != nil {
@@ -136,7 +147,7 @@ func TestHeadersCanonical(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if i%500000 == 0 {
+		if i%1000 == 0 {
 			tt:=time.Now()
 			fmt.Println("commit",i)
 			err=tx.CommitAndBegin(context.Background())
@@ -144,10 +155,53 @@ func TestHeadersCanonical(t *testing.T) {
 				t.Fatal(err)
 			}
 			fmt.Println("commited",i, time.Since(tt))
+			onece.Do(func() {
+				go func() {
+					snKV2 := ethdb.NewLMDB().WithBucketsConfig(func(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg {
+						return dbutils.BucketsCfg{
+							dbutils.HeaderPrefix:              dbutils.BucketConfigItem{},
+						}
+					}).Flags(func(u uint) uint {
+						return  u | lmdb.Readonly
+					}).Path(snapshotPath).MustOpen()
+					db2 := ethdb.NewObjectDatabase(snKV2)
+
+					var k1, v1 []byte
+					for {
+						select {
+						case <-ctx.Done():
+							db2.Close()
+							fmt.Println("closed")
+							return
+						default:
+							startKey:=dbutils.EncodeBlockNumber(uint64(rand.Int31n(5000)))
+							i:=0
+							err1:= db2.Walk(dbutils.HeaderPrefix, startKey, 0, func(k, v []byte) (bool, error) {
+								k1 = k
+								v1 = v
+								if i>10 {
+									return false, nil
+								}
+								return true, nil
+							})
+							if err1!=nil {
+								t.Log(err1)
+							}
+
+						}
+					}
+					_=k1
+					_=v1
+
+				}()
+			})
+
 		}
 	}
 	tx.Rollback()
 	snDB.Close()
+	cancel()
+	time.Sleep(time.Second)
 	err = os.Remove(snapshotPath + "/lock.mdb")
 	if err != nil {
 		log.Warn("Remove lock", "err", err)
@@ -546,6 +600,89 @@ func TestBodiesCanonical(t *testing.T) {
 
 }
 
+func TestShortDB(t *testing.T) {
+	dbPath:="/media/b00ris/nvme/fresh_sync/tg/chaindata/"
+	shortdbPath:="/media/b00ris/nvme/tmp/shortdb"
+	os.RemoveAll(shortdbPath)
+	origKV := ethdb.NewLMDB().Path(dbPath).MustOpen()
+	db:=ethdb.NewObjectDatabase(origKV)
+	shortKV := ethdb.NewLMDB().Path(shortdbPath).MustOpen()
+	shortDB:=ethdb.NewObjectDatabase(shortKV)
+
+	maxDBSize:=100*1024*1024
+	dbSize:=0
+	lastBlock:=uint64(0)
+	var lastCanonical []byte
+	tx,err:=shortDB.Begin(context.Background(), ethdb.RW)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	err= db.Walk(dbutils.HeaderPrefix, []byte{}, 0, func(k, v []byte) (bool, error) {
+		if dbutils.IsHeaderKey(k) || dbutils.IsHeaderHashKey(k) {
+			err:=tx.Put(dbutils.HeaderPrefix, common.CopyBytes(k), common.CopyBytes(v))
+			if err!=nil {
+				return false, err
+			}
+		}
+		dbSize+=len(k)+len(v)
+		if dbutils.IsHeaderKey(k) {
+			bd:=rawdb.ReadBody(db, common.BytesToHash(k[8:]), binary.BigEndian.Uint64(k[:8]))
+			if bd==nil {
+				t.Fatal("empty body", common.BytesToHash(k))
+			}
+			err = rawdb.WriteBody(tx, common.BytesToHash(k[8:]), binary.BigEndian.Uint64(k[:8]), bd)
+			if err!=nil {
+				t.Fatal(err)
+			}
+			v,err:=rlp.EncodeToBytes(bd)
+			if err!=nil {
+				t.Fatal(err)
+			}
+			dbSize+=len(v)
+			v,err=db.Get(dbutils.HeaderNumberPrefix, k[8:])
+			if err!=nil {
+				t.Fatal(err)
+			}
+			err = tx.Put(dbutils.HeaderNumberPrefix,common.CopyBytes(k[8:]), common.CopyBytes(v))
+			if err!=nil {
+				t.Fatal(err)
+			}
+			dbSize+=len(v)+32
+
+			v,err=db.Get(dbutils.HeaderPrefix, append(k, dbutils.HeaderTDSuffix...))
+			if err!=nil {
+				t.Fatal(err)
+			}
+			err = tx.Put(dbutils.HeaderPrefix, common.CopyBytes(append(k, dbutils.HeaderTDSuffix...)), common.CopyBytes(v))
+			if err!=nil {
+				t.Fatal(err)
+			}
+			dbSize+=len(v)+32
+
+		}
+		if dbutils.IsHeaderHashKey(k) {
+			lastBlock =  binary.BigEndian.Uint64(k[:8])
+			lastCanonical = common.CopyBytes(v)
+		}
+
+		if dbSize>maxDBSize {
+			return false, nil
+		}
+		return true, nil
+	})
+	if err!=nil {
+		t.Fatal(err)
+	}
+	_, err=tx.Commit()
+	if err!=nil {
+		t.Fatal(err)
+	}
+	t.Log(lastBlock)
+	t.Log(common.Bytes2Hex(lastCanonical))
+	rawdb.WriteHeadHeaderHash(shortDB, common.BytesToHash(lastCanonical))
+
+}
 func rmLmdbLock(snapshotPath string) error  {
 	err := os.Remove(snapshotPath + "/lock.mdb")
 	if err != nil {
