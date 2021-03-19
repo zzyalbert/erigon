@@ -738,25 +738,8 @@ Date:   Fri Mar 19 18:58:12 2021 +0800
     This pulls in a fix for a corruption issue when the process crashes
     while a new manifest file is being added.
 
-commit 38ea7f2cf460fb12a5769f8c0767726334111b99
-Author: Martin Redmond <21436+reds@users.noreply.github.com>
-Date:   Fri Mar 19 06:56:10 2021 -0400
-
-    accounts/abi/bind: add NoSend transact option (#22446)
     
     This adds a new option to avoid sending the transaction which is
     created by calling a bound contract method.
 
-commit aa8b2189c6ad5148377076b3fab7ca5e0d8c0b62
-Author: meowsbits <b5c6@protonmail.com>
-Date:   Fri Mar 19 05:14:23 2021 -0500
-
-    ethclient: fix error handling for header test (#22514)
-    
-    The wantErr field was disused, and the error returned by HeaderByNumber
-    was not properly tested.
-    
-    This simplifies the error checking using errors.Is and asserts that getting
-    an expected missing header returns ethereum.NotFound. Also adds a nil
-    check condition for header.Number before using big.Int's Sign method.
 
