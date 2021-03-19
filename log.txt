@@ -760,19 +760,3 @@ Date:   Fri Mar 19 05:14:23 2021 -0500
     an expected missing header returns ethereum.NotFound. Also adds a nil
     check condition for header.Number before using big.Int's Sign method.
 
-commit 6a528fce3357176e2da2fe07b379842f596bb566
-Author: rene <41963722+renaynay@users.noreply.github.com>
-Date:   Fri Mar 19 09:57:23 2021 +0000
-
-    cmd/devp2p/internal/ethtest: return request ID in BlockHeaders response (#22508)
-    
-    This PR fixes an issue with the eth66 test suite where, during a readAndServe when
-    the test is manually responding to GetBlockHeader requests, it now responds
-    with a BlockHeaders eth66 packet that includes the inbound request ID.
-
-commit 117fa7d4a1ac0211b6a59aac5f3c5f7e5890e053
-Author: wuff1996 <33193253+wuff1996@users.noreply.github.com>
-Date:   Fri Mar 19 15:49:24 2021 +0800
-
-    eth/protocols/snap: fix typo (#22530)
-
