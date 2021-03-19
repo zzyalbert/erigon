@@ -721,25 +721,5 @@ Date:   Fri Mar 19 19:04:15 2021 +0800
 
     consensus/ethash: remove unnecessary variable definition (#22512)
 
-commit 345890a558257a76acb92a3ae88fbfb0dfea4520
-Author: ucwong <ucwong@126.com>
-Date:   Fri Mar 19 19:03:33 2021 +0800
-
-    go.mod: upgrade goupnp to commit 0ca76305 (#22479)
-    
-    This pulls in a fix to skip the broadcast on interfaces which are down.
-
-commit a90861ae0c2a5d294fb4abb46eac65181d560264
-Author: ucwong <ucwong@126.com>
-Date:   Fri Mar 19 18:58:12 2021 +0800
-
-    go.mod: upgrade goleveldb to commit 64b5b1c (#22436)
-    
-    This pulls in a fix for a corruption issue when the process crashes
-    while a new manifest file is being added.
-
-    
-    This adds a new option to avoid sending the transaction which is
-    created by calling a bound contract method.
 
 
