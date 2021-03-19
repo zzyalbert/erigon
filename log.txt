@@ -691,35 +691,5 @@ Date:   Fri Mar 19 13:32:57 2021 +0100
 
     core: fix potential race in chainIndexerTest (#22346)
 
-commit 5bc0343ed3de7dd491edf42f9714ad6b93930408
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Fri Mar 19 13:20:27 2021 +0100
-
-    p2p/dnsdisc: fix flaw in dns size calculation (#22533)
-    
-    This fixes the calculation of the tree branch factor. With the new
-    formula, we now creat at most 13 children instead of 30, ensuring
-    the TXT record size will be below 370 bytes.
-
-commit e3a3f7cd6472f692f4fad97a302d09fb60f53430
-Author: Quest Henkart <qhenkart@gmail.com>
-Date:   Fri Mar 19 06:15:57 2021 -0600
-
-    cmd/devp2p: use AWS-SDK v2 (#22360)
-    
-    This updates the DNS deployer to use AWS SDK v2. Migration is relatively
-    seamless, although there were two locations that required a slightly
-    different approach to achieve the same results. In particular, waiting for
-    DNS change propagation is very different with SDK v2.
-    
-    This change also optimizes DNS updates by publishing all changes before
-    waiting for propagation.
-
-commit d50e9d24be6ae410af7b5975f453456367a7b28c
-Author: jacksoom <lifengliu1994@gmail.com>
-Date:   Fri Mar 19 19:04:15 2021 +0800
-
-    consensus/ethash: remove unnecessary variable definition (#22512)
-
 
 
