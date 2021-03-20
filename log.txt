@@ -657,39 +657,3 @@ Date:   Sat Mar 20 18:54:17 2021 +0000
 
     cmd/utils: fix compilation issue on openbsd (#22511)
 
-commit 36b51b8156a4079952d646aac2800423dd8df163
-Author: rene <41963722+renaynay@users.noreply.github.com>
-Date:   Sat Mar 20 18:50:44 2021 +0000
-
-    cmd/devp2p: add old block announcement test to eth test suite (#22474)
-    
-    Add old block announcement test to eth test suite, checks to make sure old block announcement isn't propagated
-
-commit 5bf6612a2e19693b7faa032187f02a019cbea700
-Author: Martin Holst Swende <martin@swende.se>
-Date:   Sat Mar 20 10:35:22 2021 +0100
-
-    cmd/devp2p: fix error in updating the cursor when collecting records for route53 (#22538)
-    
-    This PR fixes a regression introduced in #22360, when we updated to the v2 of the AWS sdk, which causes current crawler to just get the same first 100 results over and over, and get stuck in a loop.
-
-commit 9429ab14727f55d3d0231a86a3cf37039ea79c9a
-Author: Felix Lange <fjl@twurst.com>
-Date:   Sat Mar 20 00:22:24 2021 +0100
-
-    cmd/devp2p: add flag for AWS region (#22537)
-
-commit d3040a80d7a0721297cfac93b82e0e9428ddd3d1
-Author: rene <41963722+renaynay@users.noreply.github.com>
-Date:   Fri Mar 19 14:15:39 2021 +0000
-
-    cmd/devp2p/internal/ethtest: skip eth/66 tests when v66 not supported (#22460)
-
-commit c454717fa67df71b4a3c2f16cd0f6bc186148a04
-Author: Sina Mahmoodi <1591639+s1na@users.noreply.github.com>
-Date:   Fri Mar 19 13:32:57 2021 +0100
-
-    core: fix potential race in chainIndexerTest (#22346)
-
-
-
