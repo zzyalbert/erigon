@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define MDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY 162afb9ada1f4431f2b54f0a20d732bd31c7399ab5f371f0097b27427fbbda0a_v0_9_3_66_gb2f52e55
+#define MDBX_BUILD_SOURCERY 6babb2cf73124cec21348f5b6a4b4bec85c7f28df434ac82818b821ccaf5bd38_v0_9_3_66_gda5dfe7d
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -2598,7 +2598,7 @@ struct MDBX_env {
   uint16_t *me_dbflags;      /* array of flags from MDBX_db.md_flags */
   unsigned *me_dbiseqs;      /* array of dbi sequence numbers */
   atomic_txnid_t *me_oldest; /* ID of oldest reader last time we looked */
-  MDBX_page *me_dp_reserve;  /* list of malloc'ed blocks for re-use */
+  MDBX_page *me_dp_reserve;  /* list of malloc'd blocks for re-use */
   /* PNL of pages that became unused in a write txn */
   MDBX_PNL me_retired_pages;
   /* Number of freelist items that can fit in a single overflow page */
@@ -7205,7 +7205,7 @@ int mdbx_dcmp(const MDBX_txn *txn, MDBX_dbi dbi, const MDBX_val *a,
 }
 
 /* Allocate memory for a page.
- * Re-use old malloc'ed pages first for singletons, otherwise just malloc.
+ * Re-use old malloc'd pages first for singletons, otherwise just malloc.
  * Set MDBX_TXN_ERROR on failure. */
 static MDBX_page *mdbx_page_malloc(MDBX_txn *txn, unsigned num) {
   MDBX_env *env = txn->mt_env;
@@ -7981,8 +7981,8 @@ static int mdbx_txn_spill(MDBX_txn *txn, MDBX_cursor *m0, unsigned need) {
   if (!spill)
     return MDBX_SUCCESS;
 
-  mdbx_debug("spilling %u dirty-entries (have %u dirty-room, need %u)", spill,
-             txn->tw.dirtyroom, need);
+  mdbx_notice("spilling %u dirty-entries (have %u dirty-room, need %u)", spill,
+              txn->tw.dirtyroom, need);
   mdbx_tassert(txn, txn->tw.dirtylist->length >= spill);
 
   int rc;
@@ -19335,16 +19335,12 @@ static int mdbx_rebalance(MDBX_cursor *mc) {
   STATIC_ASSERT(P_BRANCH == 1);
   const unsigned minkeys = (pagetype & P_BRANCH) + 1;
 
-  /* The threshold of minimum page fill factor, in form of a negative binary
-   * exponent, i.e. X = 2 means 1/(2**X) == 1/(2**2) == 1/4 == 25%.
+  /* The threshold of minimum page fill, as a number of free bytes on a page.
    * Pages emptier than this are candidates for merging. */
-  const unsigned threshold_fill_exp2 = 2;
-
-  /* The threshold of minimum page fill factor, as a number of free bytes on a
-   * page. Pages emptier than this are candidates for merging. */
-  unsigned room_threshold =
-      page_space(mc->mc_txn->mt_env) -
-      (page_space(mc->mc_txn->mt_env) >> threshold_fill_exp2);
+  unsigned room_threshold = (mc->mc_dbi == FREE_DBI)
+                                ? page_space(mc->mc_txn->mt_env) * 2u / 3u
+                                : page_space(mc->mc_txn->mt_env) / 2u;
+  mdbx_cassert(mc, room_threshold * 2 >= page_space(mc->mc_txn->mt_env));
 
   const MDBX_page *const tp = mc->mc_pg[mc->mc_top];
   const unsigned numkeys = page_numkeys(tp);
@@ -20124,17 +20120,17 @@ static int mdbx_page_split(MDBX_cursor *mc, const MDBX_val *newkey,
   const unsigned minkeys = (mp->mp_flags & P_BRANCH) + 1;
 
   mdbx_cassert(mc, nkeys >= minkeys);
-  mdbx_debug(">> splitting %s-page %" PRIaPGNO
-             " and adding %zu+%zu [%s] at %i, nkeys %i",
-             IS_LEAF(mp) ? "leaf" : "branch", mp->mp_pgno, newkey->iov_len,
-             newdata ? newdata->iov_len : 0, DKEY(newkey),
-             mc->mc_ki[mc->mc_top], nkeys);
+  mdbx_notice(">> splitting %s-page %" PRIaPGNO
+              " and adding %zu+%zu [%s] at %i, nkeys %i",
+              IS_LEAF(mp) ? "leaf" : "branch", mp->mp_pgno, newkey->iov_len,
+              newdata ? newdata->iov_len : 0, DKEY(newkey),
+              mc->mc_ki[mc->mc_top], nkeys);
 
   /* Create a right sibling. */
   if ((rc = mdbx_page_new(mc, mp->mp_flags, 1, &rp)))
     return rc;
   rp->mp_leaf2_ksize = mp->mp_leaf2_ksize;
-  mdbx_debug("new right sibling: page %" PRIaPGNO, rp->mp_pgno);
+  mdbx_notice("new right sibling: page %" PRIaPGNO, rp->mp_pgno);
 
   /* Usually when splitting the root page, the cursor
    * height is 1. But when called from mdbx_update_key,
@@ -20431,7 +20427,7 @@ static int mdbx_page_split(MDBX_cursor *mc, const MDBX_val *newkey,
     i = split_indx;
     unsigned n = 0;
     do {
-      mdbx_trace("i %u, nkeys %u => n %u, rp #%u", i, nkeys, n, rp->mp_pgno);
+      mdbx_trace("i %u, nk %u => n %u, rp #%u", i, nkeys, n, rp->mp_pgno);
       MDBX_val *rdata = NULL;
       if (i == newindx) {
         rkey.iov_base = newkey->iov_base;
@@ -20491,7 +20487,7 @@ static int mdbx_page_split(MDBX_cursor *mc, const MDBX_val *newkey,
       }
     } while (i != split_indx);
 
-    mdbx_trace("i %u, nkeys %u, n %u, pgno #%u", i, nkeys, n,
+    mdbx_trace("i %u, nk %u, n %u, pg #%u", i, nkeys, n,
                mc->mc_pg[mc->mc_top]->mp_pgno);
 
     nkeys = page_numkeys(copy);
@@ -27037,8 +27033,8 @@ __dll_export
         9,
         3,
         66,
-        {"2021-03-20T01:24:21+03:00", "cf24a0e8b08ef18d246a9dfb3ff7e3cfd70afee9", "b2f52e55d79f0753b4e944cdf5b9efca40ed4177",
-         "v0.9.3-66-gb2f52e55"},
+        {"2021-03-19T23:28:26+03:00", "c421fa58e0b590982860f105619c2385d8792318", "da5dfe7dc9f2384115102e0be2b7d3e0314770e4",
+         "v0.9.3-66-gda5dfe7d"},
         sourcery};
 
 __dll_export
