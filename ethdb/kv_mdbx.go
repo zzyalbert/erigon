@@ -128,7 +128,7 @@ func (opts MdbxOpts) Open() (KV, error) {
 	}
 
 	if opts.flags&mdbx.Accede == 0 {
-		if err = env.SetGeometry(-1, -1, int(opts.mapSize), int(2*datasize.GB), -1, 4*1024); err != nil {
+		if err = env.SetGeometry(-1, -1, int(opts.mapSize), int(2*datasize.GB), -1, 64*1024); err != nil {
 			return nil, err
 		}
 
