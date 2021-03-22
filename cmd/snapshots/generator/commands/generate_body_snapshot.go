@@ -114,54 +114,11 @@ func BodySnapshot(ctx context.Context, dbPath, snapshotPath string, toBlock uint
 			}
 		}
 	}
-	_,err=tx.Commit()
+	err=tx.Commit()
 	if err!=nil {
 		return err
 	}
 	log.Info("Bodies copied", "t", time.Since(t))
-
-	t2:=time.Now()
-	hash, err = rawdb.ReadCanonicalHash(db, toBlock+1)
-	if err != nil {
-		return fmt.Errorf("getting canonical hash for block %s: %v", hash, err)
-	}
-	bodyRlp:=rawdb.ReadStorageBodyRLP(db, hash, toBlock+1)
-	bodyForStorage :=new(types.BodyForStorage)
-	err = rlp.DecodeBytes(bodyRlp, bodyForStorage)
-	if err != nil {
-		log.Error("Invalid block body RLP", "hash", hash, "err", err)
-		return err
-	}
-
-	err = db.Walk(dbutils.EthTx, []byte{},0, func(k, v []byte) (bool, error) {
-		if common.IsCanceled(ctx) {
-			return false, common.ErrStopped
-		}
-
-		if binary.BigEndian.Uint64(k) >= bodyForStorage.BaseTxId {
-			return false, nil
-		}
-
-		tuples = append(tuples, []byte(dbutils.EthTx), common.CopyBytes(k), common.CopyBytes(v))
-		if len(tuples) >= chunkFile {
-			log.Info("Committed", "tx", binary.BigEndian.Uint64(k))
-			if _, err = snDB.MultiPut(tuples...); err != nil {
-				log.Crit("Multiput error", "err", err)
-				return false, err
-			}
-			tuples = tuples[:0]
-		}
-		return true, nil
-	})
-
-	if len(tuples) > 0 {
-		if _, err = snDB.MultiPut(tuples...); err != nil {
-			log.Crit("Multiput error", "err", err)
-			return err
-		}
-	}
-	log.Info("Transactions copied", "t", time.Since(t2))
-
 
 	err = snDB.Put(dbutils.BodiesSnapshotInfoBucket, []byte(dbutils.SnapshotBodyHeadNumber), big.NewInt(0).SetUint64(toBlock).Bytes())
 	if err != nil {

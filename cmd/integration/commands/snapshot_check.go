@@ -27,8 +27,6 @@ func init() {
 	withBatchSize(cmdSnapshotCheck)
 	cmdSnapshotCheck.Flags().StringVar(&tmpDBPath, "tmp_db", "", "path to temporary db(for debug)")
 	cmdSnapshotCheck.Flags().BoolVar(&fastcheck, "fastcheck", false, "check only final root")
-	withChaindata(dbCopyCmd)
-	rootCmd.AddCommand(dbCopyCmd)
 	rootCmd.AddCommand(cmdSnapshotCheck)
 }
 
@@ -88,7 +86,7 @@ var cmdSnapshotCheck = &cobra.Command{
 		kv := ethdb.NewSnapshot2KV().
 			DB(tmpDb).
 			SnapshotDB([]string{dbutils.HeadersBucket, dbutils.HeaderCanonicalBucket, dbutils.HeaderTDBucket, dbutils.BlockBodyPrefix, dbutils.Senders, dbutils.HeadBlockKey, dbutils.HeaderNumberBucket}, mainDB.KV()).
-			SnapshotDB([]string{dbutils.HeaderPrefix, dbutils.BlockBodyPrefix, dbutils.Senders, dbutils.HeadBlockKey, dbutils.HeaderNumberPrefix, dbutils.HeadHeaderKey, dbutils.EthTx, dbutils.Sequence}, mainDB.KV()).
+			SnapshotDB([]string{dbutils.HeadersBucket, dbutils.BlockBodyPrefix, dbutils.Senders, dbutils.HeadBlockKey, dbutils.HeaderTDBucket,dbutils.HeaderTDBucket,dbutils.HeaderCanonicalBucket, dbutils.HeadHeaderKey, dbutils.EthTx, dbutils.Sequence}, mainDB.KV()).
 			SnapshotDB([]string{dbutils.PlainStateBucket, dbutils.CodeBucket, dbutils.PlainContractCodeBucket}, stateSnapshot).
 			MustOpen()
 
@@ -258,7 +256,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 			stagedsync.ExecuteBlockStageParams{
 				ToBlock:       lastBlockHeaderNumber, // limit execution to the specified block
 				WriteReceipts: false,
-				BatchSize:     int(batchSize),
+				BatchSize:     batchSize,
 			})
 		if err != nil {
 			return fmt.Errorf("execution err %w", err)
@@ -333,7 +331,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 
 		}
 		if fastcheck {
-			_, err = tx.Commit()
+			err = tx.Commit()
 			if err != nil {
 				log.Error("Error on last commit", "err", err,)
 				return err
@@ -358,7 +356,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 			return fmt.Errorf("promote state err: %w", err)
 		}
 		tt = time.Now()
-		_, err = tx.Commit()
+		err = tx.Commit()
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("commit promote state err: %w", err)
@@ -385,14 +383,14 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 		expectedRootHash := syncHeadHeader.Root
 
 		tt = time.Now()
-		err = stagedsync.RegenerateIntermediateHashes("", tx, true, tmpDir, expectedRootHash, ctx.Done())
+		err = stagedsync.RegenerateIntermediateHashes("", tx, true, nil,  tmpDir, expectedRootHash, ctx.Done())
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("regenerateIntermediateHashes err: %w", err)
 		}
 		log.Info("RegenerateIntermediateHashes took", "t", time.Since(tt))
 		tt = time.Now()
-		_, err = tx.Commit()
+		err = tx.Commit()
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -401,11 +399,4 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 	}
 
 	return nil
-}
-
-var dbCopyCmd = &cobra.Command{
-	Use: "copy_compact",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return copyCompact()
-	},
 }
