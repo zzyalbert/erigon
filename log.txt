@@ -595,11 +595,3 @@ Date:   Mon Mar 22 22:41:28 2021 +0200
 
     core/state/snapshot: fix panic on missing parent
 
-commit 8d6cc1674252371c7441279fd9d482d9416dc8aa
-Author: Sina Mahmoodi <1591639+s1na@users.noreply.github.com>
-Date:   Mon Mar 22 19:11:10 2021 +0100
-
-    cmd/geth: check block range against chain head in export cmd (#22387)
-    
-    Check the input parameters against the actual head block, exit on error
-
