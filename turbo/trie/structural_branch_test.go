@@ -36,11 +36,11 @@ func TestIHCursor(t *testing.T) {
 	hash := common.HexToHash(fmt.Sprintf("%064d", 0))
 
 	newV := make([]byte, 0, 1024)
-	put := func(ks string, hasState, hasBranch, hasHash uint16, hashes []common.Hash) {
+	put := func(ks string, hasState, hasTree, hasHash uint16, hashes []common.Hash) {
 		k := common.FromHex(ks)
-		integrity.AssertSubset(k, hasBranch, hasState)
+		integrity.AssertSubset(k, hasTree, hasState)
 		integrity.AssertSubset(k, hasHash, hasState)
-		_ = db.Put(dbutils.TrieOfAccountsBucket, k, common.CopyBytes(trie.MarshalTrieNodeTyped(hasState, hasBranch, hasHash, hashes, newV)))
+		_ = db.Put(dbutils.TrieOfAccountsBucket, k, common.CopyBytes(trie.MarshalTrieNodeTyped(hasState, hasTree, hasHash, hashes, newV)))
 	}
 
 	put("00", 0b0000000000000010, 0b0000000000000000, 0b0000000000000010, []common.Hash{hash})
@@ -57,7 +57,7 @@ func TestIHCursor(t *testing.T) {
 	put("05000f", 0b0000000000000001, 0b0000000000000000, 0b0000000000000001, []common.Hash{hash})
 	put("06", 0b0000000000000001, 0b0000000000000000, 0b0000000000000001, []common.Hash{hash})
 
-	tx, err := db.KV().Begin(context.Background(), ethdb.RW)
+	tx, err := db.KV().BeginRw(context.Background())
 	require.NoError(err)
 	defer tx.Rollback()
 
@@ -117,7 +117,7 @@ func TestIHCursor(t *testing.T) {
 	require.Equal(common.FromHex("30e00030"), ih.FirstNotCoveredPrefix())
 	k, _, _, _ = ih.Next()
 	require.Equal(common.FromHex("05000100"), k)
-	require.False(ih.SkipState)
+	require.True(ih.SkipState)
 	k, _, _, _ = ih.Next()
 	require.Equal(common.FromHex("05000f00"), k)
 	require.True(ih.SkipState)

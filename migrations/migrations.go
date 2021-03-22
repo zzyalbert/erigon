@@ -73,6 +73,8 @@ var migrations = []Migration{
 	historyStorageBitmap,
 	splitHashStateBucket,
 	splitIHBucket,
+	deleteExtensionHashesFromTrieBucket,
+	headerPrefixToSeparateBuckets,
 }
 
 type Migration struct {

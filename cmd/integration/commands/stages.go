@@ -421,7 +421,7 @@ func stageTrie(db ethdb.Database, ctx context.Context) error {
 		if err := stagedsync.ResetIH(tx); err != nil {
 			return err
 		}
-		if _, err := tx.Commit(); err != nil {
+		if err := tx.Commit(); err != nil {
 			panic(err)
 		}
 		return nil
@@ -444,7 +444,7 @@ func stageTrie(db ethdb.Database, ctx context.Context) error {
 		}
 	}
 	integrity.Trie(tx.(ethdb.HasTx).Tx(), integritySlow, ch)
-	if _, err := tx.Commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		panic(err)
 	}
 	return nil
@@ -672,7 +672,7 @@ func newSync(quitCh <-chan struct{}, db ethdb.Database, tx ethdb.Database, hook 
 		stagedsync.DefaultStages(),
 		stagedsync.DefaultUnwindOrder(),
 		stagedsync.OptionalParameters{SilkwormExecutionFunc: silkwormExecutionFunc()},
-	).Prepare(nil, chainConfig, cc, bc.GetVMConfig(), db, tx, "integration_test", sm, path.Join(datadir, etl.TmpDirName), cache, batchSize, quitCh, nil, nil, func() error { return nil }, hook)
+	).Prepare(nil, chainConfig, cc, bc.GetVMConfig(), db, tx, "integration_test", sm, path.Join(datadir, etl.TmpDirName), cache, batchSize, quitCh, nil, nil, func() error { return nil }, hook, false)
 	if err != nil {
 		panic(err)
 	}

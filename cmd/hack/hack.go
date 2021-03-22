@@ -1029,8 +1029,8 @@ func repairCurrent() {
 	currentDb := ethdb.MustOpen("statedb")
 	defer currentDb.Close()
 	tool.Check(historyDb.ClearBuckets(dbutils.HashedStorageBucket))
-	tool.Check(historyDb.KV().Update(context.Background(), func(tx ethdb.Tx) error {
-		newB := tx.Cursor(dbutils.HashedStorageBucket)
+	tool.Check(historyDb.KV().Update(context.Background(), func(tx ethdb.RwTx) error {
+		newB := tx.RwCursor(dbutils.HashedStorageBucket)
 		count := 0
 		if err := currentDb.KV().View(context.Background(), func(ctx ethdb.Tx) error {
 			c := ctx.Cursor(dbutils.HashedStorageBucket)
@@ -1170,7 +1170,7 @@ func (r *Receiver) Receive(
 	accountValue *accounts.Account,
 	storageValue []byte,
 	hash []byte,
-	hasBranch bool,
+	hasTree bool,
 	cutoff int,
 ) error {
 	for r.currentIdx < len(r.unfurlList) {
@@ -1186,19 +1186,19 @@ func (r *Receiver) Receive(
 			c = -1
 		}
 		if c > 0 {
-			return r.defaultReceiver.Receive(itemType, accountKey, storageKey, accountValue, storageValue, hash, hasBranch, cutoff)
+			return r.defaultReceiver.Receive(itemType, accountKey, storageKey, accountValue, storageValue, hash, hasTree, cutoff)
 		}
 		if len(k) > common.HashLength {
 			v := r.storageMap[ks]
 			if len(v) > 0 {
-				if err := r.defaultReceiver.Receive(trie.StorageStreamItem, nil, k, nil, v, nil, hasBranch, 0); err != nil {
+				if err := r.defaultReceiver.Receive(trie.StorageStreamItem, nil, k, nil, v, nil, hasTree, 0); err != nil {
 					return err
 				}
 			}
 		} else {
 			v := r.accountMap[ks]
 			if v != nil {
-				if err := r.defaultReceiver.Receive(trie.AccountStreamItem, k, nil, v, nil, nil, hasBranch, 0); err != nil {
+				if err := r.defaultReceiver.Receive(trie.AccountStreamItem, k, nil, v, nil, nil, hasTree, 0); err != nil {
 					return err
 				}
 			}
@@ -1209,7 +1209,7 @@ func (r *Receiver) Receive(
 		}
 	}
 	// We ran out of modifications, simply pass through
-	return r.defaultReceiver.Receive(itemType, accountKey, storageKey, accountValue, storageValue, hash, hasBranch, cutoff)
+	return r.defaultReceiver.Receive(itemType, accountKey, storageKey, accountValue, storageValue, hash, hasTree, cutoff)
 }
 
 func (r *Receiver) Result() trie.SubTries {
@@ -1574,16 +1574,13 @@ func mint(chaindata string, block uint64) error {
 	blockEncoded := dbutils.EncodeBlockNumber(block)
 	canonical := make(map[common.Hash]struct{})
 	if err1 := db.KV().View(context.Background(), func(tx ethdb.Tx) error {
-		c := tx.Cursor(dbutils.HeaderPrefix)
+		c := tx.Cursor(dbutils.HeaderCanonicalBucket)
 		// This is a mapping of contractAddress + incarnation => CodeHash
 		for k, v, err := c.Seek(blockEncoded); k != nil; k, v, err = c.Next() {
 			if err != nil {
 				return err
 			}
 			// Skip non relevant records
-			if !dbutils.CheckCanonicalKey(k) {
-				continue
-			}
 			canonical[common.BytesToHash(v)] = struct{}{}
 			if len(canonical)%100_000 == 0 {
 				log.Info("Read canonical hashes", "count", len(canonical))
@@ -1641,6 +1638,43 @@ func mint(chaindata string, block uint64) error {
 	}); err1 != nil {
 		return err1
 	}
+	return nil
+}
+
+func extractHashes(chaindata string, blockStep uint64, blockTotal uint64, name string) error {
+	db := ethdb.MustOpen(chaindata)
+	defer db.Close()
+
+	f, err := os.Create(fmt.Sprintf("preverified_hashes_%s.go", name))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+	defer w.Flush()
+
+	fmt.Fprintf(w, "package headerdownload\n\n")
+	fmt.Fprintf(w, "var %sPreverifiedHashes = []string{\n", name)
+
+	b := uint64(0)
+	for b <= blockTotal {
+		hash, err := rawdb.ReadCanonicalHash(db, b)
+		if err != nil {
+			return err
+		}
+
+		if hash == (common.Hash{}) {
+			break
+		}
+
+		fmt.Fprintf(w, "	\"%x\",\n", hash)
+		b += blockStep
+	}
+	b -= blockStep
+	fmt.Fprintf(w, "}\n\n")
+	fmt.Fprintf(w, "const %sPreverifiedHeight uint64 = %d\n", name, b)
+	fmt.Printf("Last block is %d\n", b)
 	return nil
 }
 
@@ -1984,6 +2018,11 @@ func main() {
 	}
 	if *action == "extractHeaders" {
 		if err := extractHeaders(*chaindata, uint64(*block), uint64(*blockTotal), *name); err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+	}
+	if *action == "extractHashes" {
+		if err := extractHashes(*chaindata, uint64(*block), uint64(*blockTotal), *name); err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}

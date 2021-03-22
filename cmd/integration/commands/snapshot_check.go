@@ -87,6 +87,7 @@ var cmdSnapshotCheck = &cobra.Command{
 
 		kv := ethdb.NewSnapshot2KV().
 			DB(tmpDb).
+			SnapshotDB([]string{dbutils.HeadersBucket, dbutils.HeaderCanonicalBucket, dbutils.HeaderTDBucket, dbutils.BlockBodyPrefix, dbutils.Senders, dbutils.HeadBlockKey, dbutils.HeaderNumberBucket}, mainDB.KV()).
 			SnapshotDB([]string{dbutils.HeaderPrefix, dbutils.BlockBodyPrefix, dbutils.Senders, dbutils.HeadBlockKey, dbutils.HeaderNumberPrefix, dbutils.HeadHeaderKey, dbutils.EthTx, dbutils.Sequence}, mainDB.KV()).
 			SnapshotDB([]string{dbutils.PlainStateBucket, dbutils.CodeBucket, dbutils.PlainContractCodeBucket}, stateSnapshot).
 			MustOpen()
@@ -151,7 +152,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 			return fmt.Errorf("promote state err: %w", err)
 		}
 		tt = time.Now()
-		_, err = tx.Commit()
+		err = tx.Commit()
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("commit promote state err: %w", err)
@@ -187,7 +188,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 		}
 		log.Info("RegenerateIntermediateHashes took", "t", time.Since(tt))
 		tt = time.Now()
-		_, err = tx.Commit()
+		err = tx.Commit()
 		if err != nil {
 			tx.Rollback()
 			return err

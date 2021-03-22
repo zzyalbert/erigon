@@ -1,5 +1,6 @@
 package ethdb
 
+/*
 import (
 	"bytes"
 	"context"
@@ -445,3 +446,4 @@ func (b *BinCursor) Count() (uint64, error) {
 func (b *BinCursor) Close() {
 	panic("implement me")
 }
+*/
