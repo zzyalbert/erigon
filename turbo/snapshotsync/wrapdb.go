@@ -58,7 +58,7 @@ func WrapBySnapshotsFromDir(kv ethdb.KV, snapshotDir string, mode SnapshotMode) 
 			log.Error("Can't open headers snapshot", "err", err)
 			return nil, err
 		} else { //nolint
-			snkv = snkv.SnapshotDB([]string{dbutils.HeaderPrefix, dbutils.HeadersSnapshotInfoBucket}, snapshotKV)
+			snkv = snkv.SnapshotDB([]string{dbutils.HeadersBucket, dbutils.HeadersSnapshotInfoBucket}, snapshotKV)
 		}
 	}
 	if mode.State {

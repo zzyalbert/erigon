@@ -17,7 +17,6 @@
 package core
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"math/big"

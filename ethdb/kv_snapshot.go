@@ -129,10 +129,6 @@ func (s *SnapshotKV2) DbSwitch(kv KV)  {
 
 }
 
-func (s *SnapshotKV2) Migrate(bucket string)  {
-	//s.snapshots
-}
-
 var ErrUnavailableSnapshot = errors.New("unavailable snapshot")
 
 type snapshotTX struct {
@@ -246,7 +242,7 @@ func (s *snapshotTX) getSnapshotTX(bucket string) (Tx, error) {
 		return nil, fmt.Errorf("%s  %w", bucket, ErrUnavailableSnapshot)
 	}
 	var err error
-	tx, err = sn.snapshot.Begin(context.TODO())
+	tx, err = sn.kv.Begin(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +306,7 @@ func (s *snapshotTX) Comparator(bucket string) dbutils.CmpFunc {
 	return s.dbTX.Comparator(bucket)
 }
 
-func (s *sn2TX) IncrementSequence(bucket string, amount uint64) (uint64, error) {
+func (s *snapshotTX) IncrementSequence(bucket string, amount uint64) (uint64, error) {
 	panic("implement me")
 }
 

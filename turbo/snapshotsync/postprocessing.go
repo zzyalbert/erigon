@@ -131,8 +131,7 @@ func PostProcessBodies(db ethdb.Database) error {
 	if err != nil {
 		return err
 	}
-	_, err = tx.Commit()
-	return err
+	return tx.Commit()
 }
 
 func PostProcessState(db ethdb.GetterPutter, info *SnapshotsInfo) error {
@@ -178,12 +177,12 @@ func PostProcessNoBlocksSync(db ethdb.Database, blockNum uint64, blockHash commo
 	defer tx.Rollback()
 
 	//add header
-	err = tx.Put(dbutils.HeaderPrefix,dbutils.HeaderKey(SnapshotBlock, blockHash), blockHeaderBytes)
+	err = tx.Put(dbutils.HeadersBucket,dbutils.HeaderKey(SnapshotBlock, blockHash), blockHeaderBytes)
 	if err != nil {
 		return err
 	}
 	//add canonical
-	err = tx.Put(dbutils.HeaderPrefix,dbutils.HeaderHashKey(SnapshotBlock), blockHash.Bytes())
+	err = tx.Put(dbutils.HeaderCanonicalBucket,dbutils.EncodeBlockNumber(SnapshotBlock), blockHash.Bytes())
 	if err != nil {
 		return err
 	}
@@ -197,7 +196,7 @@ func PostProcessNoBlocksSync(db ethdb.Database, blockNum uint64, blockHash commo
 		return err
 	}
 
-	err = tx.Put(dbutils.HeaderNumberPrefix, blockHash.Bytes(), dbutils.EncodeBlockNumber(SnapshotBlock) )
+	err = tx.Put(dbutils.HeaderNumberBucket, blockHash.Bytes(), dbutils.EncodeBlockNumber(SnapshotBlock) )
 	if err != nil {
 		return err
 	}
@@ -205,7 +204,7 @@ func PostProcessNoBlocksSync(db ethdb.Database, blockNum uint64, blockHash commo
 	if err!=nil {
 		return err
 	}
-	err = tx.Put(dbutils.HeaderPrefix, dbutils.HeaderTDKey(SnapshotBlock, blockHash), b)
+	err = tx.Put(dbutils.HeaderTDBucket, dbutils.HeaderKey(SnapshotBlock, blockHash), b)
 	if err != nil {
 		return err
 	}
@@ -241,9 +240,7 @@ func PostProcessNoBlocksSync(db ethdb.Database, blockNum uint64, blockHash commo
 	if err != nil {
 		return err
 	}
-
-	_, err = tx.Commit()
-	return err
+	return tx.Commit()
 }
 
 
