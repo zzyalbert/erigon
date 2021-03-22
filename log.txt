@@ -645,15 +645,3 @@ Date:   Mon Mar 22 09:29:32 2021 +0100
     
     * address review comments
 
-commit eaccdba4ab310e3fb98edbc4b340b5e7c4d767fd
-Author: Derek Chiang <me@derekchiang.com>
-Date:   Mon Mar 22 00:10:51 2021 -0700
-
-    core: fix method comment for `txpool.requestReset` (#22543)
-
-commit ec73ec092d149e20e13cdb0f4b9dbefa9d21a19e
-Author: Tobias Hildebrandt <79341166+tobias-hildebrandt@users.noreply.github.com>
-Date:   Sat Mar 20 18:54:17 2021 +0000
-
-    cmd/utils: fix compilation issue on openbsd (#22511)
-
