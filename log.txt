@@ -520,32 +520,3 @@ Date:   Wed Mar 24 22:33:34 2021 +0800
     Co-authored-by: Martin Holst Swende <martin@swende.se>
     Co-authored-by: Péter Szilágyi <peterke@gmail.com>
 
-commit ab8fd4d005bd8d3fdf677f12c3b59f636c06f1a8
-Author: Felix Lange <fjl@twurst.com>
-Date:   Wed Mar 24 13:37:20 2021 +0100
-
-    p2p/dnsdisc: rate limit resolving before checking cache (#22566)
-    
-    This makes the rate limit apply regardless of whether the node is
-    already cached.
-
-commit 15e6c27f8bcc6a30b47b956701d70f5eb14c1b7c
-Author: Chen Quan <terasum@163.com>
-Date:   Wed Mar 24 20:18:29 2021 +0800
-
-    p2p: fix minor typo and remove fd parameter in checkInboundConn (#22547)
-
-commit 5129cdc4f04889d3f21cadba5a246d62391301a6
-Author: Felix Lange <fjl@twurst.com>
-Date:   Wed Mar 24 12:32:39 2021 +0100
-
-    cmd/devp2p: skip ENR field tails properly in nodeset filter (#22565)
-    
-    In Geth v1.10, we changed the structure of the "les" ENR entry. As a result, the DHT crawler that creates the DNS lists
-    no longer recognizes the les nodes, which is fixed in this commit.
-    
-    * cmd/devp2p: skip ENR field tails properly in nodeset filter
-    * cmd/devp2p: fix tail decoder for snap as well
-    * les: fix tail decoding in "eth" ENR entry
-
-
