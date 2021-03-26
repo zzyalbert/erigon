@@ -19,7 +19,6 @@ package tests
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -130,7 +129,7 @@ func (t *BlockTest) Run(_ bool) error {
 			fmt.Printf("%d: %x\n", cb.NumberU64(), cb.Hash())
 		}
 	*/
-	validBlocks, err := t.insertBlocks(db, config, engine)
+	validBlocks, err := insertBlocks(db, config, engine, t.json.Blocks)
 	if err != nil {
 		return err
 	}
@@ -139,13 +138,13 @@ func (t *BlockTest) Run(_ bool) error {
 		fmt.Printf("hash mismatch: wanted %x, got %x\n", t.json.BestBlock, cmlast)
 		return fmt.Errorf("last block hash validation mismatch: want: %x, have: %x", t.json.BestBlock, cmlast)
 	}
-	tx, err1 := db.Begin(context.Background(), ethdb.RO)
-	if err1 != nil {
-		return fmt.Errorf("blockTest create tx: %v", err1)
-	}
-	defer tx.Rollback()
-	newDB := state.New(state.NewDbStateReader(tx))
-	if err = t.validatePostState(newDB); err != nil {
+	//tx, err1 := db.Begin(context.Background(), ethdb.RO)
+	//if err1 != nil {
+	//	return fmt.Errorf("blockTest create tx: %v", err1)
+	//}
+	//defer tx.Rollback()
+	newDB := state.New(state.NewDbStateReader(db))
+	if err = validatePostState(newDB, t.json.Post); err != nil {
 		return fmt.Errorf("post state validation failed: %v", err)
 	}
 	return validateImportedHeaders(db, validBlocks)
@@ -179,10 +178,10 @@ func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
    expected we are expected to ignore it and continue processing and then validate the
    post state.
 */
-func (t *BlockTest) insertBlocks(db ethdb.Database, config *params.ChainConfig, engine consensus.Engine) ([]btBlock, error) {
+func insertBlocks(db ethdb.Database, config *params.ChainConfig, engine consensus.Engine, blocks []btBlock) ([]btBlock, error) {
 	validBlocks := make([]btBlock, 0)
 	// insert the test blocks, which will execute all transaction
-	for _, b := range t.json.Blocks {
+	for _, b := range blocks {
 		cb, err := b.decode()
 		if err != nil {
 			if b.BlockHeader == nil {
@@ -262,9 +261,9 @@ func validateHeader(h *btHeader, h2 *types.Header) error {
 	return nil
 }
 
-func (t *BlockTest) validatePostState(statedb *state.IntraBlockState) error {
+func validatePostState(statedb *state.IntraBlockState, post core.GenesisAlloc) error {
 	// validate post state accounts in test file against what we have in state db
-	for addr, acct := range t.json.Post {
+	for addr, acct := range post {
 		// address is indirectly verified by the other fields, as it's the db key
 		code2 := statedb.GetCode(addr)
 		balance2 := statedb.GetBalance(addr)
