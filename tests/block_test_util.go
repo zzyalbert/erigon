@@ -19,6 +19,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -138,16 +139,16 @@ func (t *BlockTest) Run(_ bool) error {
 		fmt.Printf("hash mismatch: wanted %x, got %x\n", t.json.BestBlock, cmlast)
 		return fmt.Errorf("last block hash validation mismatch: want: %x, have: %x", t.json.BestBlock, cmlast)
 	}
-	//tx, err1 := db.Begin(context.Background(), ethdb.RO)
-	//if err1 != nil {
-	//	return fmt.Errorf("blockTest create tx: %v", err1)
-	//}
-	//defer tx.Rollback()
-	newDB := state.New(state.NewDbStateReader(db))
+	tx, err1 := db.Begin(context.Background(), ethdb.RO)
+	if err1 != nil {
+		return fmt.Errorf("blockTest create tx: %v", err1)
+	}
+	defer tx.Rollback()
+	newDB := state.New(state.NewDbStateReader(tx))
 	if err = validatePostState(newDB, t.json.Post); err != nil {
 		return fmt.Errorf("post state validation failed: %v", err)
 	}
-	return validateImportedHeaders(db, validBlocks)
+	return validateImportedHeaders(tx, validBlocks)
 }
 
 func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
