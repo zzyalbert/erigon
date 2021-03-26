@@ -148,7 +148,7 @@ func (t *BlockTest) Run(_ bool) error {
 	if err = t.validatePostState(newDB); err != nil {
 		return fmt.Errorf("post state validation failed: %v", err)
 	}
-	return t.validateImportedHeaders(db, config, engine, validBlocks)
+	return validateImportedHeaders(db, validBlocks)
 }
 
 func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
@@ -282,9 +282,9 @@ func (t *BlockTest) validatePostState(statedb *state.IntraBlockState) error {
 	return nil
 }
 
-func (t *BlockTest) validateImportedHeaders(db ethdb.Database, config *params.ChainConfig, engine consensus.Engine, validBlocks []btBlock) error {
+func validateImportedHeaders(db ethdb.Database, validBlocks []btBlock) error {
 	// to get constant lookup when verifying block headers by hash (some tests have many blocks)
-	bmap := make(map[common.Hash]btBlock, len(t.json.Blocks))
+	bmap := make(map[common.Hash]btBlock, len(validBlocks))
 	for _, b := range validBlocks {
 		bmap[b.BlockHeader.Hash] = b
 	}
