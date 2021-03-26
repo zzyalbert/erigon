@@ -164,6 +164,12 @@ func ReadHeadFastBlockHash(db databaseReader) common.Hash {
 	return common.BytesToHash(data)
 }
 
+func ReadCurrentHeader(db ethdb.Getter) *types.Header {
+	headHash := ReadHeadBlockHash(db)
+	headNumber := ReadHeaderNumber(db, headHash)
+	return ReadHeader(db, headHash, *headNumber)
+}
+
 // WriteHeadFastBlockHash stores the hash of the current fast-sync head block.
 func WriteHeadFastBlockHash(db DatabaseWriter, hash common.Hash) {
 	if err := db.Put(dbutils.HeadFastBlockKey, []byte(dbutils.HeadFastBlockKey), hash.Bytes()); err != nil {

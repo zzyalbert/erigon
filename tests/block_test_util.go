@@ -144,7 +144,7 @@ func (t *BlockTest) Run(_ bool) error {
 		return fmt.Errorf("blockTest create tx: %v", err1)
 	}
 	defer tx.Rollback()
-	newDB := state.New(state.NewPlainStateReader(tx))
+	newDB := state.New(state.NewDbStateReader(tx))
 	if err = t.validatePostState(newDB); err != nil {
 		return fmt.Errorf("post state validation failed: %v", err)
 	}
@@ -283,12 +283,6 @@ func (t *BlockTest) validatePostState(statedb *state.IntraBlockState) error {
 }
 
 func (t *BlockTest) validateImportedHeaders(db ethdb.Database, config *params.ChainConfig, engine consensus.Engine, validBlocks []btBlock) error {
-	txCacher := core.NewTxSenderCacher(1)
-	cm, err := core.NewBlockChain(db, &core.CacheConfig{TrieCleanLimit: 0, Pruning: false}, config, engine, vm.Config{}, nil, txCacher)
-	if err != nil {
-		return err
-	}
-	defer cm.Stop()
 	// to get constant lookup when verifying block headers by hash (some tests have many blocks)
 	bmap := make(map[common.Hash]btBlock, len(t.json.Blocks))
 	for _, b := range validBlocks {
@@ -299,9 +293,15 @@ func (t *BlockTest) validateImportedHeaders(db ethdb.Database, config *params.Ch
 	// block-by-block, so we can only validate imported headers after
 	// all blocks have been processed by BlockChain, as they may not
 	// be part of the longest chain until last block is imported.
-	for b := cm.CurrentBlock(); b != nil && b.NumberU64() != 0; b = cm.GetBlockByHash(b.Header().ParentHash) {
-		if err = validateHeader(bmap[b.Hash()].BlockHeader, b.Header()); err != nil {
+
+	for h := rawdb.ReadCurrentHeader(db); h != nil && h.Number.Uint64() != 0; {
+		err := validateHeader(bmap[h.Hash()].BlockHeader, h)
+		if err != nil {
 			return fmt.Errorf("imported block header validation failed: %v", err)
+		}
+		h, err = rawdb.ReadHeaderByHash(db, h.ParentHash)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
