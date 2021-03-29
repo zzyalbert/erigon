@@ -36,7 +36,7 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>. */
 
-#define MDBX_BUILD_SOURCERY af62dd2de4c2ad0b5aa76f686bdc58f16f335d55a323b5b0aaa48592afd02424_v0_9_3_62_gc77494e2
+#define MDBX_BUILD_SOURCERY 09b90fac9ca4de56e89a321cec50facfa3963bcc60c501daf5457ad33423709e_v0_9_3_77_gaf9b7b56
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -2622,7 +2622,7 @@ struct MDBX_env {
   uint16_t *me_dbflags;      /* array of flags from MDBX_db.md_flags */
   unsigned *me_dbiseqs;      /* array of dbi sequence numbers */
   atomic_txnid_t *me_oldest; /* ID of oldest reader last time we looked */
-  MDBX_page *me_dp_reserve;  /* list of malloc'd blocks for re-use */
+  MDBX_page *me_dp_reserve;  /* list of malloc'ed blocks for re-use */
   /* PNL of pages that became unused in a write txn */
   MDBX_PNL me_retired_pages;
   /* Number of freelist items that can fit in a single overflow page */
@@ -2893,15 +2893,18 @@ static __maybe_unused __inline void mdbx_jitter4testing(bool tiny) {
 
 /* Key size which fits in a DKBUF (debug key buffer). */
 #define DKBUF_MAX 511
-
-#if MDBX_DEBUG
 #define DKBUF char _kbuf[DKBUF_MAX * 4 + 2]
 #define DKEY(x) mdbx_dump_val(x, _kbuf, DKBUF_MAX * 2 + 1)
 #define DVAL(x) mdbx_dump_val(x, _kbuf + DKBUF_MAX * 2 + 1, DKBUF_MAX * 2 + 1)
+
+#if MDBX_DEBUG
+#define DKBUF_DEBUG DKBUF
+#define DKEY_DEBUG(x) DKEY(x)
+#define DVAL_DEBUG(x) DVAL(x)
 #else
-#define DKBUF ((void)(0))
-#define DKEY(x) ("-")
-#define DVAL(x) ("-")
+#define DKBUF_DEBUG ((void)(0))
+#define DKEY_DEBUG(x) ("-")
+#define DVAL_DEBUG(x) ("-")
 #endif
 
 /* An invalid page number.
