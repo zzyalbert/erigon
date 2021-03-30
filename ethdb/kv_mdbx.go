@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"runtime"
 	"sync"
 	"time"
 	"unsafe"
@@ -378,7 +377,7 @@ func (db *MdbxKV) BeginRw(_ context.Context) (txn RwTx, err error) {
 	if db.env == nil {
 		return nil, fmt.Errorf("db closed")
 	}
-	runtime.LockOSThread()
+	//runtime.LockOSThread()
 	defer func() {
 		if err == nil {
 			db.wg.Add(1)
@@ -387,7 +386,7 @@ func (db *MdbxKV) BeginRw(_ context.Context) (txn RwTx, err error) {
 
 	tx, err := db.env.BeginTxn(nil, 0)
 	if err != nil {
-		runtime.UnlockOSThread() // unlock only in case of error. normal flow is "defer .Rollback()"
+		//runtime.UnlockOSThread() // unlock only in case of error. normal flow is "defer .Rollback()"
 		return nil, err
 	}
 	tx.RawRead = true
@@ -632,7 +631,7 @@ func (tx *MdbxTx) Commit(ctx context.Context) error {
 		tx.tx = nil
 		tx.db.wg.Done()
 		if !tx.readOnly {
-			runtime.UnlockOSThread()
+			//runtime.UnlockOSThread()
 		}
 	}()
 	tx.closeCursors()
@@ -675,7 +674,7 @@ func (tx *MdbxTx) Rollback() {
 		tx.tx = nil
 		tx.db.wg.Done()
 		if !tx.readOnly {
-			runtime.UnlockOSThread()
+			//runtime.UnlockOSThread()
 		}
 	}()
 	tx.closeCursors()
