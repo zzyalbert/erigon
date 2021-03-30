@@ -22,6 +22,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync"
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync/stages"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/ledgerwatch/turbo-geth/ethdb/remote/remotedbserver"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/migrations"
 	"github.com/ledgerwatch/turbo-geth/params"
@@ -208,7 +209,7 @@ var cmdRunMigrations = &cobra.Command{
 	Use:   "run_migrations",
 	Short: "",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		db := openDatabase(chaindata, false)
+		db := openDatabase(chaindata, true)
 		defer db.Close()
 		// Nothing to do, migrations will be applied automatically
 		return nil
@@ -236,6 +237,7 @@ func init() {
 	withUnwind(cmdStageExec)
 	withBatchSize(cmdStageExec)
 	withSilkworm(cmdStageExec)
+	withTxTrace(cmdStageExec)
 
 	rootCmd.AddCommand(cmdStageExec)
 
@@ -371,6 +373,12 @@ func stageExec(db ethdb.Database, ctx context.Context) error {
 	if reset {
 		return resetExec(db)
 	}
+	vmConfig := bc.GetVMConfig()
+	if txtrace {
+		// Activate tracing and writing into json files for each transaction
+		vmConfig.Tracer = nil
+		vmConfig.Debug = true
+	}
 
 	var batchSize datasize.ByteSize
 	must(batchSize.UnmarshalText([]byte(batchSizeStr)))
@@ -390,7 +398,7 @@ func stageExec(db ethdb.Database, ctx context.Context) error {
 			})
 	}
 	return stagedsync.SpawnExecuteBlocksStage(stage4, db,
-		bc.Config(), cc, bc.GetVMConfig(),
+		bc.Config(), cc, vmConfig,
 		ch,
 		stagedsync.ExecuteBlockStageParams{
 			ToBlock:               block, // limit execution to the specified block
@@ -651,6 +659,7 @@ func newSync2(db ethdb.Database, tx ethdb.Database) (ethdb.StorageMode, *core.Ti
 
 	vmConfig := &vm.Config{NoReceipts: !sm.Receipts}
 	chainConfig := params.MainnetChainConfig
+	events := remotedbserver.NewEvents()
 
 	cc := &core.TinyChainContext{}
 	cc.SetDB(tx)
@@ -666,12 +675,12 @@ func newSync2(db ethdb.Database, tx ethdb.Database) (ethdb.StorageMode, *core.Ti
 	st := stagedsync.New(
 		stagedsync.DefaultStages(),
 		stagedsync.DefaultUnwindOrder(),
-		stagedsync.OptionalParameters{SilkwormExecutionFunc: silkwormExecutionFunc()},
+		stagedsync.OptionalParameters{SilkwormExecutionFunc: silkwormExecutionFunc(), Notifier: events},
 	)
 	stMining := stagedsync.New(
 		stagedsync.MiningStages(),
 		stagedsync.MiningUnwindOrder(),
-		stagedsync.OptionalParameters{SilkwormExecutionFunc: silkwormExecutionFunc()},
+		stagedsync.OptionalParameters{SilkwormExecutionFunc: silkwormExecutionFunc(), Notifier: events},
 	)
 	return sm, cc, chainConfig, vmConfig, nil, st, stMining, cache
 }
@@ -762,13 +771,13 @@ func newBlockChain(db ethdb.Database, sm ethdb.StorageMode) (*params.ChainConfig
 
 func SetSnapshotKV(db ethdb.Database, snapshotDir string, mode snapshotsync.SnapshotMode) error {
 	if len(snapshotDir) > 0 {
-		snapshotKV := db.(ethdb.HasKV).KV()
+		snapshotKV := db.(ethdb.HasRwKV).RwKV()
 		var err error
 		snapshotKV, err = snapshotsync.WrapBySnapshotsFromDir(snapshotKV, snapshotDir, mode)
 		if err != nil {
 			return err
 		}
-		db.(ethdb.HasKV).SetKV(snapshotKV)
+		db.(ethdb.HasRwKV).SetRwKV(snapshotKV)
 	}
 	return nil
 }

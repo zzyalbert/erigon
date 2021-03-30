@@ -95,7 +95,7 @@ func DefaultBucketConfigs(defaultBuckets dbutils.BucketsCfg) dbutils.BucketsCfg 
 	return defaultBuckets
 }
 
-func (opts LmdbOpts) Open() (kv KV, err error) {
+func (opts LmdbOpts) Open() (kv RwKV, err error) {
 	env, err := lmdb.NewEnv()
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func (opts LmdbOpts) Open() (kv KV, err error) {
 
 	var flags = opts.flags
 	if opts.inMem {
-		flags |= lmdb.NoMetaSync
+		flags |= lmdb.NoMetaSync | lmdb.NoSync
 	}
 
 	var exclusiveLock fileutil.Releaser
@@ -266,7 +266,7 @@ func (opts LmdbOpts) Open() (kv KV, err error) {
 	return db, nil
 }
 
-func (opts LmdbOpts) MustOpen() KV {
+func (opts LmdbOpts) MustOpen() RwKV {
 	db, err := opts.Open()
 	if err != nil {
 		panic(fmt.Errorf("fail to open lmdb: %w", err))
@@ -642,16 +642,6 @@ func (tx *lmdbTx) Commit(ctx context.Context) error {
 		log.Info("Batch", "commit", commitTook)
 	}
 
-	//if tx.db.opts.flags&lmdb.Readonly == 0 && !tx.db.opts.inMem { // call fsync only after main transaction commit
-	//	fsyncTimer := time.Now()
-	//	if err := tx.db.env.Sync(tx.flags&NoSync == 0); err != nil {
-	//		log.Warn("fsync after commit failed", "err", err)
-	//	}
-	//	fsyncTook := time.Since(fsyncTimer)
-	//	if fsyncTook > 20*time.Second {
-	//		log.Info("Batch", "fsync", fsyncTook)
-	//	}
-	//}
 	return nil
 }
 

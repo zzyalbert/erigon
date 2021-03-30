@@ -28,8 +28,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/core/vm"
 )
 
-var testVMConfig = vm.Config{}
-
 func TestState(t *testing.T) {
 	t.Parallel()
 
@@ -75,8 +73,7 @@ func TestState(t *testing.T) {
 							return UnsupportedForkError{subtest.Fork}
 						}
 						ctx := config.WithEIPsFlags(context.Background(), big.NewInt(1))
-						_, tds, err := test.Run(ctx, subtest, vmconfig)
-						defer tds.Database().Close()
+						_, err := test.Run(ctx, subtest, vmconfig)
 						return st.checkFailure(t, err)
 					})
 				})
@@ -90,7 +87,7 @@ const traceErrorLimit = 400000
 
 func withTrace(t *testing.T, gasLimit uint64, test func(vm.Config) error) {
 	// Use config from command line arguments.
-	config := vm.Config{EVMInterpreter: *testEVM, EWASMInterpreter: *testEWASM}
+	config := vm.Config{}
 	err := test(config)
 	if err == nil {
 		return

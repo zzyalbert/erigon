@@ -27,7 +27,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/core/types"
 	"github.com/ledgerwatch/turbo-geth/eth/downloader"
 	"github.com/ledgerwatch/turbo-geth/eth/protocols/eth"
-	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/p2p/enode"
 )
 
@@ -52,7 +51,6 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 	// the transactions if the sorting is not cached yet. However, with a random
 	// order, insertions could overflow the non-executable queues and get dropped.
 	//
-	// TODO(karalabe): Figure out if we could get away with random order somehow
 	var txs types.Transactions
 	pending, _ := h.txpool.Pending()
 	for _, batch := range pending {
@@ -293,14 +291,6 @@ func (h *handler) doSync(op *chainSyncOp) error {
 	err := h.downloader.Synchronise(op.peer.ID(), op.head, op.number, op.mode, txPool, func() error { return nil })
 	if err != nil {
 		return err
-	}
-	if atomic.LoadUint32(&h.fastSync) == 1 {
-		log.Info("Fast sync complete, auto disabling")
-		atomic.StoreUint32(&h.fastSync, 0)
-	}
-	if atomic.LoadUint32(&h.snapSync) == 1 {
-		log.Info("Snap sync complete, auto disabling")
-		atomic.StoreUint32(&h.snapSync, 0)
 	}
 	// If we've successfully finished a sync cycle and passed any required checkpoint,
 	// enable accepting transactions from the network.

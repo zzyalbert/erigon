@@ -171,8 +171,8 @@ func compareStates(ctx context.Context, chaindata string, referenceChaindata str
 	refDB := ethdb.MustOpen(referenceChaindata)
 	defer refDB.Close()
 
-	if err := db.KV().View(context.Background(), func(tx ethdb.Tx) error {
-		if err := refDB.KV().View(context.Background(), func(refTX ethdb.Tx) error {
+	if err := db.RwKV().View(context.Background(), func(tx ethdb.Tx) error {
+		if err := refDB.RwKV().View(context.Background(), func(refTX ethdb.Tx) error {
 			for _, bucket := range stateBuckets {
 				fmt.Printf("\nBucket: %s\n", bucket)
 				if err := compareBuckets(ctx, tx, bucket, refTX, bucket); err != nil {
@@ -197,8 +197,8 @@ func compareBucketBetweenDatabases(ctx context.Context, chaindata string, refere
 	refDB := ethdb.MustOpen(referenceChaindata)
 	defer refDB.Close()
 
-	if err := db.KV().View(context.Background(), func(tx ethdb.Tx) error {
-		return refDB.KV().View(context.Background(), func(refTX ethdb.Tx) error {
+	if err := db.RwKV().View(context.Background(), func(tx ethdb.Tx) error {
+		return refDB.RwKV().View(context.Background(), func(refTX ethdb.Tx) error {
 			return compareBuckets(ctx, tx, bucket, refTX, bucket)
 		})
 	}); err != nil {
@@ -368,14 +368,6 @@ MainLoop:
 				return ctx.Err()
 			case <-commitEvery.C:
 				log.Info("Progress", "bucket", bucket, "key", fmt.Sprintf("%x", k))
-				//if err2 := dstTx.Commit(ctx); err2 != nil {
-				//	return err2
-				//}
-				//dstTx, err = dst.Begin(ctx, nil, ethdb.RW)
-				//if err != nil {
-				//	return err
-				//}
-				//c = dstTx.Cursor(bucket)
 			}
 		}
 		prevK = nil
@@ -421,7 +413,7 @@ func mdbxToMdbx(ctx context.Context, from, to string) error {
 	return kv2kv(ctx, src, dst)
 }
 
-func kv2kv(ctx context.Context, src, dst ethdb.KV) error {
+func kv2kv(ctx context.Context, src, dst ethdb.RwKV) error {
 	srcTx, err1 := src.Begin(ctx)
 	if err1 != nil {
 		return err1

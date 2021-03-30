@@ -119,7 +119,7 @@ func NewSimulatedBackendWithDatabase(database *ethdb.ObjectDatabase, alloc core.
 		config:       genesis.Config,
 		txCacher:     txCacher,
 	}
-	backend.events = filters.NewEventSystem(&filterBackend{database, backend}, false)
+	backend.events = filters.NewEventSystem(&filterBackend{database, backend})
 	backend.emptyPendingBlock()
 	return backend
 }
@@ -151,7 +151,7 @@ func NewSimulatedBackendWithConfig(alloc core.GenesisAlloc, config *params.Chain
 		config:       genesis.Config,
 		txCacher:     txCacher,
 	}
-	backend.events = filters.NewEventSystem(&filterBackend{database, backend}, false)
+	backend.events = filters.NewEventSystem(&filterBackend{database, backend})
 	backend.emptyPendingBlock()
 	return backend
 }
@@ -663,9 +663,9 @@ func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transa
 	// Check transaction validity.
 	block := b.blockchain.CurrentBlock()
 	signer := types.MakeSigner(b.blockchain.Config(), block.Number())
-	sender, err := types.Sender(signer, tx)
-	if err != nil {
-		return fmt.Errorf("invalid transaction: %v", err)
+	sender, senderErr := types.Sender(signer, tx)
+	if senderErr != nil {
+		return fmt.Errorf("invalid transaction: %v", senderErr)
 	}
 	nonce := b.pendingState.GetNonce(sender)
 	if tx.Nonce() != nonce {

@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/google/btree"
 	"github.com/ledgerwatch/lmdb-go/lmdb"
@@ -39,23 +38,22 @@ type DbCopier interface {
 
 // ObjectDatabase - is an object-style interface of DB accessing
 type ObjectDatabase struct {
-	kv  KV
-	log log.Logger
-	id  uint64
+	kv RwKV
 }
 
 // NewObjectDatabase returns a AbstractDB wrapper.
-func NewObjectDatabase(kv KV) *ObjectDatabase {
-	logger := log.New("database", "object")
+func NewObjectDatabase(kv RwKV) *ObjectDatabase {
 	return &ObjectDatabase{
-		kv:  kv,
-		log: logger,
-		id:  id(),
+		kv: kv,
 	}
 }
 
 func MustOpen(path string) *ObjectDatabase {
-	db, err := Open(path, false)
+	return NewObjectDatabase(MustOpenKV(path))
+}
+
+func MustOpenKV(path string) RwKV {
+	db, err := OpenKV(path, false)
 	if err != nil {
 		panic(err)
 	}
@@ -64,8 +62,8 @@ func MustOpen(path string) *ObjectDatabase {
 
 // Open - main method to open database. Choosing driver based on path suffix.
 // If env TEST_DB provided - choose driver based on it. Some test using this method to open non-in-memory db
-func Open(path string, readOnly bool) (*ObjectDatabase, error) {
-	var kv KV
+func OpenKV(path string, readOnly bool) (RwKV, error) {
+	var kv RwKV
 	var err error
 	testDB := debug.TestDB()
 	switch true {
@@ -84,6 +82,15 @@ func Open(path string, readOnly bool) (*ObjectDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
+	return kv, nil
+}
+
+func Open(path string, readOnly bool) (*ObjectDatabase, error) {
+	kv, kvErr := OpenKV(path, readOnly)
+	if kvErr != nil {
+		return nil, kvErr
+	}
+
 	return NewObjectDatabase(kv), nil
 }
 
@@ -293,11 +300,11 @@ func (db *ObjectDatabase) Keys() ([][]byte, error) {
 	return keys, err
 }
 
-func (db *ObjectDatabase) KV() KV {
+func (db *ObjectDatabase) RwKV() RwKV {
 	return db.kv
 }
 
-func (db *ObjectDatabase) SetKV(kv KV) {
+func (db *ObjectDatabase) SetRwKV(kv RwKV) {
 	db.kv = kv
 }
 
@@ -345,6 +352,14 @@ func (db *ObjectDatabase) NewBatch() DbWithPendingMutations {
 	return m
 }
 
+func (db *ObjectDatabase) BeginRO(ctx context.Context) (GetterTx, error) {
+	batch := &TxDb{db: db}
+	if err := batch.begin(ctx, RO); err != nil {
+		return batch, err
+	}
+	return batch, nil
+}
+
 func (db *ObjectDatabase) Begin(ctx context.Context, flags TxFlags) (DbWithPendingMutations, error) {
 	batch := &TxDb{db: db}
 	if err := batch.begin(ctx, flags); err != nil {
@@ -389,23 +404,6 @@ func (t MultiPutTuples) Swap(i, j int) {
 	t[i3+2], t[j3+2] = t[j3+2], t[i3+2]
 }
 
-func Get(tx Tx, bucket string, key []byte) ([]byte, error) {
-	// Retrieve the key and increment the miss counter if not found
-	var dat []byte
-	v, err := tx.GetOne(bucket, key)
-	if err != nil {
-		return nil, err
-	}
-	if v != nil {
-		dat = make([]byte, len(v))
-		copy(dat, v)
-	}
-	if dat == nil {
-		return nil, ErrKeyNotFound
-	}
-	return dat, err
-}
-
 func Bytesmask(fixedbits int) (fixedbytes int, mask byte) {
 	fixedbytes = (fixedbits + 7) / 8
 	shiftbits := fixedbits & 7
@@ -425,29 +423,4 @@ func InspectDatabase(db Database) error {
 func NewDatabaseWithFreezer(db *ObjectDatabase, dir, suffix string) (*ObjectDatabase, error) {
 	// FIXME: implement freezer in Turbo-Geth
 	return db, nil
-}
-
-func WarmUp(tx Tx, bucket string, logEvery *time.Ticker, quit <-chan struct{}) error {
-	count := 0
-	c := tx.Cursor(bucket)
-	totalKeys, errCount := c.Count()
-	if errCount != nil {
-		return errCount
-	}
-	for k, _, err := c.First(); k != nil; k, _, err = c.Next() {
-		if err != nil {
-			return err
-		}
-		count++
-
-		select {
-		default:
-		case <-quit:
-			return common.ErrStopped
-		case <-logEvery.C:
-			log.Info("Warmed up state", "progress", fmt.Sprintf("%.2fM/%.2fM", float64(count)/1_000_000, float64(totalKeys)/1_000_000))
-		}
-	}
-
-	return nil
 }

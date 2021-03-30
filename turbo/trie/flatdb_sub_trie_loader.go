@@ -48,7 +48,7 @@ type FlatDbSubTrieLoader struct {
 	masks              []byte
 	cutoffs            []int
 	tx                 ethdb.Tx
-	kv                 ethdb.KV
+	kv                 ethdb.RwKV
 	nextAccountKey     [32]byte
 	k, v               []byte
 	ihK, ihV           []byte
@@ -129,8 +129,8 @@ func (fstl *FlatDbSubTrieLoader) Reset(db ethdb.Database, rl RetainDecider, rece
 	if hasTx, ok := db.(ethdb.HasTx); ok {
 		fstl.tx = hasTx.Tx()
 	} else {
-		if hasKV, ok := db.(ethdb.HasKV); ok {
-			fstl.kv = hasKV.KV()
+		if HasRwKV, ok := db.(ethdb.HasRwKV); ok {
+			fstl.kv = HasRwKV.RwKV()
 		} else {
 			return fmt.Errorf("database doest not implement KV: %T", db)
 		}
@@ -299,8 +299,8 @@ func (fstl *FlatDbSubTrieLoader) iteration(c ethdb.Cursor, ih *IHCursor2, first 
 			fstl.storageKey = nil
 			fstl.storageValue = nil
 			fstl.hashValue = nil
-			if err := fstl.accountValue.DecodeForStorage(fstl.v); err != nil {
-				return fmt.Errorf("fail DecodeForStorage: %w", err)
+			if e := fstl.accountValue.DecodeForStorage(fstl.v); e != nil {
+				return fmt.Errorf("fail DecodeForStorage: %w", e)
 			}
 			copy(fstl.accAddrHashWithInc[:], fstl.k)
 			binary.BigEndian.PutUint64(fstl.accAddrHashWithInc[32:], fstl.accountValue.Incarnation)

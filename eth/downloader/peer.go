@@ -74,40 +74,13 @@ type peerConnection struct {
 	lock    sync.RWMutex
 }
 
-// LightPeer encapsulates the methods required to synchronise with a remote light peer.
-type LightPeer interface {
+// Peer encapsulates the methods required to synchronise with a remote full peer.
+type Peer interface {
 	Head() (common.Hash, uint64)
 	RequestHeadersByHash(common.Hash, int, int, bool) error
 	RequestHeadersByNumber(uint64, int, int, bool) error
-}
-
-// Peer encapsulates the methods required to synchronise with a remote full peer.
-type Peer interface {
-	LightPeer
 	RequestBodies([]common.Hash) error
 	RequestReceipts([]common.Hash) error
-}
-
-// lightPeerWrapper wraps a LightPeer struct, stubbing out the Peer-only methods.
-type lightPeerWrapper struct {
-	peer LightPeer
-}
-
-func (w *lightPeerWrapper) Head() (common.Hash, uint64) { return w.peer.Head() }
-func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip int, reverse bool) error {
-	return w.peer.RequestHeadersByHash(h, amount, skip, reverse)
-}
-func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool) error {
-	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse)
-}
-func (w *lightPeerWrapper) RequestBodies([]common.Hash) error {
-	panic("RequestBodies not supported in light client mode sync")
-}
-func (w *lightPeerWrapper) RequestReceipts([]common.Hash) error {
-	panic("RequestReceipts not supported in light client mode sync")
-}
-func (w *lightPeerWrapper) RequestNodeData([]common.Hash) error {
-	panic("RequestNodeData not supported in light client mode sync")
 }
 
 // newPeerConnection creates a new downloader peer.
@@ -148,7 +121,7 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 	p.headerStarted = time.Now()
 
 	// Issue the header retrieval request (absolute upwards without gaps)
-	go p.peer.RequestHeadersByNumber(from, count, 0, false)
+	go func() { _ = p.peer.RequestHeadersByNumber(from, count, 0, false) }()
 
 	return nil
 }

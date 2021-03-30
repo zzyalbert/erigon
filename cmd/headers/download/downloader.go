@@ -304,7 +304,7 @@ func NewControlServer(db ethdb.Database, sentryClient proto_sentry.SentryClient,
 	default:
 		return nil, fmt.Errorf("chain %s is not known", chain)
 	}
-	if chainConfig, _, _, err = core.SetupGenesisBlock(db, genesis, false /* history */, false /* overwrite */); err != nil {
+	if chainConfig, _, err = core.SetupGenesisBlock(db, genesis, false /* history */, false /* overwrite */); err != nil {
 		return nil, fmt.Errorf("setup genesis block: %w", err)
 	}
 	engine := ethconfig.CreateConsensusEngine(chainConfig, ethashConfig, nil, false)
@@ -484,6 +484,7 @@ func (cs *ControlServerImpl) newBlock(ctx context.Context, inreq *proto_sentry.I
 	} else {
 		return fmt.Errorf("singleHeaderAsSegment failed: %v", err)
 	}
+	cs.bd.AddToPrefetch(request.Block)
 	outreq := proto_sentry.PeerMinBlockRequest{
 		PeerId:   inreq.PeerId,
 		MinBlock: request.Block.NumberU64(),
@@ -503,8 +504,11 @@ func (cs *ControlServerImpl) blockBodies(inreq *proto_sentry.InboundMessage) err
 		return fmt.Errorf("decode BlockBodies: %v", err)
 	}
 	delivered, undelivered := cs.bd.DeliverBodies(request)
-	// Approximate numbers
-	cs.bd.DeliverySize(float64(len(inreq.Data))*float64(delivered)/float64(delivered+undelivered), float64(len(inreq.Data))*float64(undelivered)/float64(delivered+undelivered))
+	total := delivered + undelivered
+	if total > 0 {
+		// Approximate numbers
+		cs.bd.DeliverySize(float64(len(inreq.Data))*float64(delivered)/float64(delivered+undelivered), float64(len(inreq.Data))*float64(undelivered)/float64(delivered+undelivered))
+	}
 	return nil
 }
 

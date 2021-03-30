@@ -17,10 +17,13 @@ import (
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/params"
 	"github.com/ledgerwatch/turbo-geth/turbo/shards"
+	"github.com/ledgerwatch/turbo-geth/turbo/stages/bodydownload"
 )
 
 type ChainEventNotifier interface {
 	OnNewHeader(*types.Header)
+	OnNewPendingLogs(types.Logs)
+	OnNewPendingBlock(*types.Block)
 }
 
 // StageParameters contains the stage that stages receives at runtime when initializes.
@@ -45,7 +48,7 @@ type StageParameters struct {
 	headersFetchers       []func() error
 	txPool                *core.TxPool
 	poolStart             func() error
-	prefetchedBlocks      *PrefetchedBlocks
+	prefetchedBlocks      *bodydownload.PrefetchedBlocks
 	stateReaderBuilder    StateReaderBuilder
 	stateWriterBuilder    StateWriterBuilder
 	notifier              ChainEventNotifier
@@ -64,15 +67,18 @@ type MiningStagesParameters struct {
 	// in this case this feature will add all empty blocks into canonical chain
 	// non-stop and no real transaction will be included.
 	noempty      bool
-	pendingTxs   map[common.Address]types.Transactions
-	txPoolLocals []common.Address
+	PendingTxs   types.TransactionsGroupedBySender
+	TxPoolLocals []common.Address
+
+	resultCh     chan<- *types.Block
+	miningCancel <-chan struct{}
 
 	// runtime dat
 	Block *miningBlock
 }
 
-func NewMiningStagesParameters(cfg *params.MiningConfig, noempty bool, pendingTxs map[common.Address]types.Transactions, txPoolLocals []common.Address) *MiningStagesParameters {
-	return &MiningStagesParameters{MiningConfig: cfg, noempty: noempty, pendingTxs: pendingTxs, txPoolLocals: txPoolLocals, Block: &miningBlock{}}
+func NewMiningStagesParameters(cfg *params.MiningConfig, noempty bool, pendingTxs types.TransactionsGroupedBySender, txPoolLocals []common.Address, resultCh chan<- *types.Block, sealCancel <-chan struct{}) *MiningStagesParameters {
+	return &MiningStagesParameters{MiningConfig: cfg, noempty: noempty, PendingTxs: pendingTxs, TxPoolLocals: txPoolLocals, Block: &miningBlock{}, resultCh: resultCh, miningCancel: sealCancel}
 
 }
 
@@ -380,7 +386,7 @@ func DefaultStages() StageBuilders {
 						logPrefix := s.state.LogPrefix()
 						log.Info(fmt.Sprintf("[%s] Update current block for the RPC API", logPrefix), "to", executionAt)
 
-						err = NotifyRpcDaemon(s.BlockNumber+1, executionAt, world.notifier, world.TX)
+						err = NotifyNewHeaders(s.BlockNumber+1, executionAt, world.notifier, world.TX)
 						if err != nil {
 							return err
 						}
@@ -418,8 +424,8 @@ func MiningStages() StageBuilders {
 							world.mining.GasFloor,
 							world.mining.GasCeil,
 							world.mining.Etherbase,
-							world.mining.txPoolLocals,
-							world.mining.pendingTxs,
+							world.mining.TxPoolLocals,
+							world.mining.PendingTxs,
 							world.QuitCh)
 					},
 					UnwindFunc: func(u *UnwindState, s *StageState) error { return nil },
@@ -438,10 +444,11 @@ func MiningStages() StageBuilders {
 							world.ChainConfig,
 							world.vmConfig,
 							world.chainContext,
-							world.mining.Block.localTxs,
-							world.mining.Block.remoteTxs,
+							world.mining.Block.LocalTxs,
+							world.mining.Block.RemoteTxs,
 							world.mining.Etherbase,
 							world.mining.noempty,
+							world.notifier,
 							world.QuitCh)
 					},
 					UnwindFunc: func(u *UnwindState, s *StageState) error { return nil },
@@ -472,7 +479,7 @@ func MiningStages() StageBuilders {
 						if err != nil {
 							return err
 						}
-						world.mining.Block.header.Root = stateRoot
+						world.mining.Block.Header.Root = stateRoot
 						return nil
 					},
 					UnwindFunc: func(u *UnwindState, s *StageState) error { return nil },
@@ -486,11 +493,7 @@ func MiningStages() StageBuilders {
 					ID:          stages.MiningFinish,
 					Description: "Mining: create and propagate valid block",
 					ExecFunc: func(s *StageState, u Unwinder) error {
-						_, err := SpawnMiningFinishStage(s, world.TX, world.mining.Block, world.chainContext.Engine(), world.ChainConfig, world.QuitCh)
-						if err != nil {
-							return err
-						}
-						return nil
+						return SpawnMiningFinishStage(s, world.TX, world.mining.Block, world.chainContext.Engine(), world.ChainConfig, world.mining.resultCh, world.mining.miningCancel, world.QuitCh)
 					},
 					UnwindFunc: func(u *UnwindState, s *StageState) error { return nil },
 				}

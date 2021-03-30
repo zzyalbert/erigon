@@ -33,13 +33,11 @@ import (
 	"unsafe"
 
 	"github.com/edsrzf/mmap-go"
-
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/ledgerwatch/turbo-geth/consensus"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/metrics"
 	"github.com/ledgerwatch/turbo-geth/rpc"
-
-	"github.com/hashicorp/golang-lru/simplelru"
 )
 
 const doNotStoreCachesOnDisk = ""
@@ -50,6 +48,7 @@ var (
 	// two256 is a big integer representing 2^256
 	two256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 
+	// sharedEthash is a full instance that can be shared between multiple users.
 	sharedEthashOnce sync.Once
 	sharedEthash     *Ethash
 
@@ -60,10 +59,14 @@ var (
 	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
 )
 
-// sharedEthash is a full instance that can be shared between multiple users.
 func GetSharedEthash() *Ethash {
 	sharedEthashOnce.Do(func() {
-		sharedEthash = New(Config{3, false, "", 1, 0, false, ModeNormal, nil}, nil, false)
+		sharedConfig := Config{
+			PowMode:       ModeNormal,
+			CachesInMem:   3,
+			DatasetsInMem: 1,
+		}
+		sharedEthash = New(sharedConfig, nil, false)
 	})
 	return sharedEthash
 }
@@ -421,6 +424,10 @@ type Config struct {
 	DatasetsLockMmap bool
 	PowMode          Mode
 
+	// When set, notifications sent by the remote sealer will
+	// be block header JSON objects instead of work package arrays.
+	NotifyFull bool
+
 	Log log.Logger `toml:"-"`
 }
 
@@ -467,6 +474,9 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeterForced(),
 	}
+	if config.PowMode == ModeShared {
+		ethash.shared = sharedEthash
+	}
 	ethash.remote = startRemoteSealer(ethash, notify, noverify)
 	return ethash
 }
@@ -474,15 +484,7 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 // NewTester creates a small sized ethash PoW scheme useful only for testing
 // purposes.
 func NewTester(notify []string, noverify bool) *Ethash {
-	ethash := &Ethash{
-		config:   Config{PowMode: ModeTest, Log: log.Root()},
-		caches:   newlru("cache", 1, newCache),
-		datasets: newlru("dataset", 1, newDataset),
-		update:   make(chan struct{}),
-		hashrate: metrics.NewMeterForced(),
-	}
-	ethash.remote = startRemoteSealer(ethash, notify, noverify)
-	return ethash
+	return New(Config{PowMode: ModeTest}, notify, noverify)
 }
 
 // NewShared creates a full sized ethash PoW shared between all requesters running
@@ -493,7 +495,6 @@ func NewShared() *Ethash {
 
 // Close closes the exit channel to notify all backend threads exiting.
 func (ethash *Ethash) Close() error {
-	var err error
 	ethash.closeOnce.Do(func() {
 		// Short circuit if the exit channel is not allocated.
 		if ethash.remote == nil {
@@ -502,7 +503,7 @@ func (ethash *Ethash) Close() error {
 		close(ethash.remote.requestExit)
 		<-ethash.remote.exitCh
 	})
-	return err
+	return nil
 }
 
 // cache tries to retrieve a verification cache for the specified block number
