@@ -17,12 +17,13 @@
 package rpc
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
 	"testing"
 	"time"
+
+	"encoding/json"
 )
 
 func TestNewID(t *testing.T) {

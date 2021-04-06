@@ -17,12 +17,13 @@
 package types
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"encoding/json"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
 )

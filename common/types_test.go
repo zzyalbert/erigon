@@ -19,12 +19,13 @@ package common
 import (
 	"bytes"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
+
+	"encoding/json"
 )
 
 func TestBytesConversion(t *testing.T) {

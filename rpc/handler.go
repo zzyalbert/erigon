@@ -18,12 +18,13 @@ package rpc
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/log"
 )

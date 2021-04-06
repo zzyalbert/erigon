@@ -19,13 +19,14 @@
 package simulations
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/p2p/enode"
 )

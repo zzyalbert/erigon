@@ -17,8 +17,9 @@
 package hexutil_test
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
 )

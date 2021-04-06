@@ -7,9 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/valyala/fastjson"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
-	"github.com/valyala/fastjson"
 )
 
 type CallResult struct {

@@ -3,8 +3,9 @@
 package types
 
 import (
-	"encoding/json"
 	"errors"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 )

@@ -53,15 +53,24 @@ func TestVerifyHeadersEthash512(t *testing.T) {
 }
 
 func TestVerifyHeadersEthash1024(t *testing.T) {
+	t.Skip("too slow")
 	const toVerify = 1025
 
 	testVerifyHandlersEthash(t, toVerify)
 }
 
 func TestVerifyHeadersEthash65536(t *testing.T) {
+	t.Skip("too slow")
 	const toVerify = 65536
 
 	testVerifyHandlersEthash(t, toVerify)
+}
+
+func TestVerifyHeadersEthashOnly65536(t *testing.T) {
+	t.Skip("too slow")
+	const toVerify = 65536
+
+	testVerifyHandlersEthashOnly(t, toVerify)
 }
 
 func testVerifyHandlersEthash(t *testing.T, toVerify int) {
@@ -72,7 +81,7 @@ func testVerifyHandlersEthash(t *testing.T, toVerify int) {
 	headers := toHeaders(hardTips)
 
 	const threshold = 15 // percent
-	const repeats = 5
+	const repeats = 10
 
 	ethConfig := ethash.Config{
 		CachesInMem:      1,
@@ -108,6 +117,30 @@ func testVerifyHandlersEthash(t *testing.T, toVerify int) {
 	spew.Dump(resultsEthash)
 }
 
+func testVerifyHandlersEthashOnly(t *testing.T, toVerify int) {
+	hardTips, err := headerdownload.DecodeTips(ethashHardCodedHeaders[:toVerify])
+	if err != nil {
+		t.Fatal("while getting tips", err)
+	}
+	headers := toHeaders(hardTips)
+
+	const repeats = 5
+
+	ethConfig := ethash.Config{
+		CachesInMem:      1,
+		CachesLockMmap:   false,
+		DatasetDir:       "ethash",
+		DatasetsInMem:    1,
+		DatasetsOnDisk:   0,
+		DatasetsLockMmap: false,
+	}
+
+	for i := 0; i < repeats; i++ {
+		_ = verifyByEngineProcess(t, headers, core.DefaultGenesisBlock(), &ethConfig)
+	}
+
+}
+
 func checkResults(t *testing.T, results []result, threshold float64) {
 	t.Helper()
 
@@ -132,18 +165,21 @@ func TestVerifyHeadersClique128(t *testing.T) {
 }
 
 func TestVerifyHeadersClique1024(t *testing.T) {
+	t.Skip("too slow")
 	const toVerify = 1025
 
 	testVerifyHeadersClique(t, toVerify)
 }
 
 func TestVerifyHeadersClique65536(t *testing.T) {
+	t.Skip("too slow")
 	const toVerify = 65536
 
 	testVerifyHeadersClique(t, toVerify)
 }
 
 func TestVerifyHeadersCliqueOnly1024(t *testing.T) {
+	t.Skip("too slow")
 	const toVerify = 1025
 
 	testVerifyHeadersCliqueOnly(t, toVerify)
@@ -190,7 +226,7 @@ func testVerifyHeadersCliqueOnly(t *testing.T, toVerify int) {
 	}
 	headers := toHeaders(hardTips)
 
-	const repeats = 1
+	const repeats = 10
 
 	var resCliqueProcess time.Duration
 
@@ -210,7 +246,7 @@ func verifyByEngine(t *testing.T, headers []*types.Header, genesis *core.Genesis
 	engine := engineConstr(db)
 	defer engine.Close()
 
-	config, _, _, err := core.SetupGenesisBlock(db, genesis, false, false)
+	config, _, err := core.SetupGenesisBlock(db, genesis, false, false)
 	if err != nil {
 		t.Errorf("setting up genensis block: %v", err)
 	}
@@ -283,7 +319,7 @@ func verifyByEngineProcess(t *testing.T, headers []*types.Header, genesis *core.
 	db := ethdb.NewMemDatabase()
 	defer db.Close()
 
-	config, _, _, err := core.SetupGenesisBlock(db, genesis, false, false)
+	config, _, err := core.SetupGenesisBlock(db, genesis, false, false)
 	if err != nil {
 		t.Errorf("setting up genensis block: %v", err)
 	}

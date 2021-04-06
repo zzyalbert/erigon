@@ -29,6 +29,7 @@ import (
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/gorilla/websocket"
+
 	"github.com/ledgerwatch/turbo-geth/log"
 )
 

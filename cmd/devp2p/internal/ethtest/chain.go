@@ -18,13 +18,14 @@ package ethtest
 
 import (
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"strings"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/core"
 	"github.com/ledgerwatch/turbo-geth/core/forkid"
@@ -36,16 +37,6 @@ import (
 type Chain struct {
 	blocks      []*types.Block
 	chainConfig *params.ChainConfig
-}
-
-func (c *Chain) WriteTo(writer io.Writer) error {
-	for _, block := range c.blocks {
-		if err := rlp.Encode(writer, block); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Len returns the length of the chain.
@@ -132,8 +123,10 @@ func loadChain(chainfile string, genesis string) (*Chain, error) {
 	if err = json.Unmarshal(chainConfig, &gen); err != nil {
 		return nil, err
 	}
-	gblock, _, _ := gen.ToBlock(nil, false)
-
+	gblock, _, err := gen.ToBlock(false)
+	if err != nil {
+		return nil, err
+	}
 	// Load chain.rlp.
 	fh, err := os.Open(chainfile)
 	if err != nil {

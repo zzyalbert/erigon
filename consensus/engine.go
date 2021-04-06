@@ -61,8 +61,7 @@ type API struct {
 	HeadersRequests       chan HeadersRequest
 	HeaderResponses       chan HeaderResponse
 
-	VerifiedBlocks   *lru.Cache // blockNumber->*types.Header
-	VerifiedBlocksMu sync.RWMutex
+	VerifiedBlocks *lru.Cache // blockNumber->*types.Header
 
 	ProcessingRequests   map[uint64]*RequestStorage // reqID->blockNumber->*VerifyRequest
 	ProcessingRequestsMu sync.RWMutex
@@ -164,9 +163,6 @@ func (p *API) CacheHeader(header *types.Header) {
 		return
 	}
 
-	p.VerifiedBlocksMu.Lock()
-	defer p.VerifiedBlocksMu.Unlock()
-
 	blockNum := header.Number.Uint64()
 	blocksContainer, ok := p.VerifiedBlocks.Get(blockNum)
 	blocks, blocksOk := blocksContainer.([]*types.Header)
@@ -189,9 +185,6 @@ func (p *API) CacheHeader(header *types.Header) {
 }
 
 func (p *API) GetCachedHeader(hash common.Hash, blockNum uint64) *types.Header {
-	p.VerifiedBlocksMu.RLock()
-	defer p.VerifiedBlocksMu.RUnlock()
-
 	h, ok := p.VerifiedBlocks.Get(blockNum)
 	if !ok {
 		return nil

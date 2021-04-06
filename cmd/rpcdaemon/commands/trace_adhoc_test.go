@@ -2,8 +2,9 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/cmd/rpcdaemon/cli"
 	"github.com/ledgerwatch/turbo-geth/common"
@@ -11,11 +12,12 @@ import (
 )
 
 func TestEmptyQuery(t *testing.T) {
-	db, err := createTestDb()
+	db, err := createTestKV()
 	if err != nil {
 		t.Fatalf("create test db: %v", err)
 	}
-	api := NewTraceAPI(db, &cli.Flags{})
+	defer db.Close()
+	api := NewTraceAPI(db, nil, &cli.Flags{})
 	// Call GetTransactionReceipt for transaction which is not in the database
 	var latest rpc.BlockNumber = rpc.LatestBlockNumber
 	results, err := api.CallMany(context.Background(), json.RawMessage("[]"), &rpc.BlockNumberOrHash{BlockNumber: &latest})
@@ -30,11 +32,12 @@ func TestEmptyQuery(t *testing.T) {
 	}
 }
 func TestCoinbaseBalance(t *testing.T) {
-	db, err := createTestDb()
+	db, err := createTestKV()
 	if err != nil {
 		t.Fatalf("create test db: %v", err)
 	}
-	api := NewTraceAPI(db, &cli.Flags{})
+	defer db.Close()
+	api := NewTraceAPI(db, nil, &cli.Flags{})
 	// Call GetTransactionReceipt for transaction which is not in the database
 	var latest rpc.BlockNumber = rpc.LatestBlockNumber
 	results, err := api.CallMany(context.Background(), json.RawMessage(`

@@ -320,7 +320,7 @@ func (c *Verifier) findPrevCheckpoint(num uint64, hash common.Hash, parentHash c
 	)
 
 	for n = int(highest); n >= 0; n-- {
-		_, ok = c.recentsNum.Get(uint64(n))
+		ok = c.recentsNum.Contains(uint64(n))
 		if ok {
 			break
 		}

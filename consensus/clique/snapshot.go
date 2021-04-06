@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/goccy/go-json"
 	lru "github.com/hashicorp/golang-lru"
-	json "github.com/json-iterator/go"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"

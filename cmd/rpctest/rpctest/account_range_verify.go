@@ -3,7 +3,6 @@ package rpctest
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"encoding/json"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/core/state"
@@ -109,16 +110,24 @@ func CompareAccountRange(tgURL, gethURL, tmpDataDir, gethDataDir string, blockFr
 		}
 	}
 
-	tgTx, err := resultsKV.Begin(context.Background())
+	tgTx, err := resultsKV.BeginRo(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
-	gethTx, err := gethKV.Begin(context.Background())
+	gethTx, err := gethKV.BeginRo(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
-	tgCursor := tgTx.Cursor(dbutils.AccountsHistoryBucket)
-	gethCursor := gethTx.Cursor(dbutils.AccountsHistoryBucket)
+	tgCursor, err := tgTx.Cursor(dbutils.AccountsHistoryBucket)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tgCursor.Close()
+	gethCursor, err := gethTx.Cursor(dbutils.AccountsHistoryBucket)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer gethCursor.Close()
 
 	tgKey, tgVal, err1 := tgCursor.Next()
 	if err1 != nil {

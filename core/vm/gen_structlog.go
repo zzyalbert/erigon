@@ -3,8 +3,9 @@
 package vm
 
 import (
-	"encoding/json"
 	"math/big"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"

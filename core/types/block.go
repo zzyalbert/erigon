@@ -109,7 +109,6 @@ func (h *Header) HashCache() common.Hash {
 	if hash := h.hash.Load(); hash != nil && hash != (common.Hash{}) {
 		return hash.(common.Hash)
 	}
-
 	v := rlpHash(h)
 	h.hash.Store(v)
 
@@ -468,17 +467,23 @@ func SortHeadersAsc(hs []*Header) {
 
 	minIdx := 0
 	min := hs[minIdx].Number
+	prev := hs[minIdx].Number
 	sorted := true
 	var res int
 
-	for i := 1; i < len(hs); i++ {
+	n := len(hs)
+	for i := 1; i < n; i++ {
 		res = hs[i].Number.Cmp(min)
 		if res < 0 {
 			min = hs[i].Number
 			minIdx = i
 		}
-		if res != 0 {
+
+		if prev.Cmp(hs[i].Number) > 0 {
 			sorted = false
+		}
+		if sorted {
+			prev = hs[i].Number
 		}
 	}
 
@@ -499,49 +504,6 @@ func SortHeadersAsc(hs []*Header) {
 		bigI.SetInt64(int64(i))
 		for diffWithMin.Sub(hs[i].Number, min).Cmp(bigI) != 0 {
 			newIdx = int(diffWithMin.Int64())
-			hs[newIdx], hs[i] = hs[i], hs[newIdx]
-		}
-	}
-}
-
-func SortHeadersDesc(hs []*Header) {
-	if len(hs) == 0 {
-		return
-	}
-
-	maxIdx := 0
-	max := hs[maxIdx].Number
-	sorted := true
-	var res int
-
-	for i := 1; i < len(hs); i++ {
-		res = hs[i].Number.Cmp(max)
-		if res > 0 {
-			max = hs[i].Number
-			maxIdx = i
-		}
-		if res != 0 {
-			sorted = false
-		}
-	}
-
-	if sorted {
-		return
-	}
-
-	startIDx := 0
-	if maxIdx == 0 {
-		startIDx = 1
-	}
-
-	var newIdx int
-	diffWithMax := big.NewInt(0)
-	bigI := big.NewInt(0)
-
-	for i := startIDx; i < len(hs); i++ {
-		bigI.SetInt64(int64(i))
-		for diffWithMax.Sub(max, hs[i].Number).Cmp(bigI) != 0 {
-			newIdx = int(diffWithMax.Int64())
 			hs[newIdx], hs[i] = hs[i], hs[newIdx]
 		}
 	}
