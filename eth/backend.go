@@ -60,10 +60,8 @@ import (
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync/stages"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/ethdb/remote/remotedbserver"
-	"github.com/ledgerwatch/turbo-geth/event"
 	"github.com/ledgerwatch/turbo-geth/internal/ethapi"
 	"github.com/ledgerwatch/turbo-geth/log"
-	"github.com/ledgerwatch/turbo-geth/miner"
 	"github.com/ledgerwatch/turbo-geth/node"
 	"github.com/ledgerwatch/turbo-geth/p2p"
 	"github.com/ledgerwatch/turbo-geth/p2p/enode"
@@ -93,14 +91,12 @@ type Ethereum struct {
 	chainKV    ethdb.RwKV     // Same as chainDb, but different interface
 	privateAPI *grpc.Server
 
-	eventMux       *event.TypeMux
 	engine         *process.RemoteEngine
 
 	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 
 	APIBackend *EthAPIBackend
 
-	miner     *miner.Miner
 	gasPrice  *uint256.Int
 	etherbase common.Address
 	signer    *ecdsa.PrivateKey
@@ -121,10 +117,6 @@ type Ethereum struct {
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
 func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
-	// Ensure configuration values are compatible and sane
-	if !config.SyncMode.IsValid() {
-		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
-	}
 	if config.Miner.GasPrice == nil || config.Miner.GasPrice.Cmp(common.Big0) <= 0 {
 		log.Warn("Sanitizing invalid miner gas price", "provided", config.Miner.GasPrice, "updated", ethconfig.Defaults.Miner.GasPrice)
 		config.Miner.GasPrice = new(big.Int).Set(ethconfig.Defaults.Miner.GasPrice)
@@ -164,7 +156,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
 	var torrentClient *bittorrent.Client
-	if config.SyncMode == downloader.StagedSync && config.SnapshotMode != (snapshotsync.SnapshotMode{}) && config.NetworkID == params.MainnetChainConfig.ChainID.Uint64() {
+	if config.SnapshotMode != (snapshotsync.SnapshotMode{}) && config.NetworkID == params.MainnetChainConfig.ChainID.Uint64() {
 		if config.ExternalSnapshotDownloaderAddr != "" {
 			cli, cl, innerErr := snapshotsync.NewClient(config.ExternalSnapshotDownloaderAddr)
 			if innerErr != nil {
@@ -238,6 +230,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 				return nil, innerErr
 			}
 			chainDb.(ethdb.HasRwKV).SetRwKV(snapshotKV)
+
 			innerErr = snapshotsync.PostProcessing(chainDb, config.SnapshotMode, downloadedSnapshots)
 			if innerErr != nil {
 				return nil, innerErr
@@ -271,7 +264,15 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 					return nil, innerErr
 				}
 				chainDb.(ethdb.HasRwKV).SetRwKV(snapshotKV)
+				tx, err := chainDb.Begin(context.Background(), ethdb.RW)
+				if err != nil {
+					return nil, err
+				}
+				defer tx.Rollback()
 				innerErr = snapshotsync.PostProcessing(chainDb, config.SnapshotMode, mp)
+				if err = tx.Commit(); err != nil {
+					return nil, err
+				}
 				if innerErr != nil {
 					return nil, innerErr
 				}
@@ -285,14 +286,13 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		config:         config,
 		chainDb:        chainDb,
 		chainKV:       chainDb.(ethdb.HasRwKV).RwKV(),
-		eventMux:       stack.EventMux(),
-		networkID:      config.NetworkID,
-		etherbase:      config.Miner.Etherbase,
-		bloomRequests:  make(chan chan *bloombits.Retrieval),
-		p2pServer:      stack.Server(),
-		torrentClient:  torrentClient,
-		chainConfig:    chainConfig,
-		genesisHash:    genesisHash,
+		networkID:     config.NetworkID,
+		etherbase:     config.Miner.Etherbase,
+		bloomRequests: make(chan chan *bloombits.Retrieval),
+		p2pServer:     stack.Server(),
+		torrentClient: torrentClient,
+		chainConfig:   chainConfig,
+		genesisHash:   genesisHash,
 	}
 	eth.gasPrice, _ = uint256.FromBig(config.Miner.GasPrice)
 
@@ -347,12 +347,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, chainConfig, eth.engine, vmConfig, eth.shouldPreserve, txCacher)
 	if err != nil {
 		return nil, err
-	}
-	if config.SyncMode != downloader.StagedSync {
-		_, err = eth.blockchain.GetTrieDbState()
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	eth.blockchain.EnableReceipts(config.StorageMode.Receipts)
@@ -421,6 +415,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 					Certificates: []tls.Certificate{peerCert},
 					ClientCAs:    caCertPool,
 					ClientAuth:   tls.RequireAndVerifyClientCert,
+					MinVersion:   tls.VersionTLS12,
 				})
 			} else {
 				creds, err = credentials.NewServerTLSFromFile(stack.Config().TLSCertFile, stack.Config().TLSKeyFile)
@@ -447,8 +442,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		Chain:      eth.blockchain,
 		TxPool:     eth.txPool,
 		Network:    config.NetworkID,
-		Sync:       config.SyncMode,
-		EventMux:   eth.eventMux,
 		Checkpoint: checkpoint,
 
 		Whitelist: config.Whitelist,
@@ -456,10 +449,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}, eth.engine); err != nil {
 		return nil, err
 	}
-	//if config.SyncMode != downloader.StagedSync {
-	//eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
-	//_ = eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
-	//}
 	eth.snapDialCandidates, _ = setupDiscovery(eth.config.SnapDiscoveryURLs) //nolint:staticcheck
 	eth.handler.SetTmpDir(tmpdir)
 	eth.handler.SetBatchSize(config.CacheSize, config.BatchSize)
@@ -477,26 +466,9 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		return nil, err
 	}
 
-	if config.SyncMode != downloader.StagedSync {
-		eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil}
-		gpoParams := config.GPO
-		if gpoParams.Default == nil {
-			gpoParams.Default = config.Miner.GasPrice
-		}
-		eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
-	}
-
 	eth.ethDialCandidates, err = setupDiscovery(eth.config.EthDiscoveryURLs)
 	if err != nil {
 		return nil, err
-	}
-	// Start the RPC service
-	if config.SyncMode != downloader.StagedSync {
-		id, err := eth.NetVersion()
-		if err != nil {
-			return nil, err
-		}
-		eth.netRPCService = ethapi.NewPublicNetAPI(eth.p2pServer, id)
 	}
 
 	// Register the backend on the node
@@ -671,8 +643,6 @@ func (s *Ethereum) SetEtherbase(etherbase common.Address) {
 	s.lock.Lock()
 	s.etherbase = etherbase
 	s.lock.Unlock()
-
-	s.miner.SetEtherbase(etherbase)
 }
 
 // StartMining starts the miner with the given number of CPU threads. If mining
@@ -691,7 +661,7 @@ func (s *Ethereum) StartMining(threads int) error {
 		th.SetThreads(threads)
 	}
 	// If the miner was not running, initialize it
-	if s.config.SyncMode == downloader.StagedSync || !s.IsMining() {
+	if !s.IsMining() {
 		// Propagate the initial price point to the transaction pool
 		s.lock.RLock()
 		price := s.gasPrice
@@ -717,7 +687,6 @@ func (s *Ethereum) StartMining(threads int) error {
 		// If mining is started, we can disable the transaction rejection mechanism
 		// introduced to speed sync times.
 		atomic.StoreUint32(&s.handler.acceptTxs, 1)
-		//go s.miner.Start(eb)
 	}
 	return nil
 }
@@ -732,18 +701,12 @@ func (s *Ethereum) StopMining() {
 	if th, ok := s.engine.Engine.(threaded); ok {
 		th.SetThreads(-1)
 	}
-	// Stop the block creating itself
-	if s.config.SyncMode != downloader.StagedSync {
-		s.miner.Stop()
-	}
 }
 
-func (s *Ethereum) IsMining() bool      { return s.config.Miner.Enabled }
-func (s *Ethereum) Miner() *miner.Miner { return s.miner }
+func (s *Ethereum) IsMining() bool { return s.config.Miner.Enabled }
 
 func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
 func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
-func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
 func (s *Ethereum) ChainDb() ethdb.Database            { return s.chainDb }
 func (s *Ethereum) ChainKV() ethdb.RwKV                { return s.chainKV }
@@ -797,7 +760,6 @@ func (s *Ethereum) Stop() error {
 	//s.miner.Stop()
 	s.blockchain.Stop()
 	s.engine.Close()
-	s.eventMux.Stop()
 	if s.txPool != nil {
 		s.txPool.Stop()
 	}

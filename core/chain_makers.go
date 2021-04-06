@@ -91,7 +91,7 @@ func (b *BlockGen) SetDifficulty(diff *big.Int) {
 // added. Notably, contract code relying on the BLOCKHASH instruction
 // will panic during execution.
 func (b *BlockGen) AddTx(tx *types.Transaction) {
-	b.AddTxWithChain(nil, tx)
+	b.AddTxWithChain(nil, nil, tx)
 }
 
 // AddTxWithChain adds a transaction to the generated block. If no coinbase has
@@ -102,12 +102,12 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 // further limitations on the content of transactions that can be
 // added. If contract code relies on the BLOCKHASH instruction,
 // the block in chain will be returned.
-func (b *BlockGen) AddTxWithChain(bc ChainContext, tx *types.Transaction) {
+func (b *BlockGen) AddTxWithChain(getHeader func(hash common.Hash, number uint64) *types.Header, engine consensus.Engine, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
 	b.ibs.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
-	receipt, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.ibs, state.NewNoopWriter(), b.header, tx, &b.header.GasUsed, vm.Config{})
+	receipt, err := ApplyTransaction(b.config, getHeader, engine, &b.header.Coinbase, b.gasPool, b.ibs, state.NewNoopWriter(), b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
@@ -173,7 +173,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time <= b.parent.Header().Time {
 		panic("block time out of range")
 	}
-	chainreader := &fakeChainReader{config: b.config}
+	chainreader := &FakeChainReader{Cfg: b.config}
 	parent := b.parent.Header()
 	b.header.Difficulty = b.engine.CalcDifficulty(chainreader, b.header.Time, parent.Time, parent.Difficulty, parent.Number, parent.Hash(), parent.UncleHash)
 }
@@ -204,14 +204,14 @@ var GenerateTrace bool
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db *ethdb.ObjectDatabase, n int, gen func(int, *BlockGen),
+func GenerateChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen),
 	intermediateHashes bool,
 ) ([]*types.Block, []types.Receipts, error) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	chainreader := &fakeChainReader{config: config}
+	chainreader := &FakeChainReader{Cfg: config}
 	tx, errBegin := db.Begin(context.Background(), ethdb.RW)
 	if errBegin != nil {
 		return nil, nil, errBegin
@@ -259,7 +259,10 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 			}); err != nil {
 				return nil, nil, fmt.Errorf("clear HashedState bucket: %w", err)
 			}
-			c := tx.(ethdb.HasTx).Tx().Cursor(dbutils.PlainStateBucket)
+			c, err := tx.(ethdb.HasTx).Tx().Cursor(dbutils.PlainStateBucket)
+			if err != nil {
+				return nil, nil, err
+			}
 			h := common.NewHasher()
 			defer common.ReturnHasherToPool(h)
 			for k, v, err := c.First(); k != nil; k, v, err = c.Next() {
@@ -305,14 +308,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 				}
 				fmt.Printf("===============================\n")
 			}
-			var hashCollector func(keyHex []byte, _, _, _ uint16, hashes []byte, rootHash []byte) error
-			var storageHashCollector func(addrWithInc []byte, keyHex []byte, _, _, _ uint16, hashes []byte, rootHash []byte) error
-			unfurl := trie.NewRetainList(0)
-			loader := trie.NewFlatDBTrieLoader("GenerateChain")
-			if err := loader.Reset(unfurl, hashCollector, storageHashCollector, false); err != nil {
-				return nil, nil, fmt.Errorf("call to FlatDbSubTrieLoader.Reset: %w", err)
-			}
-			if hash, err := loader.CalcTrieRoot(tx, []byte{}, nil); err == nil {
+			if hash, err := trie.CalcRoot("GenerateChain", tx); err == nil {
 				b.header.Root = hash
 			} else {
 				return nil, nil, fmt.Errorf("call to CalcTrieRoot: %w", err)
@@ -368,17 +364,17 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.I
 	}
 }
 
-type fakeChainReader struct {
-	config *params.ChainConfig
+type FakeChainReader struct {
+	Cfg *params.ChainConfig
 }
 
 // Config returns the chain configuration.
-func (cr *fakeChainReader) Config() *params.ChainConfig {
-	return cr.config
+func (cr *FakeChainReader) Config() *params.ChainConfig {
+	return cr.Cfg
 }
 
-func (cr *fakeChainReader) CurrentHeader() *types.Header                            { return nil }
-func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header           { return nil }
-func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
-func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
-func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
+func (cr *FakeChainReader) CurrentHeader() *types.Header                            { return nil }
+func (cr *FakeChainReader) GetHeaderByNumber(number uint64) *types.Header           { return nil }
+func (cr *FakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
+func (cr *FakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
+func (cr *FakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }

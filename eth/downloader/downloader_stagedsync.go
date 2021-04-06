@@ -100,8 +100,7 @@ func (d *Downloader) SpawnBodyDownloadStage(
 		h := hashes[prefetchedHashes]
 		if block := prefetchedBlocks.Pop(h); block != nil {
 			fr := fetchResultFromBlock(block)
-			execute := false
-			_, err := d.importBlockResults(logPrefix, []*fetchResult{fr}, execute)
+			_, err := d.importBlockResults(logPrefix, []*fetchResult{fr})
 			if err != nil {
 				return false, err
 			}
@@ -116,7 +115,7 @@ func (d *Downloader) SpawnBodyDownloadStage(
 	}
 	log.Info(fmt.Sprintf("[%s] Downloading block bodies", logPrefix), "count", hashCount)
 	from := origin + 1
-	d.queue.Prepare(from, d.getMode())
+	d.queue.Prepare(from)
 	d.queue.ScheduleBodies(from, hashes[:hashCount], headers)
 	to := from + uint64(hashCount)
 
@@ -160,7 +159,7 @@ func (d *Downloader) processBodiesStage(logPrefix string, to uint64) error {
 		if len(results) == 0 {
 			return nil
 		}
-		lastNumber, err := d.importBlockResults(logPrefix, results, false /* execute */)
+		lastNumber, err := d.importBlockResults(logPrefix, results)
 		if err != nil {
 			return err
 		}

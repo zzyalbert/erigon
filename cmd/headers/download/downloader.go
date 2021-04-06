@@ -87,12 +87,11 @@ func Download(sentryAddr string, coreAddr string, db ethdb.Database, timeout, wi
 			Forks:   controlServer.forks,
 		},
 	}
-	callCtx, cancelFn := context.WithCancel(ctx)
-	if _, err = sentryClient.SetStatus(callCtx, statusMsg, &grpc.EmptyCallOption{}); err != nil {
-		cancelFn()
+
+	if _, err = sentryClient.SetStatus(ctx, statusMsg, &grpc.EmptyCallOption{}); err != nil {
 		return fmt.Errorf("setting initial status message: %w", err)
 	}
-	cancelFn()
+
 	go func() {
 		for {
 			select {
@@ -100,22 +99,7 @@ func Download(sentryAddr string, coreAddr string, db ethdb.Database, timeout, wi
 				return
 			default:
 			}
-			callCtx, cancelFn = context.WithCancel(ctx)
-			receiveClient, err2 := sentryClient.ReceiveMessages(callCtx, &empty.Empty{}, &grpc.EmptyCallOption{})
-			if err2 != nil {
-				log.Error("Receive messages failed", "error", err2)
-			} else {
-				inreq, err := receiveClient.Recv()
-				for ; err == nil; inreq, err = receiveClient.Recv() {
-					if err1 := controlServer.handleInboundMessage(ctx, inreq); err1 != nil {
-						log.Error("Handling incoming message", "error", err1)
-					}
-				}
-				if err != nil && !errors.Is(err, io.EOF) {
-					log.Error("Receive loop terminated", "error", err)
-				}
-			}
-			cancelFn()
+			recvMessage(ctx, sentryClient, controlServer)
 			// Wait before trying to reconnect to prevent log flooding
 			time.Sleep(2 * time.Second)
 		}
@@ -127,22 +111,7 @@ func Download(sentryAddr string, coreAddr string, db ethdb.Database, timeout, wi
 				return
 			default:
 			}
-			callCtx, cancelFn = context.WithCancel(ctx)
-			receiveUploadClient, err3 := sentryClient.ReceiveUploadMessages(callCtx, &empty.Empty{}, &grpc.EmptyCallOption{})
-			if err3 != nil {
-				log.Error("Receive upload messages failed", "error", err3)
-			} else {
-				inreq, err := receiveUploadClient.Recv()
-				for ; err == nil; inreq, err = receiveUploadClient.Recv() {
-					if err1 := controlServer.handleInboundMessage(ctx, inreq); err1 != nil {
-						log.Error("Handling incoming message", "error", err1)
-					}
-				}
-				if err != nil && !errors.Is(err, io.EOF) {
-					log.Error("Receive upload loop terminated", "error", err)
-				}
-			}
-			cancelFn()
+			recvUploadMessage(ctx, sentryClient, controlServer)
 			// Wait before trying to reconnect to prevent log flooding
 			time.Sleep(2 * time.Second)
 		}
@@ -158,6 +127,7 @@ func Download(sentryAddr string, coreAddr string, db ethdb.Database, timeout, wi
 		controlServer.sendBodyRequest,
 		controlServer.penalise,
 		controlServer.updateHead,
+		controlServer,
 		controlServer.requestWakeUpBodies,
 		timeout,
 	); err != nil {
@@ -165,6 +135,56 @@ func Download(sentryAddr string, coreAddr string, db ethdb.Database, timeout, wi
 	}
 
 	return nil
+}
+
+func recvUploadMessage(ctx context.Context, sentryClient proto_sentry.SentryClient, controlServer *ControlServerImpl) {
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	receiveUploadClient, err3 := sentryClient.ReceiveUploadMessages(streamCtx, &empty.Empty{}, &grpc.EmptyCallOption{})
+	if err3 != nil {
+		log.Error("Receive upload messages failed", "error", err3)
+		return
+	}
+
+	for req, err := receiveUploadClient.Recv(); ; req, err = receiveUploadClient.Recv() {
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				log.Error("Receive upload loop terminated", "error", err)
+				return
+			}
+			return
+		}
+
+		if err = controlServer.handleInboundMessage(ctx, req); err != nil {
+			log.Error("Handling incoming message", "error", err)
+		}
+	}
+}
+
+func recvMessage(ctx context.Context, sentryClient proto_sentry.SentryClient, controlServer *ControlServerImpl) {
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	receiveClient, err2 := sentryClient.ReceiveMessages(streamCtx, &empty.Empty{}, &grpc.EmptyCallOption{})
+	if err2 != nil {
+		log.Error("Receive messages failed", "error", err2)
+		return
+	}
+
+	for req, err := receiveClient.Recv(); ; req, err = receiveClient.Recv() {
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				log.Error("Receive loop terminated", "error", err)
+				return
+			}
+			return
+		}
+
+		if err = controlServer.handleInboundMessage(ctx, req); err != nil {
+			log.Error("Handling incoming message", "error", err)
+		}
+	}
 }
 
 // Combined creates and starts sentry and downloader in the same process
@@ -195,48 +215,13 @@ func Combined(natSetting string, port int, staticPeers []string, discovery bool,
 			Forks:   controlServer.forks,
 		},
 	}
-	callCtx, cancelFn := context.WithCancel(ctx)
-	if _, err = sentryClient.SetStatus(callCtx, statusMsg, &grpc.EmptyCallOption{}); err != nil {
-		cancelFn()
+
+	if _, err := sentryClient.SetStatus(ctx, statusMsg, &grpc.EmptyCallOption{}); err != nil {
 		return fmt.Errorf("setting initial status message: %w", err)
 	}
-	cancelFn()
-	callCtx, cancelFn = context.WithCancel(ctx)
-	receiveClient, err2 := sentryClient.ReceiveMessages(callCtx, &empty.Empty{}, &grpc.EmptyCallOption{})
-	if err2 != nil {
-		cancelFn()
-		return fmt.Errorf("receive messages failed: %w", err2)
-	}
-	cancelFn()
-	go func() {
-		inreq, err := receiveClient.Recv()
-		for ; err == nil; inreq, err = receiveClient.Recv() {
-			if err1 := controlServer.handleInboundMessage(ctx, inreq); err1 != nil {
-				log.Error("Handling incoming message", "error", err1)
-			}
-		}
-		if err != nil && !errors.Is(err, io.EOF) {
-			log.Error("Receive loop terminated", "error", err)
-		}
-	}()
-	callCtx, cancelFn = context.WithCancel(ctx)
-	receiveUploadClient, err3 := sentryClient.ReceiveUploadMessages(callCtx, &empty.Empty{}, &grpc.EmptyCallOption{})
-	if err3 != nil {
-		cancelFn()
-		return fmt.Errorf("receive upload messages failed: %w", err3)
-	}
-	cancelFn()
-	go func() {
-		inreq, err := receiveUploadClient.Recv()
-		for ; err == nil; inreq, err = receiveUploadClient.Recv() {
-			if err1 := controlServer.handleInboundMessage(ctx, inreq); err1 != nil {
-				log.Error("Handling incoming message", "error", err1)
-			}
-		}
-		if err != nil && !errors.Is(err, io.EOF) {
-			log.Error("Receive loop terminated", "error", err)
-		}
-	}()
+
+	go recvMessage(ctx, sentryClient, controlServer)
+	go recvUploadMessage(ctx, sentryClient, controlServer)
 
 	if err := stages.StageLoop(
 		ctx,
@@ -248,6 +233,7 @@ func Combined(natSetting string, port int, staticPeers []string, discovery bool,
 		controlServer.sendBodyRequest,
 		controlServer.penalise,
 		controlServer.updateHead,
+		controlServer,
 		controlServer.requestWakeUpBodies,
 		timeout,
 	); err != nil {
@@ -346,9 +332,7 @@ func (cs *ControlServerImpl) updateHead(ctx context.Context, height uint64, hash
 			Forks:   cs.forks,
 		},
 	}
-	//nolint:govet
-	callCtx, _ := context.WithCancel(ctx)
-	if _, err := cs.sentryClient.SetStatus(callCtx, statusMsg, &grpc.EmptyCallOption{}); err != nil {
+	if _, err := cs.sentryClient.SetStatus(ctx, statusMsg, &grpc.EmptyCallOption{}); err != nil {
 		log.Error("Update status message for the sentry", "error", err)
 	}
 }
@@ -377,10 +361,8 @@ func (cs *ControlServerImpl) newBlockHashes(ctx context.Context, inreq *proto_se
 					Data: b,
 				},
 			}
-			//nolint:govet
-			callCtx, _ := context.WithCancel(ctx)
-			_, err = cs.sentryClient.SendMessageById(callCtx, &outreq, &grpc.EmptyCallOption{})
-			if err != nil {
+
+			if _, err = cs.sentryClient.SendMessageById(ctx, &outreq, &grpc.EmptyCallOption{}); err != nil {
 				return fmt.Errorf("send header request: %v", err)
 			}
 		}
@@ -396,11 +378,15 @@ func (cs *ControlServerImpl) blockHeaders(ctx context.Context, inreq *proto_sent
 	}
 	var headersRaw [][]byte
 	var headerRaw []byte
-	for headerRaw, err = rlpStream.Raw(); err == nil; headerRaw, err = rlpStream.Raw() {
+	for headerRaw, err = rlpStream.Raw(); ; headerRaw, err = rlpStream.Raw() {
+		if err != nil {
+			if !errors.Is(err, rlp.EOL) {
+				return fmt.Errorf("decode BlockHeaders: %w", err)
+			}
+			break
+		}
+
 		headersRaw = append(headersRaw, headerRaw)
-	}
-	if err != nil && !errors.Is(err, rlp.EOL) {
-		return fmt.Errorf("decode BlockHeaders: %w", err)
 	}
 	headers := make([]*types.Header, len(headersRaw))
 	var heighestBlock uint64
@@ -425,9 +411,7 @@ func (cs *ControlServerImpl) blockHeaders(ctx context.Context, inreq *proto_sent
 				PeerId:  inreq.PeerId,
 				Penalty: proto_sentry.PenaltyKind_Kick, // TODO: Extend penalty kinds
 			}
-			//nolint:govet
-			callCtx, _ := context.WithCancel(ctx)
-			if _, err1 := cs.sentryClient.PenalizePeer(callCtx, &outreq, &grpc.EmptyCallOption{}); err1 != nil {
+			if _, err1 := cs.sentryClient.PenalizePeer(ctx, &outreq, &grpc.EmptyCallOption{}); err1 != nil {
 				log.Error("Could not send penalty", "err", err1)
 			}
 		}
@@ -438,9 +422,7 @@ func (cs *ControlServerImpl) blockHeaders(ctx context.Context, inreq *proto_sent
 		PeerId:   inreq.PeerId,
 		MinBlock: heighestBlock,
 	}
-	//nolint:govet
-	callCtx, _ := context.WithCancel(ctx)
-	if _, err1 := cs.sentryClient.PeerMinBlock(callCtx, &outreq, &grpc.EmptyCallOption{}); err1 != nil {
+	if _, err1 := cs.sentryClient.PeerMinBlock(ctx, &outreq, &grpc.EmptyCallOption{}); err1 != nil {
 		log.Error("Could not send min block for peer", "err", err1)
 	}
 	//log.Info("HeadersMsg processed")
@@ -475,9 +457,7 @@ func (cs *ControlServerImpl) newBlock(ctx context.Context, inreq *proto_sentry.I
 				PeerId:  inreq.PeerId,
 				Penalty: proto_sentry.PenaltyKind_Kick, // TODO: Extend penalty kinds
 			}
-			//nolint:govet
-			callCtx, _ := context.WithCancel(ctx)
-			if _, err1 := cs.sentryClient.PenalizePeer(callCtx, &outreq, &grpc.EmptyCallOption{}); err1 != nil {
+			if _, err1 := cs.sentryClient.PenalizePeer(ctx, &outreq, &grpc.EmptyCallOption{}); err1 != nil {
 				log.Error("Could not send penalty", "err", err1)
 			}
 		}
@@ -489,9 +469,7 @@ func (cs *ControlServerImpl) newBlock(ctx context.Context, inreq *proto_sentry.I
 		PeerId:   inreq.PeerId,
 		MinBlock: request.Block.NumberU64(),
 	}
-	//nolint:govet
-	callCtx, _ := context.WithCancel(ctx)
-	if _, err1 := cs.sentryClient.PeerMinBlock(callCtx, &outreq, &grpc.EmptyCallOption{}); err1 != nil {
+	if _, err1 := cs.sentryClient.PeerMinBlock(ctx, &outreq, &grpc.EmptyCallOption{}); err1 != nil {
 		log.Error("Could not send min block for peer", "err", err1)
 	}
 	log.Info(fmt.Sprintf("NewBlockMsg{blockNumber: %d} from [%s]", request.Block.NumberU64(), gointerfaces.ConvertH512ToBytes(inreq.PeerId)))
@@ -512,7 +490,7 @@ func (cs *ControlServerImpl) blockBodies(inreq *proto_sentry.InboundMessage) err
 	return nil
 }
 
-func getAncestor(db ethdb.Database, hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64) {
+func getAncestor(db ethdb.Getter, hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64) {
 	if ancestor > number {
 		return common.Hash{}, 0
 	}
@@ -557,7 +535,7 @@ func getAncestor(db ethdb.Database, hash common.Hash, number, ancestor uint64, m
 	return hash, number
 }
 
-func queryHeaders(db ethdb.Database, query *eth.GetBlockHeadersPacket) ([]*types.Header, error) {
+func queryHeaders(db ethdb.Getter, query *eth.GetBlockHeadersPacket) ([]*types.Header, error) {
 	hashMode := query.Origin.Hash != (common.Hash{})
 	first := true
 	maxNonCanonical := uint64(100)
@@ -661,9 +639,7 @@ func (cs *ControlServerImpl) getBlockHeaders(ctx context.Context, inreq *proto_s
 			Data: b,
 		},
 	}
-	//nolint:govet
-	callCtx, _ := context.WithCancel(ctx)
-	_, err = cs.sentryClient.SendMessageById(callCtx, &outreq, &grpc.EmptyCallOption{})
+	_, err = cs.sentryClient.SendMessageById(ctx, &outreq, &grpc.EmptyCallOption{})
 	if err != nil {
 		return fmt.Errorf("send header response: %v", err)
 	}
@@ -717,9 +693,7 @@ func (cs *ControlServerImpl) getBlockBodies(ctx context.Context, inreq *proto_se
 			Data: b,
 		},
 	}
-	//nolint:govet
-	callCtx, _ := context.WithCancel(ctx)
-	_, err = cs.sentryClient.SendMessageById(callCtx, &outreq, &grpc.EmptyCallOption{})
+	_, err = cs.sentryClient.SendMessageById(ctx, &outreq, &grpc.EmptyCallOption{})
 	if err != nil {
 		return fmt.Errorf("send bodies response: %v", err)
 	}
@@ -783,9 +757,7 @@ func (cs *ControlServerImpl) sendHeaderRequest(ctx context.Context, req *headerd
 			Data: bytes,
 		},
 	}
-	//nolint:govet
-	callCtx, _ := context.WithCancel(ctx)
-	sentPeers, err1 := cs.sentryClient.SendMessageByMinBlock(callCtx, &outreq, &grpc.EmptyCallOption{})
+	sentPeers, err1 := cs.sentryClient.SendMessageByMinBlock(ctx, &outreq, &grpc.EmptyCallOption{})
 	if err1 != nil {
 		log.Error("Could not send header request", "err", err1)
 		return nil
@@ -812,9 +784,7 @@ func (cs *ControlServerImpl) sendBodyRequest(ctx context.Context, req *bodydownl
 			Data: bytes,
 		},
 	}
-	//nolint:govet
-	callCtx, _ := context.WithCancel(ctx)
-	sentPeers, err1 := cs.sentryClient.SendMessageByMinBlock(callCtx, &outreq, &grpc.EmptyCallOption{})
+	sentPeers, err1 := cs.sentryClient.SendMessageByMinBlock(ctx, &outreq, &grpc.EmptyCallOption{})
 	if err1 != nil {
 		log.Error("Could not send block bodies request", "err", err1)
 		return nil
@@ -827,9 +797,7 @@ func (cs *ControlServerImpl) sendBodyRequest(ctx context.Context, req *bodydownl
 
 func (cs *ControlServerImpl) penalise(ctx context.Context, peer []byte) {
 	penalizeReq := proto_sentry.PenalizePeerRequest{PeerId: gointerfaces.ConvertBytesToH512(peer), Penalty: proto_sentry.PenaltyKind_Kick}
-	//nolint:govet
-	callCtx, _ := context.WithCancel(ctx)
-	if _, err := cs.sentryClient.PenalizePeer(callCtx, &penalizeReq, &grpc.EmptyCallOption{}); err != nil {
+	if _, err := cs.sentryClient.PenalizePeer(ctx, &penalizeReq, &grpc.EmptyCallOption{}); err != nil {
 		log.Error("Could not penalise", "peer", peer, "error", err)
 	}
 }

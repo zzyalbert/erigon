@@ -105,8 +105,7 @@ func TestExecute(t *testing.T) {
 func TestCall(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 	defer db.Close()
-	tds := state.NewTrieDbState(common.Hash{}, db, 0)
-	state := state.New(tds)
+	state := state.New(state.NewDbStateReader(db))
 	address := common.HexToAddress("0x0a")
 	state.SetCode(address, []byte{
 		byte(vm.PUSH1), 10,
@@ -164,8 +163,7 @@ func benchmarkEVM_Create(bench *testing.B, code string) {
 	db := ethdb.NewMemDatabase()
 	defer db.Close()
 	var (
-		tds      = state.NewTrieDbState(common.Hash{}, db, 0)
-		statedb  = state.New(tds)
+		statedb  = state.New(state.NewPlainStateReader(db))
 		sender   = common.BytesToAddress([]byte("sender"))
 		receiver = common.BytesToAddress([]byte("receiver"))
 	)
@@ -301,7 +299,7 @@ func TestBlockhash(t *testing.T) {
 	input := common.Hex2Bytes("f8a8fd6d")
 	chain := &dummyChain{}
 	ret, _, err := Execute(data, input, &Config{
-		GetHashFn:   core.GetHashFn(header, chain),
+		GetHashFn:   core.GetHashFn(header, chain.GetHeader),
 		BlockNumber: new(big.Int).Set(header.Number),
 	}, header.Number.Uint64())
 	if err != nil {

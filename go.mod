@@ -6,8 +6,8 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.10.0
 	github.com/RoaringBitmap/roaring v0.5.6-0.20201124195327-6ec715d630bc
 	github.com/VictoriaMetrics/fastcache v1.5.8
-	github.com/anacrolix/log v0.7.0
-	github.com/anacrolix/torrent v1.15.2
+	github.com/anacrolix/log v0.8.0
+	github.com/anacrolix/torrent v1.25.1
 	github.com/aws/aws-sdk-go v1.34.21
 	github.com/blend/go-sdk v1.1.1 // indirect
 	github.com/btcsuite/btcd v0.21.0-beta
@@ -24,12 +24,10 @@ require (
 	github.com/fjl/gencodec v0.0.0-20191126094850-e283372f291f
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-stack/stack v1.8.0
-	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/protobuf v1.5.1
 	github.com/golang/snappy v0.0.3
 	github.com/google/btree v1.0.0
 	github.com/google/gofuzz v1.1.1-0.20200604201612-c04b05f3adfa
-	github.com/google/uuid v1.1.5 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
@@ -41,7 +39,6 @@ require (
 	github.com/json-iterator/go v1.1.10
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kevinburke/go-bindata v3.21.0+incompatible
-	github.com/kr/pretty v0.2.0 // indirect
 	github.com/ledgerwatch/lmdb-go v1.17.4
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mattn/go-colorable v0.1.7
@@ -59,12 +56,12 @@ require (
 	github.com/urfave/cli v1.22.4
 	github.com/valyala/fastjson v1.6.3
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
-	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	golang.org/x/tools v0.0.0-20200928182047-19e03678916f
-	gonum.org/v1/gonum v0.6.0
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
+	golang.org/x/sys v0.0.0-20210304124612-50617c2ba197
+	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324
+	golang.org/x/tools v0.0.0-20201022035929-9cf592e881e9
+	gonum.org/v1/gonum v0.9.1
 	google.golang.org/grpc v1.36.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.26.0

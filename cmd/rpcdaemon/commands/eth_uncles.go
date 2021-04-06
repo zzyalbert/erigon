@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
@@ -16,7 +15,7 @@ import (
 
 // GetUncleByBlockNumberAndIndex implements eth_getUncleByBlockNumberAndIndex. Returns information about an uncle given a block's number and the index of the uncle.
 func (api *APIImpl) GetUncleByBlockNumberAndIndex(ctx context.Context, number rpc.BlockNumber, index hexutil.Uint) (map[string]interface{}, error) {
-	tx, err := api.db.Begin(ctx)
+	tx, err := api.db.BeginRo(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +30,7 @@ func (api *APIImpl) GetUncleByBlockNumberAndIndex(ctx context.Context, number rp
 		return nil, err
 	}
 	if block == nil {
-		return nil, fmt.Errorf("block not found: %d", blockNum)
+		return nil, nil // not error, see https://github.com/ledgerwatch/turbo-geth/issues/1645
 	}
 	hash := block.Hash()
 	additionalFields := make(map[string]interface{})
@@ -52,7 +51,7 @@ func (api *APIImpl) GetUncleByBlockNumberAndIndex(ctx context.Context, number rp
 
 // GetUncleByBlockHashAndIndex implements eth_getUncleByBlockHashAndIndex. Returns information about an uncle given a block's hash and the index of the uncle.
 func (api *APIImpl) GetUncleByBlockHashAndIndex(ctx context.Context, hash common.Hash, index hexutil.Uint) (map[string]interface{}, error) {
-	tx, err := api.db.Begin(ctx)
+	tx, err := api.db.BeginRo(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +62,7 @@ func (api *APIImpl) GetUncleByBlockHashAndIndex(ctx context.Context, hash common
 		return nil, err
 	}
 	if block == nil {
-		return nil, fmt.Errorf("block not found: %x", hash)
+		return nil, nil // not error, see https://github.com/ledgerwatch/turbo-geth/issues/1645
 	}
 	number := block.NumberU64()
 	additionalFields := make(map[string]interface{})
@@ -87,7 +86,7 @@ func (api *APIImpl) GetUncleByBlockHashAndIndex(ctx context.Context, hash common
 func (api *APIImpl) GetUncleCountByBlockNumber(ctx context.Context, number rpc.BlockNumber) (*hexutil.Uint, error) {
 	n := hexutil.Uint(0)
 
-	tx, err := api.db.Begin(ctx)
+	tx, err := api.db.BeginRo(ctx)
 	if err != nil {
 		return &n, err
 	}
@@ -102,16 +101,17 @@ func (api *APIImpl) GetUncleCountByBlockNumber(ctx context.Context, number rpc.B
 	if err != nil {
 		return nil, err
 	}
-	if block != nil {
-		n = hexutil.Uint(len(block.Uncles()))
+	if block == nil {
+		return nil, nil // not error, see https://github.com/ledgerwatch/turbo-geth/issues/1645
 	}
+	n = hexutil.Uint(len(block.Uncles()))
 	return &n, nil
 }
 
 // GetUncleCountByBlockHash implements eth_getUncleCountByBlockHash. Returns the number of uncles in the block, if any.
 func (api *APIImpl) GetUncleCountByBlockHash(ctx context.Context, hash common.Hash) (*hexutil.Uint, error) {
 	n := hexutil.Uint(0)
-	tx, err := api.db.Begin(ctx)
+	tx, err := api.db.BeginRo(ctx)
 	if err != nil {
 		return &n, err
 	}
@@ -121,8 +121,9 @@ func (api *APIImpl) GetUncleCountByBlockHash(ctx context.Context, hash common.Ha
 	if err != nil {
 		return &n, err
 	}
-	if block != nil {
-		n = hexutil.Uint(len(block.Uncles()))
+	if block == nil {
+		return nil, nil // not error, see https://github.com/ledgerwatch/turbo-geth/issues/1645
 	}
+	n = hexutil.Uint(len(block.Uncles()))
 	return &n, nil
 }

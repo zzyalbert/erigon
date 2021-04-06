@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -30,10 +29,8 @@ import (
 	"sync/atomic"
 
 	"github.com/holiman/uint256"
-	"github.com/ledgerwatch/turbo-geth/common/changeset"
-	"github.com/ledgerwatch/turbo-geth/ethdb/bitmapdb"
-
 	"github.com/ledgerwatch/turbo-geth/common"
+	"github.com/ledgerwatch/turbo-geth/common/changeset"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"github.com/ledgerwatch/turbo-geth/core/types/accounts"
@@ -831,10 +828,13 @@ func (tds *TrieDbState) UnwindTo(blockNr uint64) error {
 	tds.StartNewBuffer()
 	b := tds.currentBuffer
 
-	accountMap, storageMap, err := changeset.RewindData(tds.db, tds.blockNr, blockNr, nil)
+	tx, _ := tds.db.Begin(context.Background(), ethdb.RO)
+	defer tx.Rollback()
+	accountMap, storageMap, err := changeset.RewindData(tx.(ethdb.HasTx).Tx().(ethdb.RwTx), tds.blockNr, blockNr, nil)
 	if err != nil {
 		return err
 	}
+	tx.Rollback()
 	for plainKey, value := range accountMap {
 		var addrHash, err = common.HashData([]byte(plainKey))
 		if err != nil {
@@ -940,26 +940,26 @@ func (tds *TrieDbState) deleteTimestamp(timestamp uint64) error {
 }
 
 func (tds *TrieDbState) truncateHistory(timestampTo uint64, accountMap map[string][]byte, storageMap map[string][]byte) error {
-	for plainKey := range accountMap {
-		key, err := common.HashData([]byte(plainKey)[:])
-		if err != nil {
-			return err
-		}
-
-		if err := bitmapdb.TruncateRange64(tds.db, dbutils.AccountsHistoryBucket, key[:], timestampTo+1); err != nil {
-			return fmt.Errorf("fail TruncateRange: bucket=%s, %w", dbutils.AccountsHistoryBucket, err)
-		}
-	}
-	for plainKey := range storageMap {
-		key, err := common.HashData([]byte(plainKey)[:])
-		if err != nil {
-			return err
-		}
-
-		if err := bitmapdb.TruncateRange64(tds.db, dbutils.AccountsHistoryBucket, dbutils.CompositeKeyWithoutIncarnation(key[:]), timestampTo+1); err != nil {
-			return fmt.Errorf("fail TruncateRange: bucket=%s, %w", dbutils.AccountsHistoryBucket, err)
-		}
-	}
+	//for plainKey := range accountMap {
+	//	key, err := common.HashData([]byte(plainKey)[:])
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	if err := bitmapdb.TruncateRange64(tds.db, dbutils.AccountsHistoryBucket, key[:], timestampTo+1); err != nil {
+	//		return fmt.Errorf("fail TruncateRange: bucket=%s, %w", dbutils.AccountsHistoryBucket, err)
+	//	}
+	//}
+	//for plainKey := range storageMap {
+	//	key, err := common.HashData([]byte(plainKey)[:])
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	if err := bitmapdb.TruncateRange64(tds.db, dbutils.AccountsHistoryBucket, dbutils.CompositeKeyWithoutIncarnation(key[:]), timestampTo+1); err != nil {
+	//		return fmt.Errorf("fail TruncateRange: bucket=%s, %w", dbutils.AccountsHistoryBucket, err)
+	//	}
+	//}
 	return nil
 }
 
@@ -1141,10 +1141,8 @@ func (tds *TrieDbState) ReadAccountIncarnation(address common.Address) (uint64, 
 	if inc, ok := tds.incarnationMap[address]; ok {
 		return inc, nil
 	}
-	if b, err := tds.db.Get(dbutils.IncarnationMapBucket, address[:]); err == nil {
+	if b, err := tds.db.GetOne(dbutils.IncarnationMapBucket, address[:]); err == nil {
 		return binary.BigEndian.Uint64(b), nil
-	} else if errors.Is(err, ethdb.ErrKeyNotFound) {
-		return 0, nil
 	} else {
 		return 0, err
 	}

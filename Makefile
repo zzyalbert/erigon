@@ -29,6 +29,7 @@ geth:
 	@echo "Run \"$(GOBIN)/tg\" to launch turbo-geth."
 
 tg: mdbx
+	@echo "Building tg"
 	$(GOBUILD) -o $(GOBIN)/tg ./cmd/tg
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/tg\" to launch turbo-geth."
@@ -70,6 +71,7 @@ headers:
 	@echo "Run \"$(GOBIN)/headers\" to run headers download PoC."
 
 db-tools: mdbx
+	@echo "Building bb-tools"
 	go mod vendor; cd vendor/github.com/ledgerwatch/lmdb-go/dist; make clean mdb_stat mdb_copy mdb_dump mdb_load; cp mdb_stat $(GOBIN); cp mdb_copy $(GOBIN); cp mdb_dump $(GOBIN); cp mdb_load $(GOBIN); cd ../../../../..; rm -rf vendor
 	$(GOBUILD) -o $(GOBIN)/lmdbgo_copy github.com/ledgerwatch/lmdb-go/cmd/lmdb_copy
 	$(GOBUILD) -o $(GOBIN)/lmdbgo_stat github.com/ledgerwatch/lmdb-go/cmd/lmdb_stat
@@ -84,8 +86,8 @@ db-tools: mdbx
 	@echo "Run \"$(GOBIN)/lmdb_stat -h\" to get info about lmdb file."
 
 mdbx:
-	echo "Building mdbx"
-	cd ethdb/mdbx/dist/ \
+	@echo "Building mdbx"
+	@cd ethdb/mdbx/dist/ \
 		&& make clean && make config.h \
 		&& echo '#define MDBX_DEBUG 0' >> config.h \
 		&& echo '#define MDBX_FORCE_ASSERTIONS 0' >> config.h \
@@ -109,12 +111,11 @@ lint: lintci
 
 lintci: mdbx
 	@echo "--> Running linter for code"
-	@./build/bin/golangci-lint run \
-		--build-tags="mdbx"
+	@./build/bin/golangci-lint run --build-tags="mdbx" --config ./.golangci.yml
 
 lintci-deps:
 	rm -f ./build/bin/golangci-lint
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.39.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b ./build/bin v1.38.0
 
 clean:
 	env GO111MODULE=on go clean -cache
@@ -158,7 +159,7 @@ grpc:
 		--go_opt=Mtypes/types.proto=github.com/ledgerwatch/turbo-geth/gointerfaces/types \
 		types/types.proto \
 		p2psentry/sentry.proto \
-		remote/kv.proto remote/db.proto remote/ethbackend.proto \
+		remote/kv.proto remote/ethbackend.proto \
 		snapshot_downloader/external_downloader.proto
 
 prometheus:

@@ -14,6 +14,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/changeset"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
+	"github.com/ledgerwatch/turbo-geth/consensus"
 	"github.com/ledgerwatch/turbo-geth/core"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"github.com/ledgerwatch/turbo-geth/core/state"
@@ -56,7 +57,7 @@ type ExecuteBlockStageParams struct {
 	SilkwormExecutionFunc unsafe.Pointer
 }
 
-func readBlock(blockNum uint64, tx ethdb.Database) (*types.Block, error) {
+func readBlock(blockNum uint64, tx ethdb.Getter) (*types.Block, error) {
 	blockHash, err := rawdb.ReadCanonicalHash(tx, blockNum)
 	if err != nil {
 		return nil, err
@@ -72,8 +73,7 @@ func readBlock(blockNum uint64, tx ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-func executeBlockWithGo(block *types.Block, tx ethdb.Database, cache *shards.StateCache, batch ethdb.Database, chainConfig *params.ChainConfig,
-	chainContext core.ChainContext, vmConfig *vm.Config, params ExecuteBlockStageParams) error {
+func executeBlockWithGo(block *types.Block, tx ethdb.Database, cache *shards.StateCache, batch ethdb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig *vm.Config, params ExecuteBlockStageParams) error {
 
 	blockNum := block.NumberU64()
 	var stateReader state.StateReader
@@ -96,10 +96,9 @@ func executeBlockWithGo(block *types.Block, tx ethdb.Database, cache *shards.Sta
 		stateWriter = state.NewCachedWriter(state.NewChangeSetWriterPlain(tx, blockNum), cache)
 	}
 
-	engine := chainContext.Engine()
-
 	// where the magic happens
-	receipts, err := core.ExecuteBlockEphemerally(chainConfig, vmConfig, chainContext, engine, block, stateReader, stateWriter)
+	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(tx, hash, number) }
+	receipts, err := core.ExecuteBlockEphemerally(chainConfig, vmConfig, getHeader, engine, block, stateReader, stateWriter)
 	if err != nil {
 		return err
 	}
@@ -119,7 +118,7 @@ func executeBlockWithGo(block *types.Block, tx ethdb.Database, cache *shards.Sta
 	return nil
 }
 
-func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig *params.ChainConfig, chainContext *core.TinyChainContext, vmConfig *vm.Config, quit <-chan struct{}, params ExecuteBlockStageParams) error {
+func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig *vm.Config, quit <-chan struct{}, params ExecuteBlockStageParams) error {
 	prevStageProgress, errStart := stages.GetStageProgress(stateDB, stages.Senders)
 	if errStart != nil {
 		return errStart
@@ -169,8 +168,6 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig 
 		cache = params.Cache
 	}
 
-	chainContext.SetDB(tx)
-
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
 	stageProgress := s.BlockNumber
@@ -197,7 +194,7 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig 
 				log.Error(fmt.Sprintf("[%s] Empty block", logPrefix), "blocknum", blockNum)
 				break
 			}
-			if err = executeBlockWithGo(block, tx, cache, batch, chainConfig, chainContext, vmConfig, params); err != nil {
+			if err = executeBlockWithGo(block, tx, cache, batch, chainConfig, engine, vmConfig, params); err != nil {
 				return err
 			}
 		}
@@ -219,10 +216,6 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig 
 					if err = tx.CommitAndBegin(context.Background()); err != nil {
 						return err
 					}
-					if err = printBucketsSize(tx); err != nil {
-						return err
-					}
-					chainContext.SetDB(tx)
 				}
 			}
 		} else {
@@ -242,10 +235,6 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig 
 					if err = tx.CommitAndBegin(context.Background()); err != nil {
 						return err
 					}
-					if err = printBucketsSize(tx); err != nil {
-						return err
-					}
-					chainContext.SetDB(tx)
 				}
 				//start = time.Now()
 				cache.TurnWritesToReads(writes)
@@ -387,10 +376,26 @@ func UnwindExecutionStage(u *UnwindState, s *StageState, stateDB ethdb.Database,
 		}
 		defer tx.Rollback()
 	}
-
 	logPrefix := s.state.LogPrefix()
 	log.Info(fmt.Sprintf("[%s] Unwind Execution", logPrefix), "from", s.BlockNumber, "to", u.UnwindPoint)
 
+	if err := unwindExecutionStage(u, s, tx.(ethdb.HasTx).Tx().(ethdb.RwTx), quit, params); err != nil {
+		return err
+	}
+	if err := u.Done(tx); err != nil {
+		return fmt.Errorf("%s: reset: %v", logPrefix, err)
+	}
+
+	if !useExternalTx {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-chan struct{}, params ExecuteBlockStageParams) error {
+	logPrefix := s.state.LogPrefix()
 	stateBucket := dbutils.PlainStateBucket
 	storageKeyLength := common.AddressLength + common.IncarnationLength + common.HashLength
 
@@ -442,7 +447,7 @@ func UnwindExecutionStage(u *UnwindState, s *StageState, stateDB ethdb.Database,
 		}
 	}
 
-	if err := changeset.Truncate(tx.(ethdb.HasTx).Tx().(ethdb.RwTx), u.UnwindPoint+1); err != nil {
+	if err := changeset.Truncate(tx, u.UnwindPoint+1); err != nil {
 		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 
@@ -452,19 +457,10 @@ func UnwindExecutionStage(u *UnwindState, s *StageState, stateDB ethdb.Database,
 		}
 	}
 
-	if err := u.Done(tx); err != nil {
-		return fmt.Errorf("%s: reset: %v", logPrefix, err)
-	}
-
-	if !useExternalTx {
-		if err := tx.Commit(); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
-func writeAccountPlain(logPrefix string, db ethdb.Database, key string, acc accounts.Account) error {
+func writeAccountPlain(logPrefix string, db ethdb.RwTx, key string, acc accounts.Account) error {
 	var address common.Address
 	copy(address[:], key)
 	if err := cleanupContractCodeBucket(
@@ -472,8 +468,8 @@ func writeAccountPlain(logPrefix string, db ethdb.Database, key string, acc acco
 		db,
 		dbutils.PlainContractCodeBucket,
 		acc,
-		func(db ethdb.Getter, out *accounts.Account) (bool, error) {
-			return rawdb.PlainReadAccount(db, address, out)
+		func(db ethdb.Tx, out *accounts.Account) (bool, error) {
+			return rawdb.PlainReadAccount(ethdb.NewRoTxDb(db), address, out)
 		},
 		func(inc uint64) []byte { return dbutils.PlainGenerateStoragePrefix(address[:], inc) },
 	); err != nil {
@@ -485,10 +481,10 @@ func writeAccountPlain(logPrefix string, db ethdb.Database, key string, acc acco
 
 func cleanupContractCodeBucket(
 	logPrefix string,
-	db ethdb.Database,
+	db ethdb.RwTx,
 	bucket string,
 	acc accounts.Account,
-	readAccountFunc func(ethdb.Getter, *accounts.Account) (bool, error),
+	readAccountFunc func(ethdb.Tx, *accounts.Account) (bool, error),
 	getKeyForIncarnationFunc func(uint64) []byte,
 ) error {
 	var original accounts.Account
@@ -508,11 +504,11 @@ func cleanupContractCodeBucket(
 	return nil
 }
 
-func recoverCodeHashPlain(acc *accounts.Account, db ethdb.Getter, key string) {
+func recoverCodeHashPlain(acc *accounts.Account, db ethdb.Tx, key string) {
 	var address common.Address
 	copy(address[:], key)
 	if acc.Incarnation > 0 && acc.IsEmptyCodeHash() {
-		if codeHash, err2 := db.Get(dbutils.PlainContractCodeBucket, dbutils.PlainGenerateStoragePrefix(address[:], acc.Incarnation)); err2 == nil {
+		if codeHash, err2 := db.GetOne(dbutils.PlainContractCodeBucket, dbutils.PlainGenerateStoragePrefix(address[:], acc.Incarnation)); err2 == nil {
 			copy(acc.CodeHash[:], codeHash)
 		}
 	}

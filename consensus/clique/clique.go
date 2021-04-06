@@ -1126,7 +1126,10 @@ func (c *Clique) lookupSnapshot(num uint64) bool {
 	prefix := dbutils.EncodeBlockNumber(num)
 
 	if err := c.db.(ethdb.HasRwKV).RwKV().View(context.Background(), func(tx ethdb.Tx) error {
-		cur := tx.Cursor(dbutils.CliqueBucket)
+		cur, err := tx.Cursor(dbutils.CliqueBucket)
+		if err != nil {
+			return err
+		}
 		defer cur.Close()
 
 		k, _, err := cur.Seek(prefix)
@@ -1154,7 +1157,10 @@ func (c *Clique) snapshots(latest uint64, total int) ([]*Snapshot, error) {
 	blockEncoded := dbutils.EncodeBlockNumber(latest)
 
 	if errCursor := c.db.(ethdb.HasRwKV).RwKV().View(context.Background(), func(tx ethdb.Tx) error {
-		cur := tx.Cursor(dbutils.CliqueBucket)
+		cur, err := tx.Cursor(dbutils.CliqueBucket)
+		if err != nil {
+			return err
+		}
 		defer cur.Close()
 
 		for k, v, err := cur.Seek(blockEncoded); k != nil; k, v, err = cur.Prev() {

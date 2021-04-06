@@ -3,7 +3,6 @@ package snapshotsync
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -97,7 +96,7 @@ func GenerateHeaderIndexes(ctx context.Context, db ethdb.Database) error {
 	var number uint64
 
 	v, err := stages.GetStageProgress(db, HeaderNumber)
-	if err != nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
+	if err != nil {
 		return err
 	}
 
@@ -116,7 +115,7 @@ func GenerateHeaderIndexes(ctx context.Context, db ethdb.Database) error {
 		headNumber := big.NewInt(0).SetBytes(headNumberBytes).Uint64()
 		headHash := common.BytesToHash(headHashBytes)
 
-		innerErr = etl.Transform("Torrent post-processing 1", db, dbutils.HeadersBucket, dbutils.HeaderNumberBucket, os.TempDir(), func(k []byte, v []byte, next etl.ExtractNextFunc) error {
+		innerErr = etl.Transform("Torrent post-processing 1", db.(ethdb.HasTx).Tx().(ethdb.RwTx), dbutils.HeadersBucket, dbutils.HeaderNumberBucket, os.TempDir(), func(k []byte, v []byte, next etl.ExtractNextFunc) error {
 			return next(k, common.CopyBytes(k[8:]), common.CopyBytes(k[:8]))
 		}, etl.IdentityLoadFunc, etl.TransformArgs{
 			Quit: ctx.Done(),
@@ -134,7 +133,7 @@ func GenerateHeaderIndexes(ctx context.Context, db ethdb.Database) error {
 	}
 
 	v, err = stages.GetStageProgress(db, HeaderCanonical)
-	if err != nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
+	if err != nil {
 		return err
 	}
 	if v == 0 {
@@ -142,7 +141,7 @@ func GenerateHeaderIndexes(ctx context.Context, db ethdb.Database) error {
 		td := h.Difficulty
 
 		log.Info("Generate TD index & canonical")
-		err = etl.Transform("Torrent post-processing 2", db, dbutils.HeadersBucket, dbutils.HeaderTDBucket, os.TempDir(), func(k []byte, v []byte, next etl.ExtractNextFunc) error {
+		err = etl.Transform("Torrent post-processing 2", db.(ethdb.HasTx).Tx().(ethdb.RwTx), dbutils.HeadersBucket, dbutils.HeaderTDBucket, os.TempDir(), func(k []byte, v []byte, next etl.ExtractNextFunc) error {
 			header := &types.Header{}
 			innerErr := rlp.DecodeBytes(v, header)
 			if innerErr != nil {
@@ -164,7 +163,7 @@ func GenerateHeaderIndexes(ctx context.Context, db ethdb.Database) error {
 			return err
 		}
 		log.Info("Generate TD index & canonical")
-		err = etl.Transform("Torrent post-processing 2", db, dbutils.HeadersBucket, dbutils.HeaderCanonicalBucket, os.TempDir(), func(k []byte, v []byte, next etl.ExtractNextFunc) error {
+		err = etl.Transform("Torrent post-processing 2", db.(ethdb.HasTx).Tx().(ethdb.RwTx), dbutils.HeadersBucket, dbutils.HeaderCanonicalBucket, os.TempDir(), func(k []byte, v []byte, next etl.ExtractNextFunc) error {
 			return next(k, common.CopyBytes(k[:8]), common.CopyBytes(k[8:]))
 		}, etl.IdentityLoadFunc, etl.TransformArgs{
 			Quit: ctx.Done(),

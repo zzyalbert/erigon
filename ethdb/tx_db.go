@@ -21,21 +21,26 @@ func NewRoTxDb(tx Tx) *roTxDb {
 	return &roTxDb{tx: tx, top: true}
 }
 
-func (m *roTxDb) Get(bucket string, key []byte) ([]byte, error) {
-	c := m.tx.Cursor(bucket)
-	defer c.Close()
-	_, v, err := c.SeekExact(key)
+func (m *roTxDb) GetOne(bucket string, key []byte) ([]byte, error) {
+	c, err := m.tx.Cursor(bucket)
 	if err != nil {
 		return nil, err
 	}
-	if v == nil {
-		return nil, ErrKeyNotFound
-	}
-	return v, nil
+	defer c.Close()
+	_, v, err := c.SeekExact(key)
+	return v, err
+}
+
+func (m *roTxDb) Get(bucket string, key []byte) ([]byte, error) {
+	dat, err := m.GetOne(bucket, key)
+	return getOneWrapper(dat, err)
 }
 
 func (m *roTxDb) Has(bucket string, key []byte) (bool, error) {
-	c := m.tx.Cursor(bucket)
+	c, err := m.tx.Cursor(bucket)
+	if err != nil {
+		return false, err
+	}
 	defer c.Close()
 	_, v, err := c.SeekExact(key)
 
@@ -43,12 +48,15 @@ func (m *roTxDb) Has(bucket string, key []byte) (bool, error) {
 }
 
 func (m *roTxDb) Walk(bucket string, startkey []byte, fixedbits int, walker func([]byte, []byte) (bool, error)) error {
-	c := m.tx.Cursor(bucket)
+	c, err := m.tx.Cursor(bucket)
+	if err != nil {
+		return err
+	}
 	defer c.Close()
 	return Walk(c, startkey, fixedbits, walker)
 }
 
-func (m *roTxDb) BeginRO(ctx context.Context) (GetterTx, error) {
+func (m *roTxDb) BeginGetter(ctx context.Context) (GetterTx, error) {
 	return &roTxDb{tx: m.tx, top: false}, nil
 }
 
@@ -98,7 +106,7 @@ func (m *TxDb) Begin(ctx context.Context, flags TxFlags) (DbWithPendingMutations
 	return batch, nil
 }
 
-func (m *TxDb) BeginRO(ctx context.Context) (GetterTx, error) {
+func (m *TxDb) BeginGetter(ctx context.Context) (GetterTx, error) {
 	batch := m
 	if m.tx != nil {
 		panic("nested transactions not supported")
@@ -110,13 +118,17 @@ func (m *TxDb) BeginRO(ctx context.Context) (GetterTx, error) {
 	return batch, nil
 }
 
-func (m *TxDb) cursor(bucket string) Cursor {
+func (m *TxDb) cursor(bucket string) (Cursor, error) {
 	c, ok := m.cursors[bucket]
 	if !ok {
-		c = m.tx.Cursor(bucket)
+		var err error
+		c, err = m.tx.Cursor(bucket)
+		if err != nil {
+			return nil, err
+		}
 		m.cursors[bucket] = c
 	}
-	return c
+	return c, nil
 }
 
 func (m *TxDb) IncrementSequence(bucket string, amount uint64) (res uint64, err error) {
@@ -129,22 +141,38 @@ func (m *TxDb) ReadSequence(bucket string) (res uint64, err error) {
 
 func (m *TxDb) Put(bucket string, key []byte, value []byte) error {
 	m.len += uint64(len(key) + len(value))
-	return m.cursor(bucket).(RwCursor).Put(key, value)
+	c, err := m.cursor(bucket)
+	if err != nil {
+		return err
+	}
+	return c.(RwCursor).Put(key, value)
 }
 
 func (m *TxDb) Append(bucket string, key []byte, value []byte) error {
 	m.len += uint64(len(key) + len(value))
-	return m.cursor(bucket).(RwCursor).Append(key, value)
+	c, err := m.cursor(bucket)
+	if err != nil {
+		return err
+	}
+	return c.(RwCursor).Append(key, value)
 }
 
 func (m *TxDb) AppendDup(bucket string, key []byte, value []byte) error {
 	m.len += uint64(len(key) + len(value))
-	return m.cursor(bucket).(RwCursorDupSort).AppendDup(key, value)
+	c, err := m.cursor(bucket)
+	if err != nil {
+		return err
+	}
+	return c.(RwCursorDupSort).AppendDup(key, value)
 }
 
 func (m *TxDb) Delete(bucket string, k, v []byte) error {
 	m.len += uint64(len(k))
-	return m.cursor(bucket).(RwCursor).Delete(k, v)
+	c, err := m.cursor(bucket)
+	if err != nil {
+		return err
+	}
+	return c.(RwCursor).Delete(k, v)
 }
 
 func (m *TxDb) NewBatch() DbWithPendingMutations {
@@ -160,7 +188,7 @@ func (m *TxDb) begin(ctx context.Context, flags TxFlags) error {
 	var tx Tx
 	var err error
 	if flags&RO != 0 {
-		tx, err = kv.Begin(ctx)
+		tx, err = kv.BeginRo(ctx)
 	} else {
 		tx, err = kv.BeginRw(ctx)
 	}
@@ -178,22 +206,25 @@ func (m *TxDb) RwKV() RwKV {
 
 // Last can only be called from the transaction thread
 func (m *TxDb) Last(bucket string) ([]byte, []byte, error) {
-	return m.cursor(bucket).Last()
+	c, err := m.cursor(bucket)
+	if err != nil {
+		return []byte{}, nil, err
+	}
+	return c.Last()
 }
 
-func (m *TxDb) Get(bucket string, key []byte) ([]byte, error) {
-	//if metrics.Enabled {
-	//	defer dbGetTimer.UpdateSince(time.Now())
-	//}
-
-	_, v, err := m.cursor(bucket).SeekExact(key)
+func (m *TxDb) GetOne(bucket string, key []byte) ([]byte, error) {
+	c, err := m.cursor(bucket)
 	if err != nil {
 		return nil, err
 	}
-	if v == nil {
-		return nil, ErrKeyNotFound
-	}
-	return v, nil
+	_, v, err := c.SeekExact(key)
+	return v, err
+}
+
+func (m *TxDb) Get(bucket string, key []byte) ([]byte, error) {
+	dat, err := m.GetOne(bucket, key)
+	return getOneWrapper(dat, err)
 }
 
 func (m *TxDb) Has(bucket string, key []byte) (bool, error) {
@@ -230,7 +261,11 @@ func (m *TxDb) Walk(bucket string, startkey []byte, fixedbits int, walker func([
 	if ok {
 		delete(m.cursors, bucket)
 	} else {
-		c = m.tx.Cursor(bucket)
+		var err error
+		c, err = m.tx.Cursor(bucket)
+		if err != nil {
+			return err
+		}
 	}
 	defer func() { // put cursor back to pool if can
 		if _, ok = m.cursors[bucket]; ok {
@@ -264,7 +299,7 @@ func (m *TxDb) Commit() error {
 	if m.tx == nil {
 		return fmt.Errorf("second call .Commit() on same transaction")
 	}
-	if err := m.tx.Commit(context.Background()); err != nil {
+	if err := m.tx.Commit(); err != nil {
 		return err
 	}
 	m.tx = nil
@@ -295,17 +330,6 @@ func (m *TxDb) panicOnEmptyDB() {
 	if m.db == nil {
 		panic("Not implemented")
 	}
-}
-
-// [TURBO-GETH] Freezer support (not implemented yet)
-// Ancients returns an error as we don't have a backing chain freezer.
-func (m *TxDb) Ancients() (uint64, error) {
-	return 0, errNotSupported
-}
-
-// TruncateAncients returns an error as we don't have a backing chain freezer.
-func (m *TxDb) TruncateAncients(items uint64) error {
-	return errNotSupported
 }
 
 func (m *TxDb) BucketExists(name string) (bool, error) {

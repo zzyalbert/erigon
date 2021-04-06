@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -35,6 +34,13 @@ type MutationItem struct {
 	table string
 	key   []byte
 	value []byte
+}
+
+func NewBatch(tx RwTx) StatelessRwTx {
+	return &mutation{
+		db:   &TxDb{tx: tx},
+		puts: btree.New(32),
+	}
 }
 
 func (mi *MutationItem) Less(than btree.Item) bool {
@@ -103,17 +109,37 @@ func (m *mutation) ReadSequence(bucket string) (res uint64, err error) {
 }
 
 // Can only be called from the worker thread
-func (m *mutation) Get(table string, key []byte) ([]byte, error) {
+func (m *mutation) GetOne(table string, key []byte) ([]byte, error) {
 	if value, ok := m.getMem(table, key); ok {
 		if value == nil {
-			return nil, ErrKeyNotFound
+			return nil, nil
 		}
 		return value, nil
 	}
 	if m.db != nil {
-		return m.db.Get(table, key)
+		// TODO: simplify when tx can no longer be parent of mutation
+		value, err := m.db.Get(table, key)
+		if err != nil && !errors.Is(err, ErrKeyNotFound) {
+			return nil, err
+		}
+
+		return value, nil
 	}
-	return nil, ErrKeyNotFound
+	return nil, nil
+}
+
+// Can only be called from the worker thread
+func (m *mutation) Get(table string, key []byte) ([]byte, error) {
+	value, err := m.GetOne(table, key)
+	if err != nil {
+		return nil, err
+	}
+
+	if value == nil {
+		return nil, ErrKeyNotFound
+	}
+
+	return value, nil
 }
 
 func (m *mutation) Last(table string) ([]byte, []byte, error) {
@@ -136,17 +162,6 @@ func (m *mutation) Has(table string, key []byte) (bool, error) {
 		return m.db.Has(table, key)
 	}
 	return false, nil
-}
-
-func (m *mutation) DiskSize(ctx context.Context) (common.StorageSize, error) {
-	if m.db == nil {
-		return 0, nil
-	}
-	sz, err := m.db.(HasStats).DiskSize(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return common.StorageSize(sz), nil
 }
 
 func (m *mutation) Put(table string, key []byte, value []byte) error {
@@ -233,7 +248,12 @@ func (m *mutation) doCommit(tx RwTx) error {
 			if c != nil {
 				c.Close()
 			}
-			c = tx.RwCursor(mi.table)
+			var err error
+			c, err = tx.RwCursor(mi.table)
+			if err != nil {
+				innerErr = err
+				return false
+			}
 			prevTable = mi.table
 			firstKey, _, err := c.Seek(mi.key)
 			if err != nil {
@@ -336,8 +356,8 @@ func (m *mutation) Begin(ctx context.Context, flags TxFlags) (DbWithPendingMutat
 	return m.db.Begin(ctx, flags)
 }
 
-func (m *mutation) BeginRO(ctx context.Context) (GetterTx, error) {
-	return m.db.BeginRO(ctx)
+func (m *mutation) BeginGetter(ctx context.Context) (GetterTx, error) {
+	return m.db.BeginGetter(ctx)
 }
 
 func (m *mutation) panicOnEmptyDB() {
@@ -353,75 +373,4 @@ func (m *mutation) MemCopy() Database {
 
 func (m *mutation) SetRwKV(kv RwKV) {
 	m.db.(HasRwKV).SetRwKV(kv)
-}
-
-// [TURBO-GETH] Freezer support (not implemented yet)
-// Ancients returns an error as we don't have a backing chain freezer.
-func (m *mutation) Ancients() (uint64, error) {
-	return 0, errNotSupported
-}
-
-// TruncateAncients returns an error as we don't have a backing chain freezer.
-func (m *mutation) TruncateAncients(items uint64) error {
-	return errNotSupported
-}
-
-func NewRWDecorator(db Database) *RWCounterDecorator {
-	return &RWCounterDecorator{
-		db,
-		DBCounterStats{},
-	}
-}
-
-type RWCounterDecorator struct {
-	Database
-	DBCounterStats
-}
-
-type DBCounterStats struct {
-	Put           uint64
-	Get           uint64
-	GetS          uint64
-	GetAsOf       uint64
-	Has           uint64
-	Walk          uint64
-	WalkAsOf      uint64
-	MultiWalkAsOf uint64
-	Delete        uint64
-	MultiPut      uint64
-}
-
-func (d *RWCounterDecorator) Put(bucket string, key, value []byte) error {
-	atomic.AddUint64(&d.DBCounterStats.Put, 1)
-	return d.Database.Put(bucket, key, value)
-}
-
-func (d *RWCounterDecorator) Get(bucket string, key []byte) ([]byte, error) {
-	atomic.AddUint64(&d.DBCounterStats.Get, 1)
-	return d.Database.Get(bucket, key)
-}
-
-func (d *RWCounterDecorator) Has(bucket string, key []byte) (bool, error) {
-	atomic.AddUint64(&d.DBCounterStats.Has, 1)
-	return d.Database.Has(bucket, key)
-}
-func (d *RWCounterDecorator) Walk(bucket string, startkey []byte, fixedbits int, walker func([]byte, []byte) (bool, error)) error {
-	atomic.AddUint64(&d.DBCounterStats.Walk, 1)
-	return d.Database.Walk(bucket, startkey, fixedbits, walker)
-}
-
-func (d *RWCounterDecorator) Delete(bucket string, k, v []byte) error {
-	atomic.AddUint64(&d.DBCounterStats.Delete, 1)
-	return d.Database.Delete(bucket, k, v)
-}
-func (d *RWCounterDecorator) MultiPut(tuples ...[]byte) (uint64, error) {
-	atomic.AddUint64(&d.DBCounterStats.MultiPut, 1)
-	return d.Database.MultiPut(tuples...)
-}
-func (d *RWCounterDecorator) NewBatch() DbWithPendingMutations {
-	mm := &mutation{
-		db:   d,
-		puts: btree.New(32),
-	}
-	return mm
 }
