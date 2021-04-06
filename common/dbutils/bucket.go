@@ -378,10 +378,10 @@ var BucketsConfigs = BucketsCfg{
 		Flags: DupSort,
 	},
 	PlainStateBucket: {
-		Flags:                     DupSort,
-		AutoDupSortKeysConversion: true,
-		DupFromLen:                60,
-		DupToLen:                  28,
+		//Flags:                     DupSort,
+		//AutoDupSortKeysConversion: true,
+		//DupFromLen:                60,
+		//DupToLen:                  28,
 	},
 	IntermediateTrieHashBucketOld2: {
 		Flags:               DupSort,
