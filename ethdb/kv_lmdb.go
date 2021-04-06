@@ -45,7 +45,7 @@ type LmdbOpts struct {
 func NewLMDB() LmdbOpts {
 	return LmdbOpts{
 		bucketsCfg: DefaultBucketConfigs,
-		flags:      lmdb.NoReadahead, // do call .Sync manually after commit to measure speed of commit and speed of fsync individually
+		flags:      lmdb.NoReadahead | lmdb.WriteMap, // do call .Sync manually after commit to measure speed of commit and speed of fsync individually
 	}
 }
 
