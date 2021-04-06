@@ -133,7 +133,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 				return nil, err
 			}
 		} else {
-			if err = env.SetGeometry(int(1*datasize.TB), int(1*datasize.TB), int(opts.mapSize), 0, 0, 4*1024); err != nil {
+			if err = env.SetGeometry(int(1*datasize.TB), int(1*datasize.TB), int(1*datasize.TB), 0, 0, 4*1024); err != nil {
 				return nil, err
 			}
 		}
