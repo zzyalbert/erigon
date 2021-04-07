@@ -19,11 +19,11 @@ package vm
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"testing"
 
+	"encoding/json"
 	"github.com/holiman/uint256"
 
 	"github.com/ledgerwatch/turbo-geth/common"

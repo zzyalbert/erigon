@@ -6,8 +6,6 @@ import (
 	"math/rand"
 	"sort"
 	"testing"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestSortHeadersAsc(t *testing.T) {
@@ -20,6 +18,9 @@ func TestSortHeadersAsc(t *testing.T) {
 
 		t.Run(fmt.Sprintf("permutation %v(%d)", idxs, i), func(t *testing.T) {
 			hs := make([]*Header, len(indexes))
+
+			was := make([]uint64, len(indexes))
+
 			for i, idx := range idxs {
 				hs[i] = &Header{
 					Number:   big.NewInt(int64(idx)),
@@ -27,6 +28,8 @@ func TestSortHeadersAsc(t *testing.T) {
 					GasUsed:  uint64(idx),
 					Time:     uint64(idx),
 				}
+
+				was[i] = hs[i].Number.Uint64()
 			}
 
 			SortHeadersAsc(hs)
@@ -35,8 +38,13 @@ func TestSortHeadersAsc(t *testing.T) {
 				return hs[i].Number.Cmp(hs[j].Number) < 0
 			})
 
+			got := make([]uint64, len(hs))
+			for i, h := range hs {
+				got[i] = h.Number.Uint64()
+			}
+
 			if !sorted {
-				t.Errorf("not sorted: %v", spew.Sdump(hs))
+				t.Errorf("not sorted: was %v, got %v", was, got)
 			}
 
 			for i, h := range hs {
@@ -47,50 +55,6 @@ func TestSortHeadersAsc(t *testing.T) {
 					t.Error("GasUsed has been changed")
 				}
 				if h.Time != uint64(i) {
-					t.Error("Time has been changed")
-				}
-			}
-		})
-	}
-}
-func TestSortHeadersDesc(t *testing.T) {
-	indexes := []int{0, 1, 2, 3, 4, 5}
-	perms := permutations(indexes)
-
-	for i, idxs := range perms {
-		i := i
-		idxs := idxs
-
-		t.Run(fmt.Sprintf("permutation %v(%d)", idxs, i), func(t *testing.T) {
-			hs := make([]*Header, len(indexes))
-			for i, idx := range idxs {
-				hs[i] = &Header{
-					Number:   big.NewInt(int64(idx)),
-					GasLimit: uint64(idx),
-					GasUsed:  uint64(idx),
-					Time:     uint64(idx),
-				}
-			}
-
-			SortHeadersDesc(hs)
-
-			sorted := sort.SliceIsSorted(hs, func(i, j int) bool {
-				return hs[i].Number.Cmp(hs[j].Number) > 0
-			})
-
-			if !sorted {
-				t.Errorf("not sorted: %v", spew.Sdump(hs))
-			}
-
-			for i, h := range hs {
-				value := uint64(len(hs) - i - 1)
-				if h.GasLimit != value {
-					t.Error("GasLimit has been changed")
-				}
-				if h.GasUsed != value {
-					t.Error("GasUsed has been changed")
-				}
-				if h.Time != value {
 					t.Error("Time has been changed")
 				}
 			}
@@ -141,54 +105,6 @@ func BenchmarkSortHeadersAscStd(b *testing.B) {
 		b.StartTimer()
 		sort.Slice(hs, func(i, j int) bool {
 			return hs[i].Number.Cmp(hs[j].Number) < 0
-		})
-		b.StopTimer()
-	}
-}
-
-func BenchmarkSortHeadersDesc(b *testing.B) {
-	b.ReportAllocs()
-	b.StopTimer()
-	for i := 0; i < b.N; i++ {
-		const n = 16386 //128
-		idxs := rand.Perm(n)
-		hs := make([]*Header, n)
-
-		for i, idx := range idxs {
-			hs[i] = &Header{
-				Number:   big.NewInt(int64(idx)),
-				GasLimit: uint64(idx),
-				GasUsed:  uint64(idx),
-				Time:     uint64(idx),
-			}
-		}
-
-		b.StartTimer()
-		SortHeadersDesc(hs)
-		b.StopTimer()
-	}
-}
-
-func BenchmarkSortHeadersDescStd(b *testing.B) {
-	b.ReportAllocs()
-	b.StopTimer()
-	for i := 0; i < b.N; i++ {
-		const n = 16386 //128
-		idxs := rand.Perm(n)
-		hs := make([]*Header, n)
-
-		for i, idx := range idxs {
-			hs[i] = &Header{
-				Number:   big.NewInt(int64(idx)),
-				GasLimit: uint64(idx),
-				GasUsed:  uint64(idx),
-				Time:     uint64(idx),
-			}
-		}
-
-		b.StartTimer()
-		sort.Slice(hs, func(i, j int) bool {
-			return hs[i].Number.Cmp(hs[j].Number) > 0
 		})
 		b.StopTimer()
 	}

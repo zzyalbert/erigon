@@ -19,16 +19,17 @@ package abi
 import (
 	"bytes"
 	"encoding/hex"
-	"encoding/json"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/ledgerwatch/turbo-geth/common"
-	"github.com/ledgerwatch/turbo-geth/crypto"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ledgerwatch/turbo-geth/common"
+	"github.com/ledgerwatch/turbo-geth/crypto"
 )
 
 var jsonEventTransfer = []byte(`{

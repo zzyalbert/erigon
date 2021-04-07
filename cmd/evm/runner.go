@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -29,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"encoding/json"
 	"github.com/holiman/uint256"
 	"github.com/urfave/cli"
 

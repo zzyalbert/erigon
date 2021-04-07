@@ -18,11 +18,12 @@ package hexutil
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"reflect"
 	"strconv"
+
+	"encoding/json"
 )
 
 var (

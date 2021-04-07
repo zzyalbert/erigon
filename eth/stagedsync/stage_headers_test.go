@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -91,7 +92,7 @@ func TestInsertHeaderChainTotalDifficulty(t *testing.T) {
 	err := rawdb.WriteCanonicalHash(db, origin.Hash(), 0)
 	assert.NoError(t, err)
 
-	_, reorg, _, err := InsertHeaderChain("logPrefix", db, headers1)
+	_, reorg, _, err := InsertHeaderChain("logPrefix", db, headers1, time.Duration(100000))
 	assert.NoError(t, err)
 	assert.False(t, reorg)
 
@@ -99,7 +100,7 @@ func TestInsertHeaderChainTotalDifficulty(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expectedTdBlock3, td)
 
-	_, reorg, _, err = InsertHeaderChain("logPrefix", db, headers2)
+	_, reorg, _, err = InsertHeaderChain("logPrefix", db, headers2, time.Duration(100000))
 	assert.False(t, reorg)
 	assert.NoError(t, err)
 
@@ -108,7 +109,7 @@ func TestInsertHeaderChainTotalDifficulty(t *testing.T) {
 
 	assert.Equal(t, expectedTdBlock4, td)
 
-	_, reorg, _, err = InsertHeaderChain("logPrefix", db, headers2)
+	_, reorg, _, err = InsertHeaderChain("logPrefix", db, headers2, time.Duration(100000))
 	assert.False(t, reorg)
 	assert.NoError(t, err)
 

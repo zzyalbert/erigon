@@ -24,12 +24,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/goccy/go-json"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/math"
 	"github.com/ledgerwatch/turbo-geth/core/types"
 	"github.com/ledgerwatch/turbo-geth/params"
-
-	json "github.com/json-iterator/go"
 )
 
 type diffTest struct {

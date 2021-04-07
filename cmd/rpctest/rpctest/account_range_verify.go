@@ -3,7 +3,6 @@ package rpctest
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"encoding/json"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/core/state"

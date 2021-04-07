@@ -3,9 +3,10 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"math/big"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"

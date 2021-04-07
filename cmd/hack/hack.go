@@ -1711,7 +1711,7 @@ func applyBlock(chaindata string, hash common.Hash) error {
 
 	exit := make(chan struct{})
 	cons := ethash.NewFaker()
-	eng := process.NewConsensusProcess(cons, params.AllEthashProtocolChanges, exit)
+	eng := process.NewConsensusProcess(cons, params.AllEthashProtocolChanges, exit, 1)
 	defer common.SafeClose(exit)
 
 	if _, err = stagedsync.InsertBlockInStages(db, params.MainnetChainConfig, &vm.Config{}, cons, eng, block, true /* checkRoot */); err != nil {
@@ -1740,6 +1740,56 @@ func fixUnwind(chaindata string) error {
 	} else {
 		fmt.Printf("Inc: %x\n", i)
 	}
+	return nil
+}
+
+func snapSizes(chaindata string) error {
+	db := ethdb.MustOpen(chaindata)
+	defer db.Close()
+
+	dbtx, err := db.Begin(context.Background(), ethdb.RO)
+	if err != nil {
+		return err
+	}
+	defer dbtx.Rollback()
+	tx := dbtx.(ethdb.HasTx).Tx()
+
+	c, _ := tx.Cursor(dbutils.CliqueBucket)
+	defer c.Close()
+
+	sizes := make(map[int]int)
+	differentValues := make(map[string]struct{})
+
+	var (
+		total uint64
+		k, v  []byte
+	)
+
+	for k, v, err = c.First(); k != nil; k, v, err = c.Next() {
+		if err != nil {
+			return err
+		}
+		sizes[len(v)]++
+		differentValues[string(v)] = struct{}{}
+		total += uint64(len(v) + len(k))
+	}
+
+	var lens = make([]int, len(sizes))
+
+	i := 0
+	for l := range sizes {
+		lens[i] = l
+		i++
+	}
+	sort.Ints(lens)
+
+	for _, l := range lens {
+		fmt.Printf("%6d - %d\n", l, sizes[l])
+	}
+
+	fmt.Printf("Different keys %d\n", len(differentValues))
+	fmt.Printf("Total size: %d bytes\n", total)
+
 	return nil
 }
 
@@ -1878,6 +1928,9 @@ func main() {
 
 	case "printTxHashes":
 		printTxHashes()
+
+	case "snapSizes":
+		err = snapSizes(*chaindata)
 
 	}
 

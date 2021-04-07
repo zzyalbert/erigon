@@ -215,6 +215,20 @@ func ReadHeadersByNumber(db ethdb.Getter, number uint64) ([]*types.Header, error
 	return res, nil
 }
 
+
+func ReadHeaderByNumber(db ethdb.Getter, number uint64) *types.Header {
+	hash, err := ReadCanonicalHash(db, number)
+	if err != nil {
+		log.Error("ReadCanonicalHash failed", "err", err)
+		return nil
+	}
+	if hash == (common.Hash{}) {
+		return nil
+	}
+
+	return ReadHeader(db, hash, number)
+}
+
 // WriteHeader stores a block header into the database and also stores the hash-
 // to-number mapping.
 func WriteHeader(ctx context.Context, db ethdb.Putter, header *types.Header) {
@@ -927,19 +941,6 @@ func ReadBlocksByHash(db ethdb.Getter, hash common.Hash, n int) (blocks []*types
 		*number--
 	}
 	return
-}
-
-func ReadHeaderByNumber(db ethdb.DatabaseReader, number uint64) *types.Header {
-	hash, err := ReadCanonicalHash(db, number)
-	if err != nil {
-		log.Error("ReadCanonicalHash failed", "err", err)
-		return nil
-	}
-	if hash == (common.Hash{}) {
-		return nil
-	}
-
-	return ReadHeader(db, hash, number)
 }
 
 func ReadHeaderByHash(db ethdb.DatabaseReader, hash common.Hash) (*types.Header, error) {

@@ -2,18 +2,19 @@ package rpctest
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"encoding/json"
+	"github.com/valyala/fastjson"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/core/state"
 	"github.com/ledgerwatch/turbo-geth/crypto"
 	"github.com/ledgerwatch/turbo-geth/log"
-	"github.com/valyala/fastjson"
 )
 
 func compareBlocks(b, bg *EthBlockByNumber) bool {

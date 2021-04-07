@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -28,8 +27,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/ledgerwatch/turbo-geth/common/hexutil"
+	"encoding/json"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/ledgerwatch/turbo-geth/common/hexutil"
 )
 
 // Lengths of hashes and addresses in bytes.

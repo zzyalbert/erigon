@@ -19,12 +19,13 @@ package compiler
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"encoding/json"
 )
 
 // Vyper contains information about the vyper compiler.

@@ -17,10 +17,11 @@
 package vm
 
 import (
-	"encoding/json"
 	"io"
 	"math/big"
 	"time"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/math"

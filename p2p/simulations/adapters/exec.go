@@ -19,7 +19,6 @@ package adapters
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,14 +34,14 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/reexec"
+	"encoding/json"
+	"github.com/gorilla/websocket"
 
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/node"
 	"github.com/ledgerwatch/turbo-geth/p2p"
 	"github.com/ledgerwatch/turbo-geth/p2p/enode"
 	"github.com/ledgerwatch/turbo-geth/rpc"
-
-	"github.com/gorilla/websocket"
 )
 
 func init() {

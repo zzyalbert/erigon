@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,14 +28,15 @@ import (
 	"strings"
 	"sync"
 
+	"encoding/json"
+	"github.com/gorilla/websocket"
+	"github.com/julienschmidt/httprouter"
+
 	"github.com/ledgerwatch/turbo-geth/event"
 	"github.com/ledgerwatch/turbo-geth/p2p"
 	"github.com/ledgerwatch/turbo-geth/p2p/enode"
 	"github.com/ledgerwatch/turbo-geth/p2p/simulations/adapters"
 	"github.com/ledgerwatch/turbo-geth/rpc"
-
-	"github.com/gorilla/websocket"
-	"github.com/julienschmidt/httprouter"
 )
 
 // DefaultClient is the default simulation API client which expects the API

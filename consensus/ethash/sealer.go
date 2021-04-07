@@ -28,12 +28,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goccy/go-json"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
 	"github.com/ledgerwatch/turbo-geth/consensus"
 	"github.com/ledgerwatch/turbo-geth/core/types"
-
-	json "github.com/json-iterator/go"
 )
 
 const (

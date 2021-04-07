@@ -50,7 +50,7 @@ func TestVerifyHeadersEthash(t *testing.T) {
 	headerRecs := decodeHeaders(verifyHardCodedHeadersEthash)
 	headers := toHeaders(headerRecs)
 
-	engine := ethash.New(ethash.Config{
+	cons := ethash.New(ethash.Config{
 		CachesInMem:      1,
 		CachesLockMmap:   false,
 		DatasetDir:       "ethash",
@@ -58,18 +58,17 @@ func TestVerifyHeadersEthash(t *testing.T) {
 		DatasetsOnDisk:   0,
 		DatasetsLockMmap: false,
 	}, nil, false)
-	engine.SetThreads(-1)
+	cons.SetThreads(-1)
 
 	db := ethdb.NewMemDatabase()
 	defer db.Close()
 
-	cfg, _, err := core.SetupGenesisBlock(db, core.DefaultGenesisBlock(), false /* history */, false /* overwrite */)
+	config, _, err := core.SetupGenesisBlock(db, core.DefaultGenesisBlock(), false /* history */, false /* overwrite */)
 	if err != nil {
 		t.Fatalf("setting up genensis block: %v", err)
 	}
-
 	exit := make(chan struct{})
-	eng := process.NewConsensusProcess(engine, cfg, exit)
+	eng := process.NewConsensusProcess(cons, config, exit, 1)
 	defer common.SafeClose(exit)
 
 	tn := time.Now()
@@ -88,15 +87,13 @@ func TestVerifyHeadersClique(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 	defer db.Close()
 
-	engine := clique.New(params.RinkebyChainConfig.Clique, params.CliqueSnapshot, db)
-
 	config, _, err := core.SetupGenesisBlock(db, core.DefaultRinkebyGenesisBlock(), false /* history */, false /* overwrite */)
 	if err != nil {
 		t.Fatalf("setting up genensis block: %v", err)
 	}
-
+	cons := clique.New(config.Clique, params.CliqueSnapshot, db)
 	exit := make(chan struct{})
-	eng := process.NewConsensusProcess(clique.NewCliqueVerifier(engine), config, exit)
+	eng := process.NewConsensusProcess(clique.NewCliqueVerifier(cons), config, exit, 1)
 	defer common.SafeClose(exit)
 
 	tn := time.Now()

@@ -18,11 +18,12 @@ package vm
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 )

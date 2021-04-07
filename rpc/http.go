@@ -19,7 +19,6 @@ package rpc
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +28,8 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"encoding/json"
 )
 
 const (

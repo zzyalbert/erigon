@@ -17,10 +17,10 @@
 package abi
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"encoding/json"
 )
 
 // Argument holds the name of the argument and the corresponding type.

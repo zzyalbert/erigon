@@ -2,8 +2,9 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/cmd/rpcdaemon/cli"
 	"github.com/ledgerwatch/turbo-geth/common"

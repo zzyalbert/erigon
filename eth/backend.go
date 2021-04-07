@@ -91,7 +91,7 @@ type Ethereum struct {
 	chainKV    ethdb.RwKV     // Same as chainDb, but different interface
 	privateAPI *grpc.Server
 
-	engine         *process.RemoteEngine
+	engine *process.RemoteEngine
 
 	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 
@@ -304,7 +304,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		consensusConfig = &config.Ethash
 	}
 
-	eth.engine = ethconfig.CreateConsensusEngine(chainConfig, consensusConfig, config.Miner.Notify, config.Miner.Noverify)
+	eth.engine = ethconfig.CreateConsensusEngine(chainConfig, consensusConfig, config.Miner.Notify, config.Miner.Noverify, runtime.NumCPU() /* workers */)
 
 	log.Info("Initialising Ethereum protocol", "network", config.NetworkID)
 

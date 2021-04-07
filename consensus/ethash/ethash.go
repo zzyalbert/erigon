@@ -34,6 +34,7 @@ import (
 
 	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
+
 	"github.com/ledgerwatch/turbo-geth/consensus"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/metrics"
@@ -50,7 +51,7 @@ var (
 
 	// sharedEthash is a full instance that can be shared between multiple users.
 	sharedEthashOnce sync.Once
-	sharedEthash     *Ethash
+	sharedEthash *Ethash
 
 	// algorithmRevision is the data structure version used for file naming.
 	algorithmRevision = 23
@@ -59,6 +60,7 @@ var (
 	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
 )
 
+// sharedEthash is a full instance that can be shared between multiple users.
 func GetSharedEthash() *Ethash {
 	sharedEthashOnce.Do(func() {
 		sharedConfig := Config{
@@ -475,7 +477,7 @@ func New(config Config, notify []string, noverify bool) *Ethash {
 		hashrate: metrics.NewMeterForced(),
 	}
 	if config.PowMode == ModeShared {
-		ethash.shared = sharedEthash
+		ethash.shared = GetSharedEthash()
 	}
 	ethash.remote = startRemoteSealer(ethash, notify, noverify)
 	return ethash

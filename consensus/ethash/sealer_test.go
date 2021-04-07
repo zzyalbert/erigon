@@ -25,12 +25,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goccy/go-json"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/core/types"
 	"github.com/ledgerwatch/turbo-geth/internal/testlog"
 	"github.com/ledgerwatch/turbo-geth/log"
-
-	json "github.com/json-iterator/go"
 )
 
 // Tests whether remote HTTP servers are correctly notified of new work.

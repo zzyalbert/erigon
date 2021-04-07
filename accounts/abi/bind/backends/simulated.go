@@ -98,7 +98,7 @@ func NewSimulatedBackendWithDatabase(database *ethdb.ObjectDatabase, alloc core.
 	engine := ethash.NewFaker()
 
 	exit := make(chan struct{})
-	eng := process.NewConsensusProcess(engine, genesis.Config, exit)
+	eng := process.NewConsensusProcess(engine, genesis.Config, exit, 1)
 
 	cc := &core.TinyChainContext{}
 	cc.SetDB(database)
@@ -127,7 +127,7 @@ func NewSimulatedBackendWithConfig(alloc core.GenesisAlloc, config *params.Chain
 	engine := ethash.NewFaker()
 
 	exit := make(chan struct{})
-	eng := process.NewConsensusProcess(engine, genesis.Config, exit)
+	eng := process.NewConsensusProcess(engine, genesis.Config, exit, 1)
 
 	cc := &core.TinyChainContext{}
 	cc.SetDB(database)

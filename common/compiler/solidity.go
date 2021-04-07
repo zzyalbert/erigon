@@ -19,12 +19,13 @@ package compiler
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"encoding/json"
 )
 
 // Solidity contains information about the solidity compiler.

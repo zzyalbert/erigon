@@ -3,10 +3,11 @@ package filters
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/core"
 	"github.com/ledgerwatch/turbo-geth/core/types"

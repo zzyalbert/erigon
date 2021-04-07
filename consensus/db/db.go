@@ -1,19 +1,16 @@
-//+build mdbx lmdb
-
 package db
 
 import (
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 )
 
-func OpenDatabase(path string, inmem bool) *ethdb.ObjectDatabase {
-	db := ethdb.NewObjectDatabase(openKV(path, inmem))
-	return db
+func OpenDatabase(path string, inmem bool, mdbx bool) *ethdb.ObjectDatabase {
+	return ethdb.NewObjectDatabase(openKV(path, inmem, mdbx))
 }
 
-func openKV(path string, inmem bool) ethdb.RwKV {
-	if dbType == "lmdb" {
-		opts := ethdb.NewLMDB()
+func openKV(path string, inmem bool, mdbx bool) ethdb.RwKV {
+	if mdbx {
+		opts := ethdb.NewMDBX()
 		if inmem {
 			opts = opts.InMem()
 		} else {
@@ -21,10 +18,8 @@ func openKV(path string, inmem bool) ethdb.RwKV {
 		}
 
 		return opts.MustOpen()
-
 	}
-
-	opts := ethdb.NewMDBX()
+	opts := ethdb.NewLMDB()
 	if inmem {
 		opts = opts.InMem()
 	} else {
@@ -32,4 +27,5 @@ func openKV(path string, inmem bool) ethdb.RwKV {
 	}
 
 	return opts.MustOpen()
+
 }

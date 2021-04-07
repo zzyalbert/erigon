@@ -26,7 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	json "github.com/json-iterator/go"
+	"github.com/goccy/go-json"
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
@@ -203,7 +204,7 @@ func (s *Snapshot) uncast(address common.Address, authorize bool) bool {
 
 // apply creates a new authorization snapshot by applying the given headers to
 // the original one.
-func (s *Snapshot) apply(r *recoverer, headers ...*types.Header) error {
+func (s *Snapshot) apply(r *lru.ARCCache, headers ...*types.Header) error {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return nil
@@ -235,7 +236,7 @@ func (s *Snapshot) apply(r *recoverer, headers ...*types.Header) error {
 		logged = start
 	}
 
-	signers, err := r.ecrecovers(headers)
+	signers, err := ecrecovers(headers, r)
 	if err != nil {
 		return err
 	}
@@ -520,20 +521,20 @@ func (st *storage) save(s *Snapshot, force bool) error {
 			return err
 		}
 
-		if err := tx.Put(dbutils.CliqueSnapshotBucket, SnapshotKey(s.Number), []byte{0}); err != nil {
+		if err = tx.Put(dbutils.CliqueSnapshotBucket, SnapshotKey(s.Number), []byte{0}); err != nil {
 			log.Error("can't store a snapshot number", "block", s.Number, "hash", s.Hash, "err", err)
 			return err
 		}
 
 		lastSnap, err := lastSnapshot(tx)
 		if lastSnap < s.Number || errors.Is(err, ErrNotFound) {
-			if err := tx.Put(dbutils.CliqueLastSnapshotBucket, LastSnapshotKey(), dbutils.EncodeBlockNumber(s.Number)); err != nil {
+			if err = tx.Put(dbutils.CliqueLastSnapshotBucket, LastSnapshotKey(), dbutils.EncodeBlockNumber(s.Number)); err != nil {
 				log.Error("can't store a snapshot number", "block", s.Number, "hash", s.Hash, "err", err)
 				return err
 			}
 		}
 
-		if err := tx.Commit(); err != nil {
+		if err = tx.Commit(); err != nil {
 			log.Error("can't commit snapshot transaction", "block", s.Number, "hash", s.Hash, "err", err)
 			return err
 		}

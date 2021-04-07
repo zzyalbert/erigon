@@ -207,7 +207,7 @@ type Config struct {
 	OverrideBerlin *big.Int               `toml:",omitempty"`
 }
 
-func CreateConsensusEngine(chainConfig *params.ChainConfig, config interface{}, notify []string, noverify bool) *process.RemoteEngine {
+func CreateConsensusEngine(chainConfig *params.ChainConfig, config interface{}, notify []string, noverify bool, workers int) *process.RemoteEngine {
 	var eng consensus.Engine
 	// Otherwise assume proof-of-work
 
@@ -237,7 +237,7 @@ func CreateConsensusEngine(chainConfig *params.ChainConfig, config interface{}, 
 		}
 	case *params.SnapshotConfig:
 		if chainConfig.Clique != nil {
-			eng = clique.NewCliqueVerifier(clique.New(chainConfig.Clique, consensusCfg, db.OpenDatabase(consensusCfg.DBPath, consensusCfg.InMemory)))
+			eng = clique.NewCliqueVerifier(clique.New(chainConfig.Clique, consensusCfg, db.OpenDatabase(consensusCfg.DBPath, consensusCfg.InMemory, consensusCfg.MDBX)))
 		}
 	}
 
@@ -245,5 +245,5 @@ func CreateConsensusEngine(chainConfig *params.ChainConfig, config interface{}, 
 		panic("unknown config" + spew.Sdump(config))
 	}
 
-	return process.NewRemoteEngine(eng, chainConfig)
+	return process.NewRemoteEngine(eng, chainConfig, workers)
 }

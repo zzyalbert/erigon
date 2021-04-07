@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/ledgerwatch/turbo-geth/common"
@@ -21,7 +23,6 @@ import (
 )
 
 var ErrUnknownParent = errors.New("unknown parent")
-
 var stageHeadersGauge = metrics.NewRegisteredGauge("stage/headers", nil)
 
 func SpawnHeaderDownloadStage(s *StageState, u Unwinder, d DownloaderGlue, headersFetchers []func() error) error {
@@ -95,7 +96,7 @@ func VerifyHeaders(db ethdb.Getter, headers []*types.Header, engine consensus.En
 	return verifyHeaders(db, engine, headers, seals)
 }
 
-func InsertHeaderChain(logPrefix string, db ethdb.Database, headers []*types.Header) (bool, bool, uint64, error) {
+func InsertHeaderChain(logPrefix string, db ethdb.Database, headers []*types.Header, verificationTime time.Duration) (bool, bool, uint64, error) {
 	start := time.Now()
 
 	// ignore headers that we already have
@@ -215,7 +216,7 @@ Error: %v
 		if err := rawdb.WriteTd(batch, header.HashCache(), header.Number.Uint64(), td); err != nil {
 			return false, false, 0, fmt.Errorf("[%s] Failed to WriteTd: %w", logPrefix, err)
 		}
-		if err := batch.Put(dbutils.HeadersBucket, dbutils.HeaderKey(number, header.Hash()), data); err != nil {
+		if err := batch.Put(dbutils.HeadersBucket, dbutils.HeaderKey(number, header.HashCache()), data); err != nil {
 			return false, false, 0, fmt.Errorf("[%s] Failed to store header: %w", logPrefix, err)
 		}
 		stageHeadersGauge.Update(int64(lastHeader.Number.Uint64()))
@@ -269,9 +270,10 @@ Error: %v
 	// Report some public statistics so the user has a clue what's going on
 	since := time.Since(start)
 	ctx := []interface{}{
-		"count", len(headers), "elapsed", common.PrettyDuration(since),
+		"count", len(headers), "insertion", common.PrettyDuration(since),
+		"verification", common.PrettyDuration(verificationTime),
 		"number", lastHeader.Number, "hash", lastHeader.HashCache(),
-		"blk/sec", float64(len(headers)) / since.Seconds(),
+		"blk/sec", float64(len(headers)) / (since.Seconds() + verificationTime.Seconds()),
 	}
 	if timestamp := time.Unix(int64(lastHeader.Time), 0); time.Since(timestamp) > time.Minute {
 		ctx = append(ctx, []interface{}{"age", common.PrettyAge(timestamp)}...)
@@ -287,14 +289,48 @@ Error: %v
 	return newCanonical, reorg, forkBlockNumber, nil
 }
 
+var requests = make(map[uint64]int, 10000)
+var requestsMu = new(sync.RWMutex)
+
+//fixme: debug
+func init() {
+	type kv struct {
+		Key   uint64
+		Value int
+	}
+
+	go func() {
+		t := time.NewTicker(time.Second * 10)
+		defer t.Stop()
+
+		for range t.C {
+			requestsMu.RLock()
+			ss := make([]kv, 0, len(requests))
+			for k, v := range requests {
+				ss = append(ss, kv{k, v})
+			}
+			requestsMu.RUnlock()
+
+			sort.Slice(ss, func(i, j int) bool {
+				return ss[i].Value > ss[j].Value
+			})
+
+			fmt.Println("Ancestors requests:")
+			for _, kv := range ss {
+				fmt.Printf("%d - %d\n", kv.Key, kv.Value)
+			}
+			fmt.Printf("\n\n")
+		}
+	}()
+}
+
 func verifyHeaders(db ethdb.Getter, engine consensus.EngineAPI, headers []*types.Header, seals []bool) error {
 	toVerify := len(headers)
 	if toVerify == 0 {
 		return nil
 	}
 
-	id := rand.Uint64() //nolint
-	engine.HeaderVerification() <- consensus.VerifyHeaderRequest{id, headers, seals, nil}
+	engine.HeaderVerification() <- consensus.VerifyHeaderRequest{ID: rand.Uint64(), Headers: headers, Seal: seals, Deadline: nil}
 
 	reqResponses := make(map[common.Hash]struct{}, len(headers))
 
@@ -310,6 +346,7 @@ func verifyHeaders(db ethdb.Getter, engine consensus.EngineAPI, headers []*types
 			}
 
 			reqResponses[result.Hash] = struct{}{}
+
 			if len(reqResponses) == toVerify {
 				return nil
 			}
@@ -339,6 +376,10 @@ func verifyHeaders(db ethdb.Getter, engine consensus.EngineAPI, headers []*types
 
 				parentHash = h.ParentHash
 				headers = append(headers, h)
+
+				requestsMu.Lock()
+				requests[h.Number.Uint64()]++
+				requestsMu.Unlock()
 			}
 
 			resp := consensus.HeaderResponse{
@@ -349,9 +390,9 @@ func verifyHeaders(db ethdb.Getter, engine consensus.EngineAPI, headers []*types
 			if err != nil {
 				resp.Headers = nil
 				resp.BlockError = consensus.BlockError{
-					parentHash,
-					uint64(parentNumber + 1),
-					err,
+					Hash:   parentHash,
+					Number: uint64(parentNumber + 1),
+					Err:    err,
 				}
 			}
 

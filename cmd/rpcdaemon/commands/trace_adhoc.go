@@ -3,13 +3,14 @@ package commands
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
 	"time"
 
+	"encoding/json"
 	"github.com/holiman/uint256"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
 	"github.com/ledgerwatch/turbo-geth/core"
@@ -457,7 +458,7 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	}
 	var stateReader state.StateReader
 	if num, ok := blockNrOrHash.Number(); ok && num == rpc.LatestBlockNumber {
-		stateReader = state.NewPlainStateReader(dbtx)
+		stateReader = state.NewPlainStateReader(ethdb.NewRoTxDb(dbtx))
 	} else {
 		stateReader = state.NewPlainDBState(ethdb.NewRoTxDb(dbtx), blockNumber)
 	}
@@ -568,7 +569,7 @@ func (api *TraceAPIImpl) CallMany(ctx context.Context, calls json.RawMessage, bl
 	}
 	var stateReader state.StateReader
 	if num, ok := blockNrOrHash.Number(); ok && num == rpc.LatestBlockNumber {
-		stateReader = state.NewPlainStateReader(dbtx)
+		stateReader = state.NewPlainStateReader(ethdb.NewRoTxDb(dbtx))
 	} else {
 		stateReader = state.NewPlainDBState(ethdb.NewRoTxDb(dbtx), blockNumber)
 	}

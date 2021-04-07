@@ -24,6 +24,7 @@ require (
 	github.com/fjl/gencodec v0.0.0-20191126094850-e283372f291f
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-stack/stack v1.8.0
+	github.com/goccy/go-json v0.4.11
 	github.com/golang/protobuf v1.5.1
 	github.com/golang/snappy v0.0.3
 	github.com/google/btree v1.0.0
@@ -36,7 +37,6 @@ require (
 	github.com/huin/goupnp v1.0.1-0.20200620063722-49508fba0031
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
-	github.com/json-iterator/go v1.1.10
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kevinburke/go-bindata v3.21.0+incompatible
 	github.com/ledgerwatch/lmdb-go v1.17.4

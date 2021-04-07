@@ -166,10 +166,10 @@ type Downloader struct {
 	bodiesState    *stagedsync.StageState
 	bodiesUnwinder stagedsync.Unwinder
 
-	stagedSyncState *stagedsync.State
-	miningState     *stagedsync.State
-	stagedSync      *stagedsync.StagedSync
-	mining          *stagedsync.StagedSync
+	stagedSyncState  *stagedsync.State
+	miningState      *stagedsync.State
+	stagedSync       *stagedsync.StagedSync
+	mining           *stagedsync.StagedSync
 	consensusProcess *process.RemoteEngine
 }
 
@@ -232,23 +232,23 @@ type BlockChain interface {
 // New creates a new downloader to fetch hashes and blocks from remote peers.
 func New(stateDB ethdb.Database, chainConfig *params.ChainConfig, miningConfig *params.MiningConfig, chain BlockChain, dropPeer peerDropFn, sm ethdb.StorageMode, eng *process.RemoteEngine) *Downloader {
 	dl := &Downloader{
-		stateDB:       stateDB,
-		queue:         newQueue(blockCacheMaxItems, blockCacheInitialItems),
-		peers:         newPeerSet(),
-		rttEstimate:   uint64(rttMaxEstimate),
-		rttConfidence: uint64(1000000),
-		chainConfig:   chainConfig,
-		miningConfig:  miningConfig,
-		blockchain:    chain,
-		dropPeer:      dropPeer,
-		headerCh:      make(chan dataPack, 1),
-		bodyCh:        make(chan dataPack, 1),
-		receiptCh:     make(chan dataPack, 1),
-		bodyWakeCh:    make(chan bool, 1),
-		receiptWakeCh: make(chan bool, 1),
-		headerProcCh:  make(chan []*types.Header, 1),
-		quitCh:        make(chan struct{}),
-		storageMode:   sm,
+		stateDB:          stateDB,
+		queue:            newQueue(blockCacheMaxItems, blockCacheInitialItems),
+		peers:            newPeerSet(),
+		rttEstimate:      uint64(rttMaxEstimate),
+		rttConfidence:    uint64(1000000),
+		chainConfig:      chainConfig,
+		miningConfig:     miningConfig,
+		blockchain:       chain,
+		dropPeer:         dropPeer,
+		headerCh:         make(chan dataPack, 1),
+		bodyCh:           make(chan dataPack, 1),
+		receiptCh:        make(chan dataPack, 1),
+		bodyWakeCh:       make(chan bool, 1),
+		receiptWakeCh:    make(chan bool, 1),
+		headerProcCh:     make(chan []*types.Header, 1),
+		quitCh:           make(chan struct{}),
+		storageMode:      sm,
 		consensusProcess: eng,
 	}
 	go dl.qosTuner()
@@ -844,7 +844,7 @@ func (d *Downloader) findAncestorSpanSearch(p *peerConnection, remoteHeight, loc
 					continue
 				}
 				// Otherwise check if we already know the header or not
-				h := headers[i].Hash()
+				h := headers[i].HashCache()
 				n := headers[i].Number.Uint64()
 
 				if d.blockchain.HasHeader(h, n) {
@@ -914,7 +914,7 @@ func (d *Downloader) findAncestorBinarySearch(p *peerConnection, remoteHeight ui
 				arrived = true
 
 				// Modify the search interval based on the response
-				h := headers[0].Hash()
+				h := headers[0].HashCache()
 				n := headers[0].Number.Uint64()
 
 				if !d.blockchain.HasHeader(h, n) {
@@ -924,7 +924,7 @@ func (d *Downloader) findAncestorBinarySearch(p *peerConnection, remoteHeight ui
 				// Independent of sync mode, header surely exists
 				header := rawdb.ReadHeader(d.stateDB, h, n)
 				if header.Number.Uint64() != check {
-					p.log.Warn("Received non requested header", "number", header.Number, "hash", header.Hash(), "request", check)
+					p.log.Warn("Received non requested header", "number", header.Number, "hash", header.HashCache(), "request", check)
 					return 0, fmt.Errorf("%w: non-requested header (%d)", errBadPeer, header.Number)
 				}
 				start = check
@@ -1482,14 +1482,16 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, blockNumber uin
 				var err error
 				var newCanonical bool
 
+				t := time.Now()
 				if err = stagedsync.VerifyHeaders(d.stateDB, chunk, d.consensusProcess, frequency); err != nil {
 					log.Warn("Invalid header encountered", "number", chunk[n].Number, "hash", chunk[n].Hash(), "parent", chunk[n].ParentHash, "err", err)
 					return fmt.Errorf("%w: %v", errInvalidChain, err)
 				}
+				verificationTime := time.Since(t)
 				var reorg bool
 				var forkBlockNumber uint64
 				logPrefix := d.stagedSyncState.LogPrefix()
-				newCanonical, reorg, forkBlockNumber, err = stagedsync.InsertHeaderChain(logPrefix, d.stateDB, chunk)
+				newCanonical, reorg, forkBlockNumber, err = stagedsync.InsertHeaderChain(logPrefix, d.stateDB, chunk, verificationTime)
 				if reorg && d.headersUnwinder != nil {
 					// Need to unwind further stages
 					if err1 := d.headersUnwinder.UnwindTo(forkBlockNumber, d.stateDB); err1 != nil {
@@ -1534,8 +1536,8 @@ func (d *Downloader) importBlockResults(logPrefix string, results []*fetchResult
 	// Retrieve the a batch of results to import
 	first, last := results[0].Header, results[len(results)-1].Header
 	log.Debug("Inserting downloaded chain", "items", len(results),
-		"firstnum", first.Number, "firsthash", first.Hash(),
-		"lastnum", last.Number, "lasthash", last.Hash(),
+		"firstnum", first.Number, "firsthash", first.HashCache(),
+		"lastnum", last.Number, "lasthash", last.HashCache(),
 	)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
@@ -1565,7 +1567,7 @@ func (d *Downloader) importBlockResults(logPrefix string, results []*fetchResult
 	}
 	if err != nil {
 		if index < len(results) {
-			log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
+			log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.HashCache(), "err", err)
 		} else {
 			// The InsertChain method in blockchain.go will sometimes return an out-of-bounds index,
 			// when it needs to preprocess blocks to import a sidechain.

@@ -38,12 +38,14 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
+
+	"encoding/json"
+	"github.com/urfave/cli"
 
 	"github.com/ledgerwatch/turbo-geth/crypto"
 	"github.com/ledgerwatch/turbo-geth/p2p"
@@ -51,7 +53,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/p2p/simulations"
 	"github.com/ledgerwatch/turbo-geth/p2p/simulations/adapters"
 	"github.com/ledgerwatch/turbo-geth/rpc"
-	"github.com/urfave/cli"
 )
 
 var client *simulations.Client

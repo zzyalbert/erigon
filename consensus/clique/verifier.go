@@ -275,7 +275,7 @@ func (c *Verifier) verifySeal(header *types.Header, snap *Snapshot) error {
 	}
 
 	// Resolve the authorization key and check against signers
-	signer, err := c.recoverSig.ecrecover(header)
+	signer, err := ecrecover(header, c.signatures)
 	if err != nil {
 		return err
 	}
@@ -320,7 +320,7 @@ func (c *Verifier) findPrevCheckpoint(num uint64, hash common.Hash, parentHash c
 	)
 
 	for n = int(highest); n >= 0; n-- {
-		_, ok = c.recentsNum.Get(uint64(n))
+		ok = c.recentsNum.Contains(uint64(n))
 		if ok {
 			break
 		}
@@ -338,15 +338,6 @@ func (c *Verifier) findPrevCheckpoint(num uint64, hash common.Hash, parentHash c
 				break
 			}
 		}
-
-		//fixme check if it's needed
-		/*
-			if n <= int(highest) {
-					ok = true
-				} else {
-					n = 0
-				}
-		*/
 	}
 
 	if n < 0 {
@@ -385,7 +376,7 @@ func isSnapshot(number uint64, epoch, checkpointInterval uint64) bool {
 	return number == 0 || number%checkpointInterval == 0 || number%epoch == 0
 }
 
-//nolint:deadcode
+//nolint:deadcode,unused
 func parentsToString(parents []*types.Header) string {
 	parStr := "parents: '"
 	for _, par := range parents {

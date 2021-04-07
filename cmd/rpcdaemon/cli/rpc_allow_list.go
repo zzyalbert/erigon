@@ -1,10 +1,11 @@
 package cli
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/rpc"
 )

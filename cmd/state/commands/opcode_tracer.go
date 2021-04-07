@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/gob"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -13,6 +12,9 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"encoding/json"
+	"github.com/spf13/cobra"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/consensus/ethash"
@@ -25,7 +27,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/params"
-	"github.com/spf13/cobra"
 )
 
 var (

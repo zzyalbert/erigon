@@ -147,7 +147,7 @@ func recvUploadMessage(ctx context.Context, sentryClient proto_sentry.SentryClie
 		return
 	}
 
-	for req, err := receiveUploadClient.Recv(); ; req, err = receiveUploadClient.Recv() {
+	for inreq, err := receiveUploadClient.Recv(); ; inreq, err = receiveUploadClient.Recv() {
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				log.Error("Receive upload loop terminated", "error", err)
@@ -156,7 +156,7 @@ func recvUploadMessage(ctx context.Context, sentryClient proto_sentry.SentryClie
 			return
 		}
 
-		if err = controlServer.handleInboundMessage(ctx, req); err != nil {
+		if err = controlServer.handleInboundMessage(ctx, inreq); err != nil {
 			log.Error("Handling incoming message", "error", err)
 		}
 	}
@@ -172,7 +172,7 @@ func recvMessage(ctx context.Context, sentryClient proto_sentry.SentryClient, co
 		return
 	}
 
-	for req, err := receiveClient.Recv(); ; req, err = receiveClient.Recv() {
+	for inreq, err := receiveClient.Recv(); ; inreq, err = receiveClient.Recv() {
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				log.Error("Receive loop terminated", "error", err)
@@ -181,7 +181,7 @@ func recvMessage(ctx context.Context, sentryClient proto_sentry.SentryClient, co
 			return
 		}
 
-		if err = controlServer.handleInboundMessage(ctx, req); err != nil {
+		if err = controlServer.handleInboundMessage(ctx, inreq); err != nil {
 			log.Error("Handling incoming message", "error", err)
 		}
 	}
@@ -293,7 +293,7 @@ func NewControlServer(db ethdb.Database, sentryClient proto_sentry.SentryClient,
 	if chainConfig, _, err = core.SetupGenesisBlock(db, genesis, false /* history */, false /* overwrite */); err != nil {
 		return nil, fmt.Errorf("setup genesis block: %w", err)
 	}
-	engine := ethconfig.CreateConsensusEngine(chainConfig, ethashConfig, nil, false)
+	engine := ethconfig.CreateConsensusEngine(chainConfig, ethashConfig, nil, false, 1)
 	hd := headerdownload.NewHeaderDownload(
 		512,       /* anchorLimit */
 		1024*1024, /* tipLimit */

@@ -19,13 +19,14 @@ package adapters
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"strconv"
 
 	"github.com/docker/docker/pkg/reexec"
+	"encoding/json"
+	"github.com/gorilla/websocket"
 
 	"github.com/ledgerwatch/turbo-geth/crypto"
 	"github.com/ledgerwatch/turbo-geth/log"
@@ -34,8 +35,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/p2p/enode"
 	"github.com/ledgerwatch/turbo-geth/p2p/enr"
 	"github.com/ledgerwatch/turbo-geth/rpc"
-
-	"github.com/gorilla/websocket"
 )
 
 // Node represents a node in a simulation network which is created by a

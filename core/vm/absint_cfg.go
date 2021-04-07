@@ -3,13 +3,14 @@ package vm
 import (
 	"bytes"
 	"compress/zlib"
-	"encoding/json"
 	"fmt"
-	"github.com/holiman/uint256"
 	"io/ioutil"
 	"log"
 	"strconv"
 	"strings"
+
+	"encoding/json"
+	"github.com/holiman/uint256"
 )
 
 ////////////////////////

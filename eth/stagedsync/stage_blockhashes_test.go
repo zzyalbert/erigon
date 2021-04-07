@@ -3,6 +3,7 @@ package stagedsync
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync/stages"
@@ -36,7 +37,7 @@ func TestBlockHashStage(t *testing.T) {
 		t.Fatalf("writing canonical hash: %v", err)
 	}
 
-	if _, _, _, err := InsertHeaderChain("logPrefix", tx, headers); err != nil {
+	if _, _, _, err := InsertHeaderChain("logPrefix", tx, headers, time.Duration(100000)); err != nil {
 		t.Errorf("inserting header chain: %v", err)
 	}
 	if err := stages.SaveStageProgress(tx, stages.Headers, headers[len(headers)-1].Number.Uint64()); err != nil {

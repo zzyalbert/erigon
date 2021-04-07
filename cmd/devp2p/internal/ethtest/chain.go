@@ -18,13 +18,14 @@ package ethtest
 
 import (
 	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"strings"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/core"
 	"github.com/ledgerwatch/turbo-geth/core/forkid"

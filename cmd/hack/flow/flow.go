@@ -3,7 +3,6 @@ package flow
 import (
 	"bufio"
 	"encoding/hex"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"encoding/json"
 
 	"github.com/ledgerwatch/turbo-geth/cmd/hack/tool"
 	"github.com/ledgerwatch/turbo-geth/core/vm"

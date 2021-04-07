@@ -28,6 +28,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/holiman/uint256"
+
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
 	"github.com/ledgerwatch/turbo-geth/common/math"
@@ -39,8 +41,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/params"
 	"github.com/ledgerwatch/turbo-geth/rlp"
 	"github.com/ledgerwatch/turbo-geth/tests"
-
-	"github.com/holiman/uint256"
 )
 
 // To generate a new callTracer test, copy paste the makeTest method below into
