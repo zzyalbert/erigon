@@ -24,6 +24,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/consensus"
 	"github.com/ledgerwatch/turbo-geth/consensus/ethash"
+	"github.com/ledgerwatch/turbo-geth/consensus/process"
 	"github.com/ledgerwatch/turbo-geth/core"
 	"github.com/ledgerwatch/turbo-geth/core/types"
 	"github.com/ledgerwatch/turbo-geth/core/vm"
@@ -105,14 +106,21 @@ func TestStateProcessorErrors(t *testing.T) {
 		// trigger that one, we'd have to allocate a _huge_ chunk of data, such that the
 		// multiplication len(data) +gas_per_byte overflows uint64. Not testable at the moment
 	} {
-		block := GenerateBadBlock(genesis, ethash.NewFaker(), tt.txs)
-		_, err := stagedsync.InsertBlocksInStages(db, ethdb.DefaultStorageMode, gspec.Config, &vm.Config{}, ethash.NewFaker(), types.Blocks{block}, true /* checkRoot */)
+		cons := ethash.NewFaker()
+		block := GenerateBadBlock(genesis, cons, tt.txs)
+
+		exit := make(chan struct{})
+		eng := process.NewConsensusProcess(cons, params.AllEthashProtocolChanges, exit, 1)
+
+		_, err := stagedsync.InsertBlocksInStages(db, ethdb.DefaultStorageMode, gspec.Config, &vm.Config{}, cons, eng, types.Blocks{block}, true /* checkRoot */)
 		if err == nil {
 			t.Fatal("block imported without errors")
 		}
 		if have, want := err.Error(), tt.want; have != want {
+			common.SafeClose(exit)
 			t.Errorf("test %d:\nhave \"%v\"\nwant \"%v\"\n", i, have, want)
 		}
+		common.SafeClose(exit)
 	}
 }
 
