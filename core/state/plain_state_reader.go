@@ -23,7 +23,7 @@ type PlainStateReader struct {
 func NewPlainStateReader(db ethdb.KVGetter) *PlainStateReader {
 	return &PlainStateReader{
 		db:            db,
-		storageKeyBuf: make([]byte, 60),
+		storageKeyBuf: make([]byte, common.AddressLength+common.IncarnationLength+common.HashLength),
 	}
 }
 
