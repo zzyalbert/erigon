@@ -26,6 +26,7 @@ import (
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
+	"github.com/ledgerwatch/turbo-geth/common/debug"
 	"github.com/ledgerwatch/turbo-geth/core/types"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/ethdb/cbor"
@@ -528,7 +529,7 @@ func ReadReceipts(db ethdb.Getter, hash common.Hash, number uint64) types.Receip
 		return nil
 	}
 	if err = receipts.DeriveFields(hash, number, body.Transactions, senders); err != nil {
-		log.Error("Failed to derive block receipts fields", "hash", hash, "number", number, "err", err)
+		log.Error("Failed to derive block receipts fields", "hash", hash, "number", number, "err", err, "trace", debug.Callers(10))
 		return nil
 	}
 	return receipts
