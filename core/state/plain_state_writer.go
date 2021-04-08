@@ -17,18 +17,20 @@ import (
 var _ WriterWithChangeSets = (*PlainStateWriter)(nil)
 
 type PlainStateWriter struct {
-	db           ethdb.Database
-	changeSetsDB ethdb.Database
-	csw          *ChangeSetWriter
-	blockNumber  uint64
+	db            ethdb.Database
+	changeSetsDB  ethdb.Database
+	csw           *ChangeSetWriter
+	blockNumber   uint64
+	storageKeyBuf []byte
 }
 
 func NewPlainStateWriter(db ethdb.Database, changeSetsDB ethdb.Database, blockNumber uint64) *PlainStateWriter {
 	return &PlainStateWriter{
-		db:           db,
-		changeSetsDB: changeSetsDB,
-		csw:          NewChangeSetWriterPlain(changeSetsDB, blockNumber),
-		blockNumber:  blockNumber,
+		db:            db,
+		changeSetsDB:  changeSetsDB,
+		csw:           NewChangeSetWriterPlain(changeSetsDB, blockNumber),
+		blockNumber:   blockNumber,
+		storageKeyBuf: make([]byte, 60),
 	}
 }
 
@@ -75,7 +77,7 @@ func (w *PlainStateWriter) WriteAccountStorage(ctx context.Context, address comm
 	if *original == *value {
 		return nil
 	}
-	compositeKey := dbutils.PlainGenerateCompositeStorageKey(address.Bytes(), incarnation, key.Bytes())
+	compositeKey := dbutils.PlainGenerateCompositeStorageKeyBuf(address.Bytes(), incarnation, key.Bytes(), w.storageKeyBuf)
 
 	v := value.Bytes()
 	if len(v) == 0 {

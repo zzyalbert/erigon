@@ -84,6 +84,13 @@ func PlainGenerateCompositeStorageKey(address []byte, incarnation uint64, key []
 	return compositeKey
 }
 
+func PlainGenerateCompositeStorageKeyBuf(address []byte, incarnation uint64, key []byte, buf []byte) []byte {
+	copy(buf, address)
+	binary.BigEndian.PutUint64(buf[common.AddressLength:], incarnation)
+	copy(buf[common.AddressLength+common.IncarnationLength:], key)
+	return buf
+}
+
 func PlainParseCompositeStorageKey(compositeKey []byte) (common.Address, uint64, common.Hash) {
 	prefixLen := common.AddressLength + common.IncarnationLength
 	addr, inc := PlainParseStoragePrefix(compositeKey[:prefixLen])
