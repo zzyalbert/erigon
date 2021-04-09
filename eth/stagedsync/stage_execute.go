@@ -75,12 +75,6 @@ func executeBlockWithGo(block *types.Block, tx ethdb.Database, cache *shards.Sta
 	} else {
 		stateReader = state.NewPlainStateReader(batch)
 	}
-	if cache != nil {
-		if err := cacheWarmUpIfNeed(tx, cache); err != nil {
-			return err
-		}
-		stateReader = state.NewCachedReader(stateReader, cache)
-	}
 
 	if params.WriterBuilder != nil {
 		stateWriter = params.WriterBuilder(batch, tx, blockNum)

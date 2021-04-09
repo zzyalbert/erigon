@@ -3,7 +3,6 @@ package stagedsync
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"os"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/common/changeset"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/common/etl"
-	"github.com/ledgerwatch/turbo-geth/core/state"
 	"github.com/ledgerwatch/turbo-geth/core/types/accounts"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/log"
@@ -503,64 +501,67 @@ func (p *Promoter) Unwind(logPrefix string, s *StageState, u *UnwindState, stora
 
 	log.Info(fmt.Sprintf("[%s] Unwinding started", logPrefix), "from", from, "to", to, "storage", storage, "codes", codes)
 	if p.cache != nil {
-		accountMap, storageMap, errRewind := changeset.RewindData(p.db, s.BlockNumber, u.UnwindPoint, p.quitCh)
-		if errRewind != nil {
-			return fmt.Errorf("%s: getting rewind data: %v", logPrefix, errRewind)
-		}
-		h := common.NewHasher()
-		defer common.ReturnHasherToPool(h)
-		for key, value := range accountMap {
-			_, inCache := p.cache.GetAccount([]byte(key))
-			if !inCache {
-				var addrHash common.Hash
-				h.Sha.Reset()
-				_, _ = h.Sha.Write([]byte(key))
-				_, _ = h.Sha.Read(addrHash[:])
-				_, err := state.OnAccountMiss(ethdb.NewRoTxDb(p.db), p.cache, addrHash)
-				if err != nil {
-					return err
-				}
-				_, inCache = p.cache.GetAccount([]byte(key))
+		p.cache.Purge()
+		/*
+			accountMap, storageMap, errRewind := changeset.RewindData(p.db, s.BlockNumber, u.UnwindPoint, p.quitCh)
+			if errRewind != nil {
+				return fmt.Errorf("%s: getting rewind data: %v", logPrefix, errRewind)
 			}
-			if len(value) > 0 {
-				var acc accounts.Account
-				if err := acc.DecodeForStorage(value); err != nil {
-					return err
+			h := common.NewHasher()
+			defer common.ReturnHasherToPool(h)
+			for key, value := range accountMap {
+				_, inCache := p.cache.GetAccount([]byte(key))
+				if !inCache {
+					var addrHash common.Hash
+					h.Sha.Reset()
+					_, _ = h.Sha.Write([]byte(key))
+					_, _ = h.Sha.Read(addrHash[:])
+					_, err := state.OnAccountMiss(ethdb.NewRoTxDb(p.db), p.cache, addrHash)
+					if err != nil {
+						return err
+					}
+					_, inCache = p.cache.GetAccount([]byte(key))
 				}
-				recoverCodeHashPlain(&acc, p.db, key)
-				if inCache {
-					p.cache.SetAccountWritePlain([]byte(key), &acc)
+				if len(value) > 0 {
+					var acc accounts.Account
+					if err := acc.DecodeForStorage(value); err != nil {
+						return err
+					}
+					recoverCodeHashPlain(&acc, p.db, key)
+					if inCache {
+						p.cache.SetAccountWritePlain([]byte(key), &acc)
+					} else {
+						p.cache.SetAccountReadPlain([]byte(key), &acc)
+					}
 				} else {
-					p.cache.SetAccountReadPlain([]byte(key), &acc)
-				}
-			} else {
-				if inCache {
-					p.cache.SetAccountDeletePlain([]byte(key))
-				} else {
-					p.cache.SetAccountAbsentPlain([]byte(key))
+					if inCache {
+						p.cache.SetAccountDeletePlain([]byte(key))
+					} else {
+						p.cache.SetAccountAbsentPlain([]byte(key))
+					}
 				}
 			}
-		}
 
-		for key, value := range storageMap {
-			k := []byte(key)
-			stK, inc, stH := k[:20], binary.BigEndian.Uint64(k[20:28]), k[28:]
-			_, inCache := p.cache.GetStorage(stK, inc, stH)
-			if len(value) > 0 {
-				if inCache {
-					p.cache.SetStorageWritePlain(stK, inc, stH, value)
+			for key, value := range storageMap {
+				k := []byte(key)
+				stK, inc, stH := k[:20], binary.BigEndian.Uint64(k[20:28]), k[28:]
+				_, inCache := p.cache.GetStorage(stK, inc, stH)
+				if len(value) > 0 {
+					if inCache {
+						p.cache.SetStorageWritePlain(stK, inc, stH, value)
+					} else {
+						p.cache.SetStorageReadPlain(stK, inc, stH, value)
+					}
 				} else {
-					p.cache.SetStorageReadPlain(stK, inc, stH, value)
-				}
-			} else {
-				if inCache {
-					p.cache.SetStorageDeletePlain(stK, inc, stH)
-				} else {
-					p.cache.SetStorageAbsentPlain(stK, inc, stH)
+					if inCache {
+						p.cache.SetStorageDeletePlain(stK, inc, stH)
+					} else {
+						p.cache.SetStorageAbsentPlain(stK, inc, stH)
+					}
 				}
 			}
-		}
-		p.cache.TurnWritesToReads(p.cache.PrepareWrites())
+			p.cache.TurnWritesToReads(p.cache.PrepareWrites())
+		*/
 	}
 
 	startkey := dbutils.EncodeBlockNumber(to + 1)

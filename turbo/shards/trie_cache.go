@@ -10,7 +10,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/core/types/accounts"
-	"github.com/ledgerwatch/turbo-geth/ethdb"
 )
 
 // An optional addition to the state cache, helping to calculate state root
@@ -165,7 +164,7 @@ func (uh *UnprocessedHeap) Pop() interface{} {
 func (ai *AccountItem) HasPrefix(prefix CacheItem) bool {
 	switch i := prefix.(type) {
 	case *AccountItem:
-		return ai.addrHash == i.addrHash && ai.account.Incarnation == i.account.Incarnation
+		return ai.address == i.address && ai.account.Incarnation == i.account.Incarnation
 	default:
 		panic(fmt.Sprintf("unrecognised type of cache item: %T", prefix))
 	}
@@ -174,7 +173,7 @@ func (ai *AccountItem) HasPrefix(prefix CacheItem) bool {
 func (si *StorageItem) HasPrefix(prefix CacheItem) bool {
 	switch i := prefix.(type) {
 	case *StorageItem:
-		return si.addrHash == i.addrHash && si.incarnation == i.incarnation && si.locHash == i.locHash
+		return si.address == i.address && si.incarnation == i.incarnation && si.location == i.location
 	default:
 		panic(fmt.Sprintf("unrecognised type of cache item: %T", prefix))
 	}
@@ -758,29 +757,29 @@ func WalkStorageHashesWrites(writes [5]*btree.BTree, update func(addrHash common
 	})
 }
 
-func (sc *StateCache) WalkStorage(addrHash common.Hash, incarnation uint64, prefix []byte, walker func(locHash common.Hash, val []byte) error) error {
-	fixedbytes, mask := ethdb.Bytesmask(len(prefix) * 8)
-	seek := &StorageSeek{seek: prefix, fixedBytes: fixedbytes - 1, mask: mask}
-	sc.readWrites[id(seek)].AscendGreaterOrEqual(seek, func(i btree.Item) bool {
+func (sc *StateCache) WalkStorage(addrHash common.Address, incarnation uint64, prefix []byte, walker func(locHash common.Hash, val []byte) error) error {
+	seek := &StorageSeek{seek: prefix}
+	id := id(seek)
+	sc.readWrites[id].AscendGreaterOrEqual(seek, func(i btree.Item) bool {
 		switch it := i.(type) {
 		case *StorageItem:
 			if it.HasFlag(AbsentFlag) || it.HasFlag(DeletedFlag) {
 				return true
 			}
-			if it.addrHash != addrHash || it.incarnation != incarnation {
+			if it.address != addrHash || it.incarnation != incarnation {
 				return false
 			}
-			if err := walker(it.locHash, it.value.Bytes()); err != nil {
+			if err := walker(it.location, it.value.Bytes()); err != nil {
 				panic(err)
 			}
 		case *StorageWriteItem:
 			if it.si.HasFlag(AbsentFlag) || it.si.HasFlag(DeletedFlag) {
 				return true
 			}
-			if it.si.addrHash != addrHash || it.si.incarnation != incarnation {
+			if it.si.address != addrHash || it.si.incarnation != incarnation {
 				return false
 			}
-			if err := walker(it.si.locHash, it.si.value.Bytes()); err != nil {
+			if err := walker(it.si.location, it.si.value.Bytes()); err != nil {
 				panic(err)
 			}
 		}
@@ -789,16 +788,16 @@ func (sc *StateCache) WalkStorage(addrHash common.Hash, incarnation uint64, pref
 	return nil
 }
 
-func (sc *StateCache) WalkAccounts(prefix []byte, walker func(addrHash common.Hash, acc *accounts.Account) (bool, error)) error {
-	fixedbytes, mask := ethdb.Bytesmask(len(prefix) * 8)
-	seek := &AccountSeek{seek: prefix, fixedBytes: fixedbytes - 1, mask: mask}
-	sc.readWrites[id(seek)].AscendGreaterOrEqual(seek, func(i btree.Item) bool {
+func (sc *StateCache) WalkAccounts(prefix []byte, walker func(addrHash common.Address, acc *accounts.Account) (bool, error)) error {
+	seek := &AccountSeek{seek: prefix}
+	id := id(seek)
+	sc.readWrites[id].AscendGreaterOrEqual(seek, func(i btree.Item) bool {
 		switch it := i.(type) {
 		case *AccountItem:
 			if it.HasFlag(AbsentFlag) || it.HasFlag(DeletedFlag) {
 				return true
 			}
-			if goOn, err := walker(it.addrHash, &it.account); err != nil {
+			if goOn, err := walker(it.address, &it.account); err != nil {
 				panic(err)
 			} else if !goOn {
 				return false
@@ -807,7 +806,7 @@ func (sc *StateCache) WalkAccounts(prefix []byte, walker func(addrHash common.Ha
 			if it.ai.HasFlag(AbsentFlag) || it.ai.HasFlag(DeletedFlag) {
 				return true
 			}
-			if goOn, err := walker(it.ai.addrHash, &it.ai.account); err != nil {
+			if goOn, err := walker(it.ai.address, &it.ai.account); err != nil {
 				panic(err)
 			} else if !goOn {
 				return false

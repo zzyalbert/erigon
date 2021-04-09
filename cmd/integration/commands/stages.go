@@ -439,7 +439,7 @@ func stageTrie(db ethdb.Database, ctx context.Context) error {
 	var tx = ethdb.NewTxDbWithoutTransaction(db, ethdb.RW)
 	defer tx.Rollback()
 
-	_, _, _, _, _, cache, progress := newSync(ctx.Done(), db, tx, nil)
+	_, _, _, _, _, _, progress := newSync(ctx.Done(), db, tx, nil)
 
 	if reset {
 		return db.(ethdb.HasRwKV).RwKV().Update(ctx, func(tx ethdb.RwTx) error { return stagedsync.ResetIH(tx) })
@@ -458,11 +458,11 @@ func stageTrie(db ethdb.Database, ctx context.Context) error {
 
 	if unwind > 0 {
 		u := &stagedsync.UnwindState{Stage: stages.IntermediateHashes, UnwindPoint: stage5.BlockNumber - unwind}
-		if err := stagedsync.UnwindIntermediateHashesStage(u, stage5, tx, cache, tmpdir, ch); err != nil {
+		if err := stagedsync.UnwindIntermediateHashesStage(u, stage5, tx, tmpdir, ch); err != nil {
 			return err
 		}
 	} else {
-		if _, err := stagedsync.SpawnIntermediateHashesStage(stage5, tx, true /* checkRoot */, cache, tmpdir, ch); err != nil {
+		if _, err := stagedsync.SpawnIntermediateHashesStage(stage5, tx, true /* checkRoot */, tmpdir, ch); err != nil {
 			return err
 		}
 	}
