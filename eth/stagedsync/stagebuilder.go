@@ -252,11 +252,11 @@ func DefaultStages() StageBuilders {
 					ID:          stages.IntermediateHashes,
 					Description: "Generate intermediate hashes and computing state root",
 					ExecFunc: func(s *StageState, u Unwinder) error {
-						_, err := SpawnIntermediateHashesStage(s, world.TX, true /* checkRoot */, world.cache, world.TmpDir, world.QuitCh)
+						_, err := SpawnIntermediateHashesStage(s, world.TX, true /* checkRoot */, world.TmpDir, world.QuitCh)
 						return err
 					},
 					UnwindFunc: func(u *UnwindState, s *StageState) error {
-						return UnwindIntermediateHashesStage(u, s, world.TX, world.cache, world.TmpDir, world.QuitCh)
+						return UnwindIntermediateHashesStage(u, s, world.TX, world.TmpDir, world.QuitCh)
 					},
 				}
 			},
@@ -472,7 +472,7 @@ func MiningStages() StageBuilders {
 					ID:          stages.IntermediateHashes,
 					Description: "Generate intermediate hashes and computing state root",
 					ExecFunc: func(s *StageState, u Unwinder) error {
-						stateRoot, err := SpawnIntermediateHashesStage(s, world.TX, false /* checkRoot */, world.cache, world.TmpDir, world.QuitCh)
+						stateRoot, err := SpawnIntermediateHashesStage(s, world.TX, false /* checkRoot */, world.TmpDir, world.QuitCh)
 						if err != nil {
 							return err
 						}
