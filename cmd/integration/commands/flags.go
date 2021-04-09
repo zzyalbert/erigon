@@ -93,6 +93,13 @@ func withDatadir2(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&database, "database", "", "lmdb|mdbx")
 }
 
+func withDatadir3(cmd *cobra.Command) {
+	cmd.Flags().String(utils.DataDirFlag.Name, utils.DataDirFlag.Value.String(), utils.DataDirFlag.Usage)
+	must(cmd.MarkFlagDirname(utils.DataDirFlag.Name))
+	must(cmd.MarkFlagRequired(utils.DataDirFlag.Name))
+	cmd.Flags().String("database", "", "lmdb|mdbx")
+}
+
 func withDatadir(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&datadir, "datadir", paths.DefaultDataDir(), "data directory for temporary ELT files")
 	must(cmd.MarkFlagDirname("datadir"))
@@ -111,6 +118,10 @@ func withDatadir(cmd *cobra.Command) {
 func withBatchSize(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&cacheSizeStr, "cacheSize", "0", "cache size for execution stage")
 	cmd.Flags().StringVar(&batchSizeStr, "batchSize", "512M", "batch size for execution stage")
+}
+func withBatchSize3(cmd *cobra.Command) {
+	cmd.Flags().String("cacheSize", "0", "cache size for execution stage")
+	cmd.Flags().String("batchSize", "512M", "batch size for execution stage")
 }
 
 func withIntegrityChecks(cmd *cobra.Command) {

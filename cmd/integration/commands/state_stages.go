@@ -110,16 +110,24 @@ var loopExecCmd = &cobra.Command{
 	},
 }
 
+var cfg = &node.DefaultConfig
+var ethConfig = &ethconfig.Defaults
+var miningConfig = &params.MiningConfig{}
+
 func init() {
 	//withChaindata(stateStags)
-	withDatadir2(stateStags)
+	withDatadir3(stateStags)
 	withReferenceChaindata(stateStags)
 	withUnwind(stateStags)
 	withUnwindEvery(stateStags)
 	withBlock(stateStags)
-	//withBatchSize(stateStags)
+	withBatchSize3(stateStags)
 	withIntegrityChecks(stateStags)
 	withMining(stateStags)
+
+	utils.SetNodeConfigCobra(stateStags, cfg)
+	turbocli.ApplyFlagsForEthConfigCobra(stateStags.Flags(), ethConfig)
+	utils.SetupMinerCobra(stateStags, miningConfig)
 
 	rootCmd.AddCommand(stateStags)
 
