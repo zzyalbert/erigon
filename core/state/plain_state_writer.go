@@ -92,6 +92,8 @@ func (w *PlainStateWriter) CreateContract(address common.Address) error {
 }
 
 func (w *PlainStateWriter) WriteChangeSets() error {
+	return nil
+
 	db := w.db
 	if w.changeSetsDB != nil {
 		db = w.changeSetsDB

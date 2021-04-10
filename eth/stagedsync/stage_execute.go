@@ -91,15 +91,15 @@ func executeBlockWithGo(block *types.Block, tx ethdb.Database, cache *shards.Sta
 
 	// where the magic happens
 	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(tx, hash, number) }
-	receipts, err := core.ExecuteBlockEphemerally(chainConfig, vmConfig, getHeader, engine, block, stateReader, stateWriter)
+	_, err := core.ExecuteBlockEphemerally(chainConfig, vmConfig, getHeader, engine, block, stateReader, stateWriter)
 	if err != nil {
 		return err
 	}
 
 	if params.WriteReceipts {
-		if err = rawdb.AppendReceipts(tx, blockNum, receipts); err != nil {
-			return err
-		}
+		//if err = rawdb.AppendReceipts(tx, blockNum, receipts); err != nil {
+		//	return err
+		//}
 	}
 
 	if params.ChangeSetHook != nil {
