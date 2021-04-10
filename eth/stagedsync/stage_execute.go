@@ -168,6 +168,10 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig 
 	logTime := time.Now()
 
 	for blockNum := stageProgress + 1; blockNum <= to; blockNum++ {
+		_, _ = readBlock(blockNum, tx)
+	}
+
+	for blockNum := stageProgress + 1; blockNum <= to; blockNum++ {
 		err := common.Stopped(quit)
 		if err != nil {
 			return err
