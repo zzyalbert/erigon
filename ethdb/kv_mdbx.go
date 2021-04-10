@@ -3,6 +3,7 @@
 package ethdb
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -21,6 +22,24 @@ import (
 	"github.com/ledgerwatch/turbo-geth/ethdb/mdbx"
 	"github.com/ledgerwatch/turbo-geth/log"
 )
+
+var (
+	gets *bufio.Writer
+	puts *bufio.Writer
+)
+
+func init() {
+	file, err := os.Create("./state_get_history.txt")
+	if err != nil {
+		panic(err)
+	}
+	gets = bufio.NewWriter(file)
+	file2, err := os.Create("./state_put_history.txt")
+	if err != nil {
+		panic(err)
+	}
+	puts = bufio.NewWriter(file2)
+}
 
 var _ DbCopier = &MdbxKV{}
 
@@ -1279,6 +1298,9 @@ func (c *MdbxCursor) putDupSort(key []byte, value []byte) error {
 	}
 
 	if len(key) != from {
+		if c.bucketName == dbutils.PlainStateBucket {
+			fmt.Fprintf(puts, " %x %x\n", key, value)
+		}
 		err := c.putNoOverwrite(key, value)
 		if err != nil {
 			if mdbx.IsKeyExists(err) {
@@ -1294,6 +1316,9 @@ func (c *MdbxCursor) putDupSort(key []byte, value []byte) error {
 	v, err := c.getBothRange(key, value[:from-to])
 	if err != nil { // if key not found, or found another one - then just insert
 		if mdbx.IsNotFound(err) {
+			if c.bucketName == dbutils.PlainStateBucket {
+				fmt.Fprintf(puts, " %x %x\n", key, value)
+			}
 			return c.put(key, value)
 		}
 		return err
@@ -1308,7 +1333,9 @@ func (c *MdbxCursor) putDupSort(key []byte, value []byte) error {
 			return err
 		}
 	}
-
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(puts, " %x %x\n", key, value)
+	}
 	return c.put(key, value)
 }
 
@@ -1316,6 +1343,10 @@ func (c *MdbxCursor) SeekExact(key []byte) ([]byte, []byte, error) {
 	b := c.bucketCfg
 	if b.AutoDupSortKeysConversion && len(key) == b.DupFromLen {
 		from, to := b.DupFromLen, b.DupToLen
+		if c.bucketName == dbutils.PlainStateBucket {
+			fmt.Fprintf(gets, " %x %x\n", key[:to], key[to:])
+		}
+
 		v, err := c.getBothRange(key[:to], key[to:])
 		if err != nil {
 			if mdbx.IsNotFound(err) {
@@ -1329,6 +1360,9 @@ func (c *MdbxCursor) SeekExact(key []byte) ([]byte, []byte, error) {
 		return key[:to], v[from-to:], nil
 	}
 
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(gets, " %x\n", key)
+	}
 	k, v, err := c.set(key)
 	if err != nil {
 		if mdbx.IsNotFound(err) {
