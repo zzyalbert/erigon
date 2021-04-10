@@ -195,7 +195,8 @@ const (
 	InodesBucket = "inodes"
 
 	// Transaction senders - stored separately from the block bodies
-	Senders = "txSenders"
+	Senders  = "txSenders"
+	Senders2 = "txSenders2"
 
 	// headBlockKey tracks the latest know full block's hash.
 	HeadBlockKey = "LastBlock"
