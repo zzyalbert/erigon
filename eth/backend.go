@@ -146,6 +146,17 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		}
 	}
 
+	for i := 0; i < 100; i++ {
+		fmt.Printf("loop %d\n", i)
+		for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
+			blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
+			_, _ = rawdb.ReadSenders(chainDb, blockHash, blockNum)
+			//_ = tx.Walk(dbutils.PlainStateBucket, nil, 0, func(k, v []byte) (bool, error) {
+			//	return true, nil
+			//})
+		}
+	}
+
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, config.Genesis, config.OverrideBerlin, config.StorageMode.History, false /* overwrite */)
 
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {

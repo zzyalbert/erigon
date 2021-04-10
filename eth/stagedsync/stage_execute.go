@@ -167,17 +167,6 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig 
 	logBlock := stageProgress
 	logTime := time.Now()
 
-	for i := 0; i < 100; i++ {
-		fmt.Printf("loop %d\n", i)
-		for blockNum := stageProgress + 1; blockNum <= to; blockNum++ {
-			blockHash, _ := rawdb.ReadCanonicalHash(tx, blockNum)
-			_, _ = rawdb.ReadSenders(tx, blockHash, blockNum)
-			//_ = tx.Walk(dbutils.PlainStateBucket, nil, 0, func(k, v []byte) (bool, error) {
-			//	return true, nil
-			//})
-		}
-	}
-
 	for blockNum := stageProgress + 1; blockNum <= to; blockNum++ {
 		err := common.Stopped(quit)
 		if err != nil {
