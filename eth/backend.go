@@ -148,7 +148,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 
 	for i := 0; i < 100; i++ {
-		fmt.Printf("loop %d\n", i)
+		t := time.Now()
 		_ = chainDb.Walk(dbutils.Senders, nil, 0, func(k, v []byte) (bool, error) {
 			return true, nil
 		})
@@ -159,6 +159,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		//	//	return true, nil
 		//	//})
 		//}
+		fmt.Printf("loop %d, time: %s\n", i, time.Since(t))
 	}
 
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, config.Genesis, config.OverrideBerlin, config.StorageMode.History, false /* overwrite */)
