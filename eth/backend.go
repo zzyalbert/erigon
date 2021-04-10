@@ -147,8 +147,17 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		}
 	}
 
-	_ = chainDb.Walk(dbutils.Senders, nil, 0, func(k, v []byte) (bool, error) {
-		return true, chainDb.Put(dbutils.Senders2, k, make([]byte, len(v)))
+	kv := chainDb.(ethdb.HasRwKV).RwKV()
+	kv.Update(context.Background(), func(tx ethdb.RwTx) error {
+		tx.(ethdb.BucketMigrator).ClearBucket(dbutils.Senders2)
+		c, _ := tx.RwCursor(dbutils.Senders2)
+		defer c.Close()
+		c1, _ := tx.Cursor(dbutils.Senders)
+		defer c1.Close()
+		_ = ethdb.Walk(c1, nil, 0, func(k, v []byte) (bool, error) {
+			return true, c.Append(k, make([]byte, len(v)))
+		})
+		return nil
 	})
 
 	for i := 0; i < 100; i++ {
