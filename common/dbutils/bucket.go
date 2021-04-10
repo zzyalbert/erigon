@@ -265,6 +265,7 @@ var Buckets = []string{
 	PlainAccountChangeSetBucket,
 	PlainStorageChangeSetBucket,
 	Senders,
+	Senders2,
 	HeadBlockKey,
 	HeadFastBlockKey,
 	HeadHeaderKey,
