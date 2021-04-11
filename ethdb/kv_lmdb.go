@@ -887,7 +887,7 @@ func (tx *lmdbTx) CHandle() unsafe.Pointer {
 // methods here help to see better pprof picture
 func (c *LmdbCursor) set(k []byte) ([]byte, []byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
-		fmt.Fprintf(getF, "set %x\n", k)
+		//fmt.Fprintf(getF, "set %x\n", k)
 	}
 	return c.c.Get(k, nil, lmdb.Set)
 }
@@ -910,19 +910,19 @@ func (c *LmdbCursor) append(k, v []byte) error            { return c.c.Put(k, v,
 func (c *LmdbCursor) appendDup(k, v []byte) error         { return c.c.Put(k, v, lmdb.AppendDup) }
 func (c *LmdbCursor) getBoth(k, v []byte) ([]byte, []byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
-		fmt.Fprintf(getF, "getBoth %x %x\n", k, v)
+		//fmt.Fprintf(getF, "getBoth %x %x\n", k, v)
 	}
 	return c.c.Get(k, v, lmdb.GetBoth)
 }
 func (c *LmdbCursor) setRange(k []byte) ([]byte, []byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
-		fmt.Fprintf(getF, "setRange %x\n", k)
+		//fmt.Fprintf(getF, "setRange %x\n", k)
 	}
 	return c.c.Get(k, nil, lmdb.SetRange)
 }
 func (c *LmdbCursor) getBothRange(k, v []byte) ([]byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
-		fmt.Fprintf(getF, "getBothRange %x, %x\n", k, v)
+		//fmt.Fprintf(getF, "getBothRange %x, %x\n", k, v)
 	}
 	_, v, err := c.c.Get(k, v, lmdb.GetBothRange)
 	return v, err
