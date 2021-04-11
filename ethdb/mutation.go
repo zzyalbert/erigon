@@ -233,6 +233,10 @@ func (m *mutation) RollbackAndBegin(ctx context.Context) error {
 }
 
 func (m *mutation) doCommit(tx RwTx) error {
+	if metrics.Enabled {
+		defer dbCommitBigBatchTimer.UpdateSince(time.Now())
+	}
+
 	var prevTable string
 	var c RwCursor
 	var innerErr error
