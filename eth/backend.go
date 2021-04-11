@@ -161,9 +161,9 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	//})
 	for i := 0; i < 100; i++ {
 		t := time.Now()
-		_ = chainDb.Walk(dbutils.Senders2, nil, 0, func(k, v []byte) (bool, error) {
-			return true, nil
-		})
+		//_ = chainDb.Walk(dbutils.Senders2, nil, 0, func(k, v []byte) (bool, error) {
+		//	return true, nil
+		//})
 		for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
 			blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
 			_, _ = rawdb.ReadSenders(chainDb, blockHash, blockNum)
