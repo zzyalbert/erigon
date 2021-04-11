@@ -165,7 +165,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		//})
 		for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
 			blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
-			_, _ = rawdb.ReadSenders(chainDb, blockHash, blockNum)
+			_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
 		}
 		fmt.Printf("loop %d, time: %s\n", i, time.Since(t))
 	}
