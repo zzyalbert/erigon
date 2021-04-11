@@ -163,7 +163,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		//_ = chainDb.Walk(dbutils.Senders2, dbutils.EncodeBlockNumber(7_000_000), 0, func(k, v []byte) (bool, error) {
 		//	return true, nil
 		//})
-		for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
+		for blockNum := uint64(8_000_000); blockNum <= 12_000_000; blockNum++ {
 			blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
 			_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
 		}
