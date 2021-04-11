@@ -147,7 +147,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		}
 	}
 
-	kv := chainDb.(ethdb.HasRwKV).RwKV()
+	//kv := chainDb.(ethdb.HasRwKV).RwKV()
 	//kv.Update(context.Background(), func(tx ethdb.RwTx) error {
 	//	tx.(ethdb.BucketMigrator).ClearBucket(dbutils.Senders2)
 	//	c, _ := tx.RwCursor(dbutils.Senders2)
@@ -177,16 +177,16 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	//	return nil
 	//})
 
-	kv.View(context.Background(), func(tx ethdb.Tx) error {
-		c, _ := tx.CursorDupSort(dbutils.PlainStateBucket)
-		t := time.Now()
-		for k, _, _ := c.First(); k != nil; k, _, _ = c.Next() {
-		}
-		fmt.Printf("2 loop time: %s\n", time.Since(t))
-		return nil
-	})
-
-	panic(1)
+	//kv.View(context.Background(), func(tx ethdb.Tx) error {
+	//	c, _ := tx.CursorDupSort(dbutils.PlainStateBucket)
+	//	t := time.Now()
+	//	for k, _, _ := c.First(); k != nil; k, _, _ = c.Next() {
+	//	}
+	//	fmt.Printf("2 loop time: %s\n", time.Since(t))
+	//	return nil
+	//})
+	//
+	//panic(1)
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, config.Genesis, config.OverrideBerlin, config.StorageMode.History, false /* overwrite */)
 
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
