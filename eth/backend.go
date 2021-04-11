@@ -160,23 +160,23 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	//	})
 	//	return nil
 	//})
-	kv.View(context.Background(), func(tx ethdb.Tx) error {
-		c, _ := tx.Cursor(dbutils.Senders2)
-		//for i := 0; i < 100; i++ {
-		t := time.Now()
-		seek := make([]byte, 8)
-		for num := uint64(4_000_000); num < 12_200_000; num++ {
-			binary.BigEndian.PutUint64(seek, num)
-			c.Seek(seek)
-		}
-		//for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
-		//	blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
-		//	_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
-		//}
-		fmt.Printf("1 loop time: %s\n", time.Since(t))
-		//}
-		return nil
-	})
+	//kv.View(context.Background(), func(tx ethdb.Tx) error {
+	//	c, _ := tx.Cursor(dbutils.Senders2)
+	//	//for i := 0; i < 100; i++ {
+	//	t := time.Now()
+	//	seek := make([]byte, 8)
+	//	for num := uint64(4_000_000); num < 12_200_000; num++ {
+	//		binary.BigEndian.PutUint64(seek, num)
+	//		c.Seek(seek)
+	//	}
+	//	//for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
+	//	//	blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
+	//	//	_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
+	//	//}
+	//	fmt.Printf("1 loop time: %s\n", time.Since(t))
+	//	//}
+	//	return nil
+	//})
 
 	kv.View(context.Background(), func(tx ethdb.Tx) error {
 		c, _ := tx.CursorDupSort(dbutils.PlainStateBucket)
