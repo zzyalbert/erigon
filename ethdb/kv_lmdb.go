@@ -922,7 +922,7 @@ func (c *LmdbCursor) setRange(k []byte) ([]byte, []byte, error) {
 }
 func (c *LmdbCursor) getBothRange(k, v []byte) ([]byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
-		fmt.Fprintf(getF, "getBothRange %x\n", k)
+		fmt.Fprintf(getF, "getBothRange %x, %x\n", k, v)
 	}
 	_, v, err := c.c.Get(k, v, lmdb.GetBothRange)
 	return v, err
