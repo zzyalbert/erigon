@@ -147,18 +147,18 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		}
 	}
 
-	kv := chainDb.(ethdb.HasRwKV).RwKV()
-	kv.Update(context.Background(), func(tx ethdb.RwTx) error {
-		tx.(ethdb.BucketMigrator).ClearBucket(dbutils.Senders2)
-		c, _ := tx.RwCursor(dbutils.Senders2)
-		defer c.Close()
-		c1, _ := tx.Cursor(dbutils.Senders)
-		defer c1.Close()
-		_ = ethdb.Walk(c1, nil, 0, func(k, v []byte) (bool, error) {
-			return true, c.Append(k, make([]byte, len(v)))
-		})
-		return nil
-	})
+	//kv := chainDb.(ethdb.HasRwKV).RwKV()
+	//kv.Update(context.Background(), func(tx ethdb.RwTx) error {
+	//	tx.(ethdb.BucketMigrator).ClearBucket(dbutils.Senders2)
+	//	c, _ := tx.RwCursor(dbutils.Senders2)
+	//	defer c.Close()
+	//	c1, _ := tx.Cursor(dbutils.Senders)
+	//	defer c1.Close()
+	//	_ = ethdb.Walk(c1, nil, 0, func(k, v []byte) (bool, error) {
+	//		return true, c.Append(k, make([]byte, len(v)))
+	//	})
+	//	return nil
+	//})
 	for i := 0; i < 100; i++ {
 		_ = chainDb.Walk(dbutils.Senders2, nil, 0, func(k, v []byte) (bool, error) {
 			return true, nil
@@ -172,7 +172,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		//	//})
 		//}
 		fmt.Printf("loop %d, time: %s\n", i, time.Since(t))
-		panic(1)
 	}
 
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, config.Genesis, config.OverrideBerlin, config.StorageMode.History, false /* overwrite */)
