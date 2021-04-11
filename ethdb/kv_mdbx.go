@@ -952,7 +952,7 @@ func (tx *MdbxTx) CHandle() unsafe.Pointer {
 func (c *MdbxCursor) set(k []byte) ([]byte, []byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
 		defer dbOpSetTimer.UpdateSince(time.Now())
-		fmt.Fprintf(getF, "set %x\n", k)
+		//fmt.Fprintf(getF, "set %x\n", k)
 	}
 	return c.c.Get(k, nil, mdbx.Set)
 }
@@ -997,7 +997,7 @@ func (c *MdbxCursor) appendDup(k, v []byte) error    { return c.c.Put(k, v, mdbx
 func (c *MdbxCursor) getBoth(k, v []byte) ([]byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
 		defer dbOpGetBothTimer.UpdateSince(time.Now())
-		fmt.Fprintf(getF, "getBoth %x %x\n", k, v)
+		//fmt.Fprintf(getF, "getBoth %x %x\n", k, v)
 	}
 	_, v, err := c.c.Get(k, v, mdbx.GetBoth)
 	return v, err
@@ -1005,14 +1005,14 @@ func (c *MdbxCursor) getBoth(k, v []byte) ([]byte, error) {
 func (c *MdbxCursor) setRange(k []byte) ([]byte, []byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
 		defer dbOpSetRangeTimer.UpdateSince(time.Now())
-		fmt.Fprintf(getF, "setRange %x\n", k)
+		//fmt.Fprintf(getF, "setRange %x\n", k)
 	}
 	return c.c.Get(k, nil, mdbx.SetRange)
 }
 func (c *MdbxCursor) getBothRange(k, v []byte) ([]byte, error) {
 	if c.bucketName == dbutils.PlainStateBucket {
 		defer dbOpGetBothRangeTimer.UpdateSince(time.Now())
-		fmt.Fprintf(getF, "getBothRange %x, %x\n", k, v)
+		//fmt.Fprintf(getF, "getBothRange %x, %x\n", k, v)
 	}
 	_, v, err := c.c.Get(k, v, mdbx.GetBothRange)
 	return v, err
