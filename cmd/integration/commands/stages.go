@@ -397,15 +397,6 @@ func stageExec(db ethdb.Database, ctx context.Context) error {
 			})
 	}
 
-	go func() {
-		db.(ethdb.HasRwKV).RwKV().View(context.Background(), func(tx ethdb.Tx) error {
-			for i := stage4.BlockNumber; i < stage4.BlockNumber+10_000; i++ {
-				_, _, _ = rawdb.ReadBlockByNumberWithSenders(ethdb.NewRoTxDb(tx), i)
-			}
-			return nil
-		})
-	}()
-
 	return stagedsync.SpawnExecuteBlocksStage(stage4, db,
 		chainConfig, engine, vmConfig,
 		ch,
