@@ -165,7 +165,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		for i := 0; i < 100; i++ {
 			t := time.Now()
 			seek := make([]byte, 8)
-			for num := uint64(6_000_000); num < 12_200_000; num++ {
+			for num := uint64(4_000_000); num < 12_200_000; num++ {
 				binary.BigEndian.PutUint64(seek, num)
 				c.Seek(seek)
 			}
