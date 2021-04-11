@@ -179,7 +179,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	})
 
 	kv.View(context.Background(), func(tx ethdb.Tx) error {
-		c, _ := tx.Cursor(dbutils.PlainStateBucket)
+		c, _ := tx.CursorDupSort(dbutils.PlainStateBucket)
 		t := time.Now()
 		for k, _, _ := c.First(); k != nil; k, _, _ = c.Next() {
 		}
