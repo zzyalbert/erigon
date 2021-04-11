@@ -3,6 +3,7 @@
 package ethdb
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -22,6 +23,16 @@ import (
 	"github.com/ledgerwatch/turbo-geth/log"
 )
 
+var getF *bufio.Writer
+
+func init() {
+	f, err := os.Create("replay.out")
+	if err != nil {
+		panic(err)
+	}
+	getF = bufio.NewWriter(f)
+}
+
 var _ DbCopier = &MdbxKV{}
 
 type MdbxOpts struct {
@@ -38,7 +49,7 @@ type MdbxOpts struct {
 func NewMDBX() MdbxOpts {
 	return MdbxOpts{
 		bucketsCfg:        DefaultBucketConfigs,
-		flags:             mdbx.NoReadahead | mdbx.Durable | mdbx.WriteMap, // | mdbx.LifoReclaim,
+		flags:             mdbx.NoReadahead | mdbx.Durable, // | mdbx.LifoReclaim,
 		dirtyListMaxPages: 128 * 1024,
 	}
 }
@@ -157,13 +168,13 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptSpillMinDenominator, 8); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpInitial, 4*1024*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpInitial, 4*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptDpReverseLimit, 4*1024*1024); err != nil {
+		if err = env.SetOption(mdbx.OptDpReverseLimit, 4*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, 4*1024*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpLimit, opts.dirtyListMaxPages); err != nil {
 			return nil, err
 		}
 	}
@@ -938,32 +949,52 @@ func (tx *MdbxTx) CHandle() unsafe.Pointer {
 }
 
 // methods here help to see better pprof picture
-func (c *MdbxCursor) set(k []byte) ([]byte, []byte, error) { return c.c.Get(k, nil, mdbx.Set) }
-func (c *MdbxCursor) getCurrent() ([]byte, []byte, error)  { return c.c.Get(nil, nil, mdbx.GetCurrent) }
-func (c *MdbxCursor) first() ([]byte, []byte, error)       { return c.c.Get(nil, nil, mdbx.First) }
-func (c *MdbxCursor) next() ([]byte, []byte, error)        { return c.c.Get(nil, nil, mdbx.Next) }
-func (c *MdbxCursor) nextDup() ([]byte, []byte, error)     { return c.c.Get(nil, nil, mdbx.NextDup) }
-func (c *MdbxCursor) nextNoDup() ([]byte, []byte, error)   { return c.c.Get(nil, nil, mdbx.NextNoDup) }
-func (c *MdbxCursor) prev() ([]byte, []byte, error)        { return c.c.Get(nil, nil, mdbx.Prev) }
-func (c *MdbxCursor) prevDup() ([]byte, []byte, error)     { return c.c.Get(nil, nil, mdbx.PrevDup) }
-func (c *MdbxCursor) prevNoDup() ([]byte, []byte, error)   { return c.c.Get(nil, nil, mdbx.PrevNoDup) }
-func (c *MdbxCursor) last() ([]byte, []byte, error)        { return c.c.Get(nil, nil, mdbx.Last) }
-func (c *MdbxCursor) delCurrent() error                    { return c.c.Del(mdbx.Current) }
-func (c *MdbxCursor) delNoDupData() error                  { return c.c.Del(mdbx.NoDupData) }
-func (c *MdbxCursor) put(k, v []byte) error                { return c.c.Put(k, v, 0) }
-func (c *MdbxCursor) putCurrent(k, v []byte) error         { return c.c.Put(k, v, mdbx.Current) }
-func (c *MdbxCursor) putNoOverwrite(k, v []byte) error     { return c.c.Put(k, v, mdbx.NoOverwrite) }
-func (c *MdbxCursor) putNoDupData(k, v []byte) error       { return c.c.Put(k, v, mdbx.NoDupData) }
-func (c *MdbxCursor) append(k, v []byte) error             { return c.c.Put(k, v, mdbx.Append) }
-func (c *MdbxCursor) appendDup(k, v []byte) error          { return c.c.Put(k, v, mdbx.AppendDup) }
+func (c *MdbxCursor) set(k []byte) ([]byte, []byte, error) {
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(getF, "set %x\n", k)
+	}
+	return c.c.Get(k, nil, mdbx.Set)
+}
+func (c *MdbxCursor) getCurrent() ([]byte, []byte, error) {
+	return c.c.Get(nil, nil, mdbx.GetCurrent)
+}
+func (c *MdbxCursor) first() ([]byte, []byte, error) {
+	return c.c.Get(nil, nil, mdbx.First)
+}
+func (c *MdbxCursor) next() ([]byte, []byte, error)      { return c.c.Get(nil, nil, mdbx.Next) }
+func (c *MdbxCursor) nextDup() ([]byte, []byte, error)   { return c.c.Get(nil, nil, mdbx.NextDup) }
+func (c *MdbxCursor) nextNoDup() ([]byte, []byte, error) { return c.c.Get(nil, nil, mdbx.NextNoDup) }
+func (c *MdbxCursor) prev() ([]byte, []byte, error)      { return c.c.Get(nil, nil, mdbx.Prev) }
+func (c *MdbxCursor) prevDup() ([]byte, []byte, error)   { return c.c.Get(nil, nil, mdbx.PrevDup) }
+func (c *MdbxCursor) prevNoDup() ([]byte, []byte, error) { return c.c.Get(nil, nil, mdbx.PrevNoDup) }
+func (c *MdbxCursor) last() ([]byte, []byte, error)      { return c.c.Get(nil, nil, mdbx.Last) }
+func (c *MdbxCursor) delCurrent() error                  { return c.c.Del(mdbx.Current) }
+func (c *MdbxCursor) delNoDupData() error                { return c.c.Del(mdbx.NoDupData) }
+func (c *MdbxCursor) put(k, v []byte) error {
+	return c.c.Put(k, v, 0)
+}
+func (c *MdbxCursor) putCurrent(k, v []byte) error     { return c.c.Put(k, v, mdbx.Current) }
+func (c *MdbxCursor) putNoOverwrite(k, v []byte) error { return c.c.Put(k, v, mdbx.NoOverwrite) }
+func (c *MdbxCursor) putNoDupData(k, v []byte) error   { return c.c.Put(k, v, mdbx.NoDupData) }
+func (c *MdbxCursor) append(k, v []byte) error         { return c.c.Put(k, v, mdbx.Append) }
+func (c *MdbxCursor) appendDup(k, v []byte) error      { return c.c.Put(k, v, mdbx.AppendDup) }
 func (c *MdbxCursor) getBoth(k, v []byte) ([]byte, error) {
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(getF, "getBoth %x %x\n", k, v)
+	}
 	_, v, err := c.c.Get(k, v, mdbx.GetBoth)
 	return v, err
 }
 func (c *MdbxCursor) setRange(k []byte) ([]byte, []byte, error) {
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(getF, "setRange %x\n", k)
+	}
 	return c.c.Get(k, nil, mdbx.SetRange)
 }
 func (c *MdbxCursor) getBothRange(k, v []byte) ([]byte, error) {
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(getF, "getBothRange %x\n", k)
+	}
 	_, v, err := c.c.Get(k, v, mdbx.GetBothRange)
 	return v, err
 }

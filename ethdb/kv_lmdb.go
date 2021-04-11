@@ -45,7 +45,7 @@ type LmdbOpts struct {
 func NewLMDB() LmdbOpts {
 	return LmdbOpts{
 		bucketsCfg: DefaultBucketConfigs,
-		flags:      lmdb.NoReadahead | lmdb.WriteMap, // do call .Sync manually after commit to measure speed of commit and speed of fsync individually
+		flags:      lmdb.NoReadahead, // do call .Sync manually after commit to measure speed of commit and speed of fsync individually
 	}
 }
 
@@ -885,31 +885,45 @@ func (tx *lmdbTx) CHandle() unsafe.Pointer {
 }
 
 // methods here help to see better pprof picture
-func (c *LmdbCursor) set(k []byte) ([]byte, []byte, error) { return c.c.Get(k, nil, lmdb.Set) }
-func (c *LmdbCursor) getCurrent() ([]byte, []byte, error)  { return c.c.Get(nil, nil, lmdb.GetCurrent) }
-func (c *LmdbCursor) first() ([]byte, []byte, error)       { return c.c.Get(nil, nil, lmdb.First) }
-func (c *LmdbCursor) next() ([]byte, []byte, error)        { return c.c.Get(nil, nil, lmdb.Next) }
-func (c *LmdbCursor) nextDup() ([]byte, []byte, error)     { return c.c.Get(nil, nil, lmdb.NextDup) }
-func (c *LmdbCursor) nextNoDup() ([]byte, []byte, error)   { return c.c.Get(nil, nil, lmdb.NextNoDup) }
-func (c *LmdbCursor) prev() ([]byte, []byte, error)        { return c.c.Get(nil, nil, lmdb.Prev) }
-func (c *LmdbCursor) prevDup() ([]byte, []byte, error)     { return c.c.Get(nil, nil, lmdb.PrevDup) }
-func (c *LmdbCursor) prevNoDup() ([]byte, []byte, error)   { return c.c.Get(nil, nil, lmdb.PrevNoDup) }
-func (c *LmdbCursor) last() ([]byte, []byte, error)        { return c.c.Get(nil, nil, lmdb.Last) }
-func (c *LmdbCursor) delCurrent() error                    { return c.c.Del(lmdb.Current) }
-func (c *LmdbCursor) delNoDupData() error                  { return c.c.Del(lmdb.NoDupData) }
-func (c *LmdbCursor) put(k, v []byte) error                { return c.c.Put(k, v, 0) }
-func (c *LmdbCursor) putCurrent(k, v []byte) error         { return c.c.Put(k, v, lmdb.Current) }
-func (c *LmdbCursor) putNoOverwrite(k, v []byte) error     { return c.c.Put(k, v, lmdb.NoOverwrite) }
-func (c *LmdbCursor) putNoDupData(k, v []byte) error       { return c.c.Put(k, v, lmdb.NoDupData) }
-func (c *LmdbCursor) append(k, v []byte) error             { return c.c.Put(k, v, lmdb.Append) }
-func (c *LmdbCursor) appendDup(k, v []byte) error          { return c.c.Put(k, v, lmdb.AppendDup) }
+func (c *LmdbCursor) set(k []byte) ([]byte, []byte, error) {
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(getF, "set %x\n", k)
+	}
+	return c.c.Get(k, nil, lmdb.Set)
+}
+func (c *LmdbCursor) getCurrent() ([]byte, []byte, error) { return c.c.Get(nil, nil, lmdb.GetCurrent) }
+func (c *LmdbCursor) first() ([]byte, []byte, error)      { return c.c.Get(nil, nil, lmdb.First) }
+func (c *LmdbCursor) next() ([]byte, []byte, error)       { return c.c.Get(nil, nil, lmdb.Next) }
+func (c *LmdbCursor) nextDup() ([]byte, []byte, error)    { return c.c.Get(nil, nil, lmdb.NextDup) }
+func (c *LmdbCursor) nextNoDup() ([]byte, []byte, error)  { return c.c.Get(nil, nil, lmdb.NextNoDup) }
+func (c *LmdbCursor) prev() ([]byte, []byte, error)       { return c.c.Get(nil, nil, lmdb.Prev) }
+func (c *LmdbCursor) prevDup() ([]byte, []byte, error)    { return c.c.Get(nil, nil, lmdb.PrevDup) }
+func (c *LmdbCursor) prevNoDup() ([]byte, []byte, error)  { return c.c.Get(nil, nil, lmdb.PrevNoDup) }
+func (c *LmdbCursor) last() ([]byte, []byte, error)       { return c.c.Get(nil, nil, lmdb.Last) }
+func (c *LmdbCursor) delCurrent() error                   { return c.c.Del(lmdb.Current) }
+func (c *LmdbCursor) delNoDupData() error                 { return c.c.Del(lmdb.NoDupData) }
+func (c *LmdbCursor) put(k, v []byte) error               { return c.c.Put(k, v, 0) }
+func (c *LmdbCursor) putCurrent(k, v []byte) error        { return c.c.Put(k, v, lmdb.Current) }
+func (c *LmdbCursor) putNoOverwrite(k, v []byte) error    { return c.c.Put(k, v, lmdb.NoOverwrite) }
+func (c *LmdbCursor) putNoDupData(k, v []byte) error      { return c.c.Put(k, v, lmdb.NoDupData) }
+func (c *LmdbCursor) append(k, v []byte) error            { return c.c.Put(k, v, lmdb.Append) }
+func (c *LmdbCursor) appendDup(k, v []byte) error         { return c.c.Put(k, v, lmdb.AppendDup) }
 func (c *LmdbCursor) getBoth(k, v []byte) ([]byte, []byte, error) {
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(getF, "getBoth %x %x\n", k, v)
+	}
 	return c.c.Get(k, v, lmdb.GetBoth)
 }
 func (c *LmdbCursor) setRange(k []byte) ([]byte, []byte, error) {
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(getF, "setRange %x\n", k)
+	}
 	return c.c.Get(k, nil, lmdb.SetRange)
 }
 func (c *LmdbCursor) getBothRange(k, v []byte) ([]byte, error) {
+	if c.bucketName == dbutils.PlainStateBucket {
+		fmt.Fprintf(getF, "getBothRange %x\n", k)
+	}
 	_, v, err := c.c.Get(k, v, lmdb.GetBothRange)
 	return v, err
 }
