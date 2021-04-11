@@ -371,6 +371,17 @@ func ReadSenders(db ethdb.KVGetter, hash common.Hash, number uint64) ([]common.A
 	}
 	return senders, nil
 }
+func ReadSenders2(db ethdb.KVGetter, hash common.Hash, number uint64) ([]common.Address, error) {
+	data, err := db.GetOne(dbutils.Senders2, dbutils.BlockBodyKey(number, hash))
+	if err != nil {
+		return nil, fmt.Errorf("readSenders failed: %w", err)
+	}
+	senders := make([]common.Address, len(data)/common.AddressLength)
+	for i := 0; i < len(senders); i++ {
+		copy(senders[i][:], data[i*common.AddressLength:])
+	}
+	return senders, nil
+}
 
 // WriteBody - writes body in Network format, later staged sync will convert it into Storage format
 func WriteBody(db ethdb.Database, hash common.Hash, number uint64, body *types.Body) error {

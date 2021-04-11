@@ -164,13 +164,13 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 			return true, nil
 		})
 		t := time.Now()
-		//for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
-		//	_, _ = rawdb.ReadCanonicalHash(chainDb, blockNum)
-		//	_, _ = rawdb.ReadSenders(chainDb, blockHash, blockNum)
-		//	//_ = tx.Walk(dbutils.PlainStateBucket, nil, 0, func(k, v []byte) (bool, error) {
-		//	//	return true, nil
-		//	//})
-		//}
+		for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
+			blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
+			_, _ = rawdb.ReadSenders(chainDb, blockHash, blockNum)
+			//_ = tx.Walk(dbutils.PlainStateBucket, nil, 0, func(k, v []byte) (bool, error) {
+			//	return true, nil
+			//})
+		}
 		fmt.Printf("loop %d, time: %s\n", i, time.Since(t))
 	}
 
