@@ -22,6 +22,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -147,7 +148,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		}
 	}
 
-	//kv := chainDb.(ethdb.HasRwKV).RwKV()
+	kv := chainDb.(ethdb.HasRwKV).RwKV()
 	//kv.Update(context.Background(), func(tx ethdb.RwTx) error {
 	//	tx.(ethdb.BucketMigrator).ClearBucket(dbutils.Senders2)
 	//	c, _ := tx.RwCursor(dbutils.Senders2)
@@ -159,17 +160,23 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	//	})
 	//	return nil
 	//})
-	for i := 0; i < 100; i++ {
-		t := time.Now()
-		_ = chainDb.Walk(dbutils.Senders2, dbutils.EncodeBlockNumber(9_000_000), 0, func(k, v []byte) (bool, error) {
-			return true, nil
-		})
-		//for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
-		//	blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
-		//	_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
-		//}
-		fmt.Printf("loop %d, time: %s\n", i, time.Since(t))
-	}
+	kv.View(context.Background(), func(tx ethdb.Tx) error {
+		c, _ := tx.Cursor(dbutils.Senders2)
+		for i := 0; i < 100; i++ {
+			t := time.Now()
+			seek := make([]byte, 8)
+			for num := uint64(9_000_000); num < 12_200_000; num++ {
+				binary.BigEndian.PutUint64(seek, num)
+				c.Seek(seek)
+			}
+			//for blockNum := uint64(7_000_000); blockNum <= 12_000_000; blockNum++ {
+			//	blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
+			//	_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
+			//}
+			fmt.Printf("loop %d, time: %s\n", i, time.Since(t))
+		}
+		return nil
+	})
 
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, config.Genesis, config.OverrideBerlin, config.StorageMode.History, false /* overwrite */)
 
