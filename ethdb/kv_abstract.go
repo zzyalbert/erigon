@@ -18,6 +18,16 @@ var (
 	dbSize = metrics.GetOrRegisterGauge("db/size", metrics.DefaultRegistry) //nolint
 )
 
+var (
+	dbOpSetTimer            = metrics.NewRegisteredTimer("db/op/set", nil)
+	dbOpSetRangeTimer       = metrics.NewRegisteredTimer("db/op/set_range", nil)
+	dbOpGetBothTimer        = metrics.NewRegisteredTimer("db/op/get_both", nil)
+	dbOpGetBothRangeTimer   = metrics.NewRegisteredTimer("db/op/get_both_range", nil)
+	dbOpPutTimer            = metrics.NewRegisteredTimer("db/op/put", nil)
+	dbOpPutCurrentTimer     = metrics.NewRegisteredTimer("db/op/put_current", nil)
+	dbOpPutNoOverwriteTimer = metrics.NewRegisteredTimer("db/op/put_no_overwrite", nil)
+)
+
 type Has interface {
 	// Has indicates whether a key exists in the database.
 	Has(bucket string, key []byte) (bool, error)
