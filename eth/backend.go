@@ -174,6 +174,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 			//	_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
 			//}
 			fmt.Printf("loop %d, time: %s\n", i, time.Since(t))
+			panic(1)
 		}
 		return nil
 	})
