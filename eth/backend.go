@@ -37,6 +37,7 @@ import (
 	"github.com/holiman/uint256"
 	ethereum "github.com/ledgerwatch/turbo-geth"
 	"github.com/ledgerwatch/turbo-geth/common"
+	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/ledgerwatch/turbo-geth/consensus"
 	"github.com/ledgerwatch/turbo-geth/consensus/clique"
@@ -160,13 +161,13 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	//})
 	for i := 0; i < 100; i++ {
 		t := time.Now()
-		//_ = chainDb.Walk(dbutils.Senders2, dbutils.EncodeBlockNumber(7_000_000), 0, func(k, v []byte) (bool, error) {
-		//	return true, nil
-		//})
-		for blockNum := uint64(9_000_000); blockNum <= 12_000_000; blockNum++ {
-			blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
-			_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
-		}
+		_ = chainDb.Walk(dbutils.Senders2, dbutils.EncodeBlockNumber(9_000_000), 0, func(k, v []byte) (bool, error) {
+			return true, nil
+		})
+		//for blockNum := uint64(9_000_000); blockNum <= 12_000_000; blockNum++ {
+		//	blockHash, _ := rawdb.ReadCanonicalHash(chainDb, blockNum)
+		//	_, _ = rawdb.ReadSenders2(chainDb, blockHash, blockNum)
+		//}
 		fmt.Printf("loop %d, time: %s\n", i, time.Since(t))
 	}
 
