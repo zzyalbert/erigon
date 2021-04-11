@@ -17,6 +17,7 @@ import (
 	"github.com/ledgerwatch/turbo-geth/consensus"
 	"github.com/ledgerwatch/turbo-geth/consensus/ethash"
 	"github.com/ledgerwatch/turbo-geth/core"
+	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"github.com/ledgerwatch/turbo-geth/core/vm"
 	"github.com/ledgerwatch/turbo-geth/eth/integrity"
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync"
@@ -383,6 +384,7 @@ func stageExec(db ethdb.Database, ctx context.Context) error {
 	stage4 := progress(stages.Execution)
 	log.Info("Stage4", "progress", stage4.BlockNumber)
 	ch := ctx.Done()
+
 	if unwind > 0 {
 		u := &stagedsync.UnwindState{Stage: stages.Execution, UnwindPoint: stage4.BlockNumber - unwind}
 		return stagedsync.UnwindExecutionStage(u, stage4, db, ch,
@@ -394,6 +396,16 @@ func stageExec(db ethdb.Database, ctx context.Context) error {
 				SilkwormExecutionFunc: silkwormExecutionFunc(),
 			})
 	}
+
+	go func() {
+		db.(ethdb.HasRwKV).RwKV().View(context.Background(), func(tx ethdb.Tx) error {
+			for i := stage4.BlockNumber; i < stage4.BlockNumber+10_000; i++ {
+				_, _, _ = rawdb.ReadBlockByNumberWithSenders(ethdb.NewRoTxDb(tx), i)
+			}
+			return nil
+		})
+	}()
+
 	return stagedsync.SpawnExecuteBlocksStage(stage4, db,
 		chainConfig, engine, vmConfig,
 		ch,

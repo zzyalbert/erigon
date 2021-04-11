@@ -1327,6 +1327,15 @@ func (c *MdbxCursor) putDupSort(key []byte, value []byte) error {
 	}
 
 	if len(key) != from {
+		//_, _, err := c.set(key)
+		//if err != nil {
+		//	if mdbx.IsNotFound(err) {
+		//		return c.put(key, value)
+		//	}
+		//	return err
+		//}
+		//
+		//return c.putCurrent(key, value)
 		err := c.putNoOverwrite(key, value)
 		if err != nil {
 			if mdbx.IsKeyExists(err) {

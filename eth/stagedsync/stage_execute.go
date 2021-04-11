@@ -57,15 +57,6 @@ type ExecuteBlockStageParams struct {
 	SilkwormExecutionFunc unsafe.Pointer
 }
 
-func readBlock(blockNum uint64, tx ethdb.Getter) (*types.Block, error) {
-	blockHash, err := rawdb.ReadCanonicalHash(tx, blockNum)
-	if err != nil {
-		return nil, err
-	}
-	b := rawdb.ReadBlock(tx, blockHash, blockNum)
-	return b, nil
-}
-
 func executeBlockWithGo(block *types.Block, tx ethdb.Database, cache *shards.StateCache, batch ethdb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig *vm.Config, params ExecuteBlockStageParams) error {
 
 	blockNum := block.NumberU64()
@@ -91,15 +82,15 @@ func executeBlockWithGo(block *types.Block, tx ethdb.Database, cache *shards.Sta
 
 	// where the magic happens
 	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(tx, hash, number) }
-	_, err := core.ExecuteBlockEphemerally(chainConfig, vmConfig, getHeader, engine, block, stateReader, stateWriter)
+	receipts, err := core.ExecuteBlockEphemerally(chainConfig, vmConfig, getHeader, engine, block, stateReader, stateWriter)
 	if err != nil {
 		return err
 	}
 
 	if params.WriteReceipts {
-		//if err = rawdb.AppendReceipts(tx, blockNum, receipts); err != nil {
-		//	return err
-		//}
+		if err = rawdb.AppendReceipts(tx, blockNum, receipts); err != nil {
+			return err
+		}
 	}
 
 	if params.ChangeSetHook != nil {
@@ -180,7 +171,7 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, chainConfig 
 			}
 		} else {
 			var block *types.Block
-			if block, err = readBlock(blockNum, tx); err != nil {
+			if block, _, err = rawdb.ReadBlockByNumberWithSenders(tx, blockNum); err != nil {
 				return err
 			}
 			if block == nil {
