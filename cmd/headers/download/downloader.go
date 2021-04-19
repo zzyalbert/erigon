@@ -210,7 +210,7 @@ func NewCombinedControlServer(ctx context.Context, natSetting string, port int, 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return controlServer, nil, nil, nil
+	return controlServer, sentryServer, sentryClient, nil
 }
 
 // Combined creates and starts sentry and downloader in the same process
