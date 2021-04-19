@@ -49,7 +49,7 @@ func (cs *ControlServerImpl) sendBodyRequest(ctx context.Context, req *bodydownl
 		},
 	}
 
-	// if sentry not found peers to send such message, try next one. stop if found.
+	// if sentry not found Peers to send such message, try next one. stop if found.
 	for i, ok, next := cs.randSentryIndex(); ok; i, ok = next() {
 		sentPeers, err1 := cs.sentries[i].SendMessageByMinBlock(ctx, &outreq, &grpc.EmptyCallOption{})
 		if err1 != nil {
@@ -92,7 +92,7 @@ func (cs *ControlServerImpl) sendHeaderRequest(ctx context.Context, req *headerd
 		},
 	}
 
-	// if sentry not found peers to send such message, try next one. stop if found.
+	// if sentry not found Peers to send such message, try next one. stop if found.
 	for i, ok, next := cs.randSentryIndex(); ok; i, ok = next() {
 		sentPeers, err1 := cs.sentries[i].SendMessageByMinBlock(ctx, &outreq, &grpc.EmptyCallOption{})
 		if err1 != nil {

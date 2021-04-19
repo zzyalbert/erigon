@@ -17,18 +17,14 @@
 package eth
 
 import (
-	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
-	"github.com/ledgerwatch/turbo-geth/cmd/headers/download"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"github.com/ledgerwatch/turbo-geth/core/types"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
-	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/p2p"
 	"github.com/ledgerwatch/turbo-geth/p2p/enode"
 	"github.com/ledgerwatch/turbo-geth/p2p/enr"
@@ -97,62 +93,8 @@ type TxPool interface {
 	Get(hash common.Hash) *types.Transaction
 }
 
-func MakeProtocols2(ctx context.Context,
-	backend Backend,
-	peerHeightMap *sync.Map,
-	peerTimeMap *sync.Map,
-	peerRwMap *sync.Map,
-	protocols []string,
-	ss *download.SentryServerImpl,
-	network uint64, dnsdisc enode.Iterator, chainConfig *params.ChainConfig, genesisHash common.Hash,
-	headHeight uint64) []p2p.Protocol {
-
-	protocols := make([]p2p.Protocol, 1)
-	for i, version := range []uint{ETH66} {
-		version := version // Closure
-
-		protocols[i] = p2p.Protocol{
-			Name:    ProtocolName,
-			Version: version,
-			Length:  protocolLengths[version],
-			Run: func(p *p2p.Peer, rw p2p.MsgReadWriter) error {
-				peerID := p.ID().String()
-				log.Info(fmt.Sprintf("[%s] Start with peer", peerID))
-				peerRwMap.Store(peerID, rw)
-				if err := runPeer(
-					ctx,
-					peerHeightMap,
-					peerTimeMap,
-					peerRwMap,
-					p,
-					ProtocolVersions[0], // version == eth66
-					ProtocolVersions[0], // minVersion == eth66
-					ss,
-				); err != nil {
-					return fmt.Errorf("[%s] Error while running peer: %w", peerID, err)
-				}
-				peerHeightMap.Delete(peerID)
-				peerTimeMap.Delete(peerID)
-				peerRwMap.Delete(peerID)
-				return nil
-			},
-			NodeInfo: func() interface{} {
-				tx, _ := backend.DB().BeginRo(context.Background())
-				defer tx.Rollback()
-				return nodeInfo(tx, backend.ChainConfig(), backend.GenesisHash(), network)
-			},
-			PeerInfo: func(id enode.ID) interface{} {
-				return backend.PeerInfo(id)
-			},
-			Attributes:     []enr.Entry{CurrentENREntry(chainConfig, genesisHash, headHeight)},
-			DialCandidates: dnsdisc,
-		}
-	}
-	return protocols
-}
-
 // MakeProtocols constructs the P2P protocol definitions for `eth`.
-func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator, chainConfig *params.ChainConfig, genesisHash common.Hash, headHeight uint64) []p2p.Protocol {
+func MakeProtocols(backend Backend, readNodeInfo func() *NodeInfo, dnsdisc enode.Iterator, chainConfig *params.ChainConfig, genesisHash common.Hash, headHeight uint64) []p2p.Protocol {
 	protocols := make([]p2p.Protocol, len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
 		version := version // Closure
@@ -170,9 +112,7 @@ func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator, chai
 				})
 			},
 			NodeInfo: func() interface{} {
-				tx, _ := backend.DB().BeginRo(context.Background())
-				defer tx.Rollback()
-				return nodeInfo(tx, backend.ChainConfig(), backend.GenesisHash(), network)
+				return readNodeInfo()
 			},
 			PeerInfo: func(id enode.ID) interface{} {
 				return backend.PeerInfo(id)
@@ -194,8 +134,8 @@ type NodeInfo struct {
 	Head       common.Hash         `json:"head"`       // Hex hash of the host's best owned block
 }
 
-// nodeInfo retrieves some `eth` protocol metadata about the running host node.
-func nodeInfo(getter ethdb.KVGetter, config *params.ChainConfig, genesisHash common.Hash, network uint64) *NodeInfo {
+// ReadNodeInfo retrieves some `eth` protocol metadata about the running host node.
+func ReadNodeInfo(getter ethdb.KVGetter, config *params.ChainConfig, genesisHash common.Hash, network uint64) *NodeInfo {
 	head := rawdb.ReadCurrentHeader(getter)
 	td, _ := rawdb.ReadTd(getter, head.Hash(), head.Number.Uint64())
 	return &NodeInfo{

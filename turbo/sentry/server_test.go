@@ -1,4 +1,4 @@
-package download
+package sentry
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func testSentryServer(db ethdb.KVGetter, genesis *core.Genesis, genesisHash comm
 
 }
 
-// Tests that peers are correctly accepted (or rejected) based on the advertised
+// Tests that Peers are correctly accepted (or rejected) based on the advertised
 // fork IDs in the protocol handshake.
 func TestForkIDSplit66(t *testing.T) { testForkIDSplit(t, eth.ETH66) }
 
@@ -134,7 +134,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 				}
 			}
 		case <-time.After(250 * time.Millisecond):
-			t.Fatalf("split peers not rejected")
+			t.Fatalf("split Peers not rejected")
 		}
 	}
 }

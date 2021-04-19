@@ -19,12 +19,14 @@ import (
 	"github.com/ledgerwatch/turbo-geth/core/forkid"
 	"github.com/ledgerwatch/turbo-geth/eth/ethconfig"
 	"github.com/ledgerwatch/turbo-geth/eth/protocols/eth"
+	stages2 "github.com/ledgerwatch/turbo-geth/eth/stagedsync/stages"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/gointerfaces"
 	proto_sentry "github.com/ledgerwatch/turbo-geth/gointerfaces/sentry"
 	"github.com/ledgerwatch/turbo-geth/log"
 	"github.com/ledgerwatch/turbo-geth/params"
 	"github.com/ledgerwatch/turbo-geth/rlp"
+	"github.com/ledgerwatch/turbo-geth/turbo/sentry"
 	"github.com/ledgerwatch/turbo-geth/turbo/stages"
 	"github.com/ledgerwatch/turbo-geth/turbo/stages/bodydownload"
 	"github.com/ledgerwatch/turbo-geth/turbo/stages/headerdownload"
@@ -181,19 +183,30 @@ func recvMessage(ctx context.Context, sentry proto_sentry.SentryClient, controlS
 	}
 }
 
-func NewCombinedControlServer(ctx context.Context, natSetting string, port int, staticPeers []string, discovery bool, netRestrict string, db ethdb.Database, window int, chain string) (*ControlServerImpl, *SentryServerImpl, *SentryClientDirect, error) {
-	sentryServer := &SentryServerImpl{
-		ctx:             ctx,
-		receiveCh:       make(chan StreamMsg, 1024),
-		receiveUploadCh: make(chan StreamMsg, 1024),
-	}
-	sentry := &SentryClientDirect{}
-	sentry.SetServer(sentryServer)
-	controlServer, err := NewControlServer(db, []proto_sentry.SentryClient{sentry}, window, chain, nil)
+func NewCombinedControlServer(ctx context.Context, natSetting string, port int, staticPeers []string, discovery bool, netRestrict string, db ethdb.Database, window int, chain string) (*ControlServerImpl, *sentry.SentryServerImpl, *SentryClientDirect, error) {
+	sentryServer := sentry.NewServer(ctx, make(chan sentry.StreamMsg, 1024), make(chan sentry.StreamMsg, 1024))
+	sentryClient := &SentryClientDirect{}
+	sentryClient.SetServer(sentryServer)
+	controlServer, err := NewControlServer(db, []proto_sentry.SentryClient{sentryClient}, window, chain, nil)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("create core P2P server: %w", err)
 	}
-	sentryServer.p2pServer, err = p2pServer(ctx, sentryServer, controlServer.genesisHash, natSetting, port, staticPeers, discovery, netRestrict)
+
+	var readNodeInfo = func() *eth.NodeInfo {
+		var nodeInfo *eth.NodeInfo
+		_ = db.(ethdb.HasRwKV).RwKV().View(context.Background(), func(tx ethdb.Tx) error {
+			nodeInfo = eth.ReadNodeInfo(tx, controlServer.chainConfig, controlServer.genesisHash, controlServer.networkId)
+			return nil
+		})
+		return nodeInfo
+	}
+	var headHeight uint64
+	_ = db.(ethdb.HasRwKV).RwKV().View(context.Background(), func(tx ethdb.Tx) error {
+		headHeight, _ = stages2.GetStageProgress(tx, stages2.Finish)
+		return nil
+	})
+
+	sentryServer.P2pServer, err = p2pServer(ctx, sentryServer, readNodeInfo, headHeight, controlServer.chainConfig, controlServer.genesisHash, natSetting, port, staticPeers, discovery, netRestrict)
 	if err != nil {
 		return nil, nil, nil, err
 	}

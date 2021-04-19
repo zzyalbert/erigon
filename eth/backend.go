@@ -36,7 +36,6 @@ import (
 
 	"github.com/holiman/uint256"
 	ethereum "github.com/ledgerwatch/turbo-geth"
-	"github.com/ledgerwatch/turbo-geth/cmd/headers/download"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/ledgerwatch/turbo-geth/consensus"
@@ -108,9 +107,6 @@ type Ethereum struct {
 	events      *remotedbserver.Events
 	chainConfig *params.ChainConfig
 	genesisHash common.Hash
-
-	sentryServer  *download.SentryServerImpl
-	sentryControl *download.ControlServerImpl
 }
 
 // New creates a new Ethereum object (including the
@@ -712,13 +708,23 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 
 	}
 
+	backend := (*ethHandler)(s.handler)
 	var headHeight uint64
 	_ = s.chainKV.View(context.Background(), func(tx ethdb.Tx) error {
 		headHeight, _ = stages.GetStageProgress(tx, stages.Finish)
 		return nil
 	})
-	protos := eth.MakeProtocols((*ethHandler)(s.handler), s.networkID, s.ethDialCandidates, s.chainConfig, s.genesisHash, headHeight)
-	return protos
+	readNodeInfo := func() *eth.NodeInfo {
+		var nodeInfo *eth.NodeInfo
+		_ = s.chainKV.View(context.Background(), func(tx ethdb.Tx) error {
+			headHeight, _ = stages.GetStageProgress(tx, stages.Finish)
+			nodeInfo = eth.ReadNodeInfo(tx, s.chainConfig, s.genesisHash, s.networkID)
+			return nil
+		})
+		return nodeInfo
+	}
+
+	return eth.MakeProtocols(backend, readNodeInfo, s.ethDialCandidates, s.chainConfig, s.genesisHash, headHeight)
 }
 
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
