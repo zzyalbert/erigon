@@ -261,7 +261,7 @@ func snapshotCheck(ctx context.Context, db ethdb.Database, isNew bool, tmpDir st
 		stage5 := progress(stages.HashState)
 		stage5.BlockNumber = blockNumber - 1
 		log.Info("Stage5", "progress", stage5.BlockNumber)
-		err = stagedsync.SpawnHashStateStage(stage5, tx, nil, tmpDir, ch)
+		err = stagedsync.SpawnHashStateStage(stage5, tx, tmpDir, ch)
 		if err != nil {
 			return fmt.Errorf("spawnHashStateStage err %w", err)
 		}

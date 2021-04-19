@@ -476,7 +476,7 @@ func stageTrie(db ethdb.Database, ctx context.Context) error {
 func stageHashState(db ethdb.Database, ctx context.Context) error {
 	tmpdir := path.Join(datadir, etl.TmpDirName)
 
-	_, _, _, _, _, cache, progress := newSync(ctx.Done(), db, db, nil)
+	_, _, _, _, _, _, progress := newSync(ctx.Done(), db, db, nil)
 
 	if reset {
 		return db.(ethdb.HasRwKV).RwKV().Update(ctx, func(tx ethdb.RwTx) error { return stagedsync.ResetHashState(tx) })
@@ -490,9 +490,9 @@ func stageHashState(db ethdb.Database, ctx context.Context) error {
 
 	if unwind > 0 {
 		u := &stagedsync.UnwindState{Stage: stages.HashState, UnwindPoint: stage6.BlockNumber - unwind}
-		return stagedsync.UnwindHashStateStage(u, stage6, db, cache, tmpdir, ch)
+		return stagedsync.UnwindHashStateStage(u, stage6, db, tmpdir, ch)
 	}
-	return stagedsync.SpawnHashStateStage(stage6, db, cache, tmpdir, ch)
+	return stagedsync.SpawnHashStateStage(stage6, db, tmpdir, ch)
 }
 
 func stageLogIndex(db ethdb.Database, ctx context.Context) error {
