@@ -96,7 +96,7 @@ func RootCommand() (*cobra.Command, *Flags) {
 				cfg.Chaindata = path.Join(cfg.Datadir, "tg", "chaindata")
 			}
 			//if cfg.SnapshotDir == "" {
-			//	cfg.SnapshotDir = path.Join(cfg.Datadir, "tg", "snapshot")
+			//	cfg.SnapshotDir = path.Join(cfg.Datadir, "tg", "snapshots")
 			//}
 		}
 		return nil
