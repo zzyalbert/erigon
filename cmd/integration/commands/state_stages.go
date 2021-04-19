@@ -417,7 +417,7 @@ func loopIh(db ethdb.Database, ctx context.Context, unwind uint64) error {
 	var tx = ethdb.NewTxDbWithoutTransaction(db, ethdb.RW)
 	defer tx.Rollback()
 
-	_, _, _, st, _, cache, progress := newSync(ch, db, tx, nil)
+	_, _, _, st, _, _, progress := newSync(ch, db, tx, nil)
 
 	var err error
 	tx, err = tx.Begin(ctx, ethdb.RW)
@@ -434,7 +434,7 @@ func loopIh(db ethdb.Database, ctx context.Context, unwind uint64) error {
 	to := execStage.BlockNumber - unwind
 	_ = st.SetCurrentStage(stages.HashState)
 	u := &stagedsync.UnwindState{Stage: stages.HashState, UnwindPoint: to}
-	if err = stagedsync.UnwindHashStateStage(u, progress(stages.HashState), tx, cache, path.Join(datadir, etl.TmpDirName), ch); err != nil {
+	if err = stagedsync.UnwindHashStateStage(u, progress(stages.HashState), tx, path.Join(datadir, etl.TmpDirName), ch); err != nil {
 		return err
 	}
 	_ = st.SetCurrentStage(stages.IntermediateHashes)

@@ -52,19 +52,6 @@ func SpawnIntermediateHashesStage(s *StageState, db ethdb.Database, checkRoot bo
 	}
 	//fmt.Printf("\n\n%d->%d\n", s.BlockNumber, to)
 
-	var tx ethdb.DbWithPendingMutations
-	var useExternalTx bool
-	if hasTx, ok := db.(ethdb.HasTx); ok && hasTx.Tx() != nil {
-		tx = db.(ethdb.DbWithPendingMutations)
-		useExternalTx = true
-	} else {
-		tx, err = db.Begin(context.Background(), ethdb.RW)
-		if err != nil {
-			return trie.EmptyRoot, err
-		}
-		defer tx.Rollback()
-	}
-
 	var expectedRootHash common.Hash
 	if checkRoot {
 		var hash common.Hash
@@ -341,7 +328,6 @@ func incrementIntermediateHashes(logPrefix string, s *StageState, db ethdb.RwTx,
 	p.TempDir = tmpdir
 	rl := trie.NewRetainList(0)
 	collect := func(k, v []byte, _ etl.CurrentTableReader, _ etl.LoadNextFunc) error {
-		fmt.Printf("ex: %x,%t\n", k, len(v) == 0)
 		rl.AddKeyWithMarker(k, len(v) == 0)
 		return nil
 	}
@@ -422,7 +408,6 @@ func unwindIntermediateHashesStageImpl(logPrefix string, u *UnwindState, s *Stag
 	p.TempDir = tmpdir
 	rl := trie.NewRetainList(0)
 	collect := func(k, v []byte, _ etl.CurrentTableReader, _ etl.LoadNextFunc) error {
-		fmt.Printf("ex: %x,%t\n", k, len(v) == 0)
 		rl.AddKeyWithMarker(k, len(v) == 0)
 		return nil
 	}

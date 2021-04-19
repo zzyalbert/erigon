@@ -119,10 +119,10 @@ func createStageBuilders(blocks []*types.Block, blockNum uint64, checkRoot bool)
 					ID:          stages.HashState,
 					Description: "Hash the key in the state",
 					ExecFunc: func(s *StageState, u Unwinder) error {
-						return SpawnHashStateStage(s, world.TX, world.cache, world.TmpDir, world.QuitCh)
+						return SpawnHashStateStage(s, world.TX, world.TmpDir, world.QuitCh)
 					},
 					UnwindFunc: func(u *UnwindState, s *StageState) error {
-						return UnwindHashStateStage(u, s, world.TX, world.cache, world.TmpDir, world.QuitCh)
+						return UnwindHashStateStage(u, s, world.TX, world.TmpDir, world.QuitCh)
 					},
 				}
 			},
