@@ -36,6 +36,7 @@ import (
 
 	"github.com/holiman/uint256"
 	ethereum "github.com/ledgerwatch/turbo-geth"
+	"github.com/ledgerwatch/turbo-geth/cmd/headers/download"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/ledgerwatch/turbo-geth/consensus"
@@ -107,6 +108,9 @@ type Ethereum struct {
 	events      *remotedbserver.Events
 	chainConfig *params.ChainConfig
 	genesisHash common.Hash
+
+	sentryServer  *download.SentryServerImpl
+	sentryControl *download.ControlServerImpl
 }
 
 // New creates a new Ethereum object (including the
@@ -413,22 +417,27 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 
 	checkpoint := config.Checkpoint
-	if eth.handler, err = newHandler(&handlerConfig{
-		Database:    chainDb,
-		Chain:       eth.blockchain,
-		ChainConfig: eth.blockchain.Config(),
-		genesis:     eth.blockchain.Genesis(),
-		vmConfig:    eth.blockchain.GetVMConfig(),
-		engine:      eth.blockchain.Engine(),
-		TxPool:      eth.txPool,
-		Network:     config.NetworkID,
-		Checkpoint:  checkpoint,
+	if config.EnableDownloaderV2 {
 
-		Whitelist: config.Whitelist,
-		Mining:    &config.Miner,
-	}); err != nil {
-		return nil, err
+	} else {
+		if eth.handler, err = newHandler(&handlerConfig{
+			Database:    chainDb,
+			Chain:       eth.blockchain,
+			ChainConfig: eth.blockchain.Config(),
+			genesis:     eth.blockchain.Genesis(),
+			vmConfig:    eth.blockchain.GetVMConfig(),
+			engine:      eth.blockchain.Engine(),
+			TxPool:      eth.txPool,
+			Network:     config.NetworkID,
+			Checkpoint:  checkpoint,
+
+			Whitelist: config.Whitelist,
+			Mining:    &config.Miner,
+		}); err != nil {
+			return nil, err
+		}
 	}
+
 	eth.snapDialCandidates, _ = setupDiscovery(eth.config.SnapDiscoveryURLs) //nolint:staticcheck
 	eth.handler.SetTmpDir(tmpdir)
 	eth.handler.SetBatchSize(config.CacheSize, config.BatchSize)
@@ -699,6 +708,10 @@ func (s *Ethereum) ArchiveMode() bool { return !s.config.Pruning }
 // Protocols returns all the currently configured
 // network protocols to start.
 func (s *Ethereum) Protocols() []p2p.Protocol {
+	if s.config.EnableDownloaderV2 {
+
+	}
+
 	var headHeight uint64
 	_ = s.chainKV.View(context.Background(), func(tx ethdb.Tx) error {
 		headHeight, _ = stages.GetStageProgress(tx, stages.Finish)

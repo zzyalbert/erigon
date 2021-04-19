@@ -181,10 +181,7 @@ func recvMessage(ctx context.Context, sentry proto_sentry.SentryClient, controlS
 	}
 }
 
-// Combined creates and starts sentry and downloader in the same process
-func Combined(natSetting string, port int, staticPeers []string, discovery bool, netRestrict string, db ethdb.Database, timeout, window int, chain string) error {
-	ctx := rootContext()
-
+func NewCombinedControlServer(ctx context.Context, natSetting string, port int, staticPeers []string, discovery bool, netRestrict string, db ethdb.Database, window int, chain string) (*ControlServerImpl, *SentryServerImpl, *SentryClientDirect, error) {
 	sentryServer := &SentryServerImpl{
 		ctx:             ctx,
 		receiveCh:       make(chan StreamMsg, 1024),
@@ -194,13 +191,23 @@ func Combined(natSetting string, port int, staticPeers []string, discovery bool,
 	sentry.SetServer(sentryServer)
 	controlServer, err := NewControlServer(db, []proto_sentry.SentryClient{sentry}, window, chain, nil)
 	if err != nil {
-		return fmt.Errorf("create core P2P server: %w", err)
+		return nil, nil, nil, fmt.Errorf("create core P2P server: %w", err)
 	}
 	sentryServer.p2pServer, err = p2pServer(ctx, sentryServer, controlServer.genesisHash, natSetting, port, staticPeers, discovery, netRestrict)
 	if err != nil {
+		return nil, nil, nil, err
+	}
+	return controlServer, nil, nil, nil
+}
+
+// Combined creates and starts sentry and downloader in the same process
+func Combined(natSetting string, port int, staticPeers []string, discovery bool, netRestrict string, db ethdb.Database, timeout, window int, chain string) error {
+	ctx := rootContext()
+
+	controlServer, _, sentry, err := NewCombinedControlServer(ctx, natSetting, port, staticPeers, discovery, netRestrict, db, window, chain)
+	if err != nil {
 		return err
 	}
-
 	if _, err := sentry.SetStatus(ctx, makeStatusData(controlServer), &grpc.EmptyCallOption{}); err != nil {
 		return fmt.Errorf("setting initial status message: %w", err)
 	}
@@ -242,7 +249,7 @@ type ControlServerImpl struct {
 	genesisHash          common.Hash
 	protocolVersion      uint32
 	networkId            uint64
-	db                   ethdb.Database
+	db                   ethdb.RwKV
 	txPool               eth.TxPool
 }
 
@@ -298,7 +305,7 @@ func NewControlServer(db ethdb.Database, sentries []proto_sentry.SentryClient, w
 		sentries:             sentries,
 		requestWakeUpHeaders: make(chan struct{}, 1),
 		requestWakeUpBodies:  make(chan struct{}, 1),
-		db:                   db,
+		db:                   db.(ethdb.HasRwKV).RwKV(),
 		txPool:               txPool,
 	}
 	cs.chainConfig = chainConfig
@@ -486,7 +493,7 @@ func (cs *ControlServerImpl) getBlockHeaders(ctx context.Context, inreq *proto_s
 		return fmt.Errorf("decoding GetBlockHeader: %v, data: %x", err, inreq.Data)
 	}
 
-	tx, err := cs.db.Begin(ctx, ethdb.RO)
+	tx, err := cs.db.BeginRo(ctx)
 	if err != nil {
 		return err
 	}
@@ -522,7 +529,7 @@ func (cs *ControlServerImpl) getBlockBodies(ctx context.Context, inreq *proto_se
 	if err := rlp.DecodeBytes(inreq.Data, &query); err != nil {
 		return fmt.Errorf("decoding GetBlockHeader: %v, data: %x", err, inreq.Data)
 	}
-	tx, err := cs.db.(ethdb.HasRwKV).RwKV().BeginRo(ctx)
+	tx, err := cs.db.BeginRo(ctx)
 	if err != nil {
 		return err
 	}

@@ -88,8 +88,8 @@ func newSnapshot(config *params.CliqueConfig, sigcache *lru.ARCCache, number uin
 }
 
 // loadSnapshot loads an existing snapshot from the database.
-func loadSnapshot(config *params.CliqueConfig, sigcache *lru.ARCCache, db ethdb.Database, hash common.Hash) (*Snapshot, error) {
-	blob, err := db.Get(dbutils.CliqueBucket, hash[:])
+func loadSnapshot(config *params.CliqueConfig, sigcache *lru.ARCCache, db ethdb.KVGetter, hash common.Hash) (*Snapshot, error) {
+	blob, err := db.GetOne(dbutils.CliqueBucket, hash[:])
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func loadSnapshot(config *params.CliqueConfig, sigcache *lru.ARCCache, db ethdb.
 
 // store inserts the snapshot into the database.
 //nolint:interfacer
-func (s *Snapshot) store(db ethdb.Database) error {
+func (s *Snapshot) store(db ethdb.Putter) error {
 	blob, err := json.Marshal(s)
 	if err != nil {
 		return err
