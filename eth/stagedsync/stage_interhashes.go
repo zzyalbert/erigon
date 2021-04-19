@@ -9,18 +9,15 @@ import (
 	"sort"
 	"time"
 
-	"github.com/google/btree"
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/changeset"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/ledgerwatch/turbo-geth/core/rawdb"
 	"github.com/ledgerwatch/turbo-geth/core/types/accounts"
-	"github.com/ledgerwatch/turbo-geth/eth/integrity"
 	"github.com/ledgerwatch/turbo-geth/eth/stagedsync/stages"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/log"
-	"github.com/ledgerwatch/turbo-geth/turbo/shards"
 	"github.com/ledgerwatch/turbo-geth/turbo/trie"
 )
 
@@ -524,43 +521,4 @@ func storageTrieCollector(tmpdir string) (*etl.Collector, trie.StorageHashCollec
 		newV = trie.MarshalTrieNode(hasState, hasTree, hasHash, hashes, rootHash, newV)
 		return storageIHCollector.Collect(newK, newV)
 	}
-}
-
-func flushTrieWritesToDB(writes [5]*btree.BTree, db ethdb.RwTx) {
-	newV := make([]byte, 0, 1024)
-	acc, err := db.RwCursor(dbutils.TrieOfAccountsBucket)
-	if err != nil {
-		panic(err)
-	}
-	defer acc.Close()
-	shards.WalkAccountHashesWrites(writes, func(prefix []byte, hasState, hasTree, hasHash uint16, h []common.Hash) {
-		newV = trie.MarshalTrieNodeTyped(hasState, hasTree, hasHash, h, newV)
-		integrity.AssertSubset(prefix, hasTree, hasState)
-		integrity.AssertSubset(prefix, hasHash, hasState)
-		if err := acc.Put(prefix, newV); err != nil {
-			panic(err)
-		}
-	}, func(prefix []byte, hasState, hasTree, hasHash uint16, h []common.Hash) {
-		if err := acc.Delete(prefix, nil); err != nil {
-			panic(err)
-		}
-	})
-	st, err := db.RwCursor(dbutils.TrieOfStorageBucket)
-	if err != nil {
-		panic(err)
-	}
-	defer acc.Close()
-
-	shards.WalkStorageHashesWrites(writes, func(addrHash common.Hash, incarnation uint64, prefix []byte, hasState, hasTree, hasHash uint16, h []common.Hash) {
-		k := trie.StorageKey(addrHash.Bytes(), incarnation, prefix)
-		newV = trie.MarshalTrieNodeTyped(hasState, hasTree, hasHash, h, newV)
-		if err := st.Put(k, newV); err != nil {
-			panic(err)
-		}
-	}, func(addrHash common.Hash, incarnation uint64, prefix []byte, hasState, hasTree, hasHash uint16, h []common.Hash) {
-		k := trie.StorageKey(addrHash.Bytes(), incarnation, prefix)
-		if err := st.Delete(k, nil); err != nil {
-			panic(err)
-		}
-	})
 }

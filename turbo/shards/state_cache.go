@@ -362,7 +362,6 @@ type StateCache struct {
 	sequence    int                // Current sequence assigned to any item that has been "touched" (created, deleted, read). Incremented after every touch
 	unprocQueue [5]UnprocessedHeap // Priority queue of items appeared since last root calculation processing (sorted by the keys - address, incarnation, location)
 
-	buf []byte
 }
 
 func id(a interface{}) uint8 {
@@ -923,7 +922,4 @@ func less(k, k2 []byte, fixedbytes int, mask byte) (isLess bool) {
 		cmp = len(k) - len(k2)
 	}
 	return cmp < 0
-}
-func hasPrefix(k, k2 []byte, fixedbytes int, mask byte) bool {
-	return bytes.Equal(k[:fixedbytes], k2[:fixedbytes]) && k[fixedbytes]&mask == k2[fixedbytes]&mask
 }
