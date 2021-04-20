@@ -79,7 +79,8 @@ func TestHeadersGenerateIndex(t *testing.T) {
 			t.Error(i, "canonical not correct", canonical)
 		}
 
-		hasHeader := rawdb.HasHeader(snDB, header.Hash(), header.Number.Uint64())
+		hasHeader, err := rawdb.HasHeader(snDB, header.Hash(), header.Number.Uint64())
+		assert.NoError(t, err)
 		if !hasHeader {
 			t.Error(i, header.Hash(), header.Number.Uint64(), "not exists")
 		}

@@ -726,7 +726,12 @@ func (d *Downloader) findAncestorSpanSearch(p *peerConnection, remoteHeight, loc
 				h := headers[i].Hash()
 				n := headers[i].Number.Uint64()
 
-				if rawdb.HasHeader(d.stateDB, h, n) {
+				hasHeader, err := rawdb.HasHeader(d.stateDB, h, n)
+				if err != nil {
+					return 0, err
+				}
+
+				if hasHeader {
 					number, hash = n, h
 					break
 				}
@@ -796,7 +801,11 @@ func (d *Downloader) findAncestorBinarySearch(p *peerConnection, remoteHeight ui
 				h := headers[0].Hash()
 				n := headers[0].Number.Uint64()
 
-				if !rawdb.HasHeader(d.stateDB, h, n) {
+				hasHeader, err := rawdb.HasHeader(d.stateDB, h, n)
+				if err != nil {
+					return 0, err
+				}
+				if !hasHeader {
 					end = check
 					break
 				}

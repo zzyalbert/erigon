@@ -142,11 +142,8 @@ func ReadHeaderRLP(db ethdb.KVGetter, hash common.Hash, number uint64) rlp.RawVa
 }
 
 // HasHeader verifies the existence of a block header corresponding to the hash.
-func HasHeader(db ethdb.Has, hash common.Hash, number uint64) bool {
-	if has, err := db.Has(dbutils.HeadersBucket, dbutils.HeaderKey(number, hash)); !has || err != nil {
-		return false
-	}
-	return true
+func HasHeader(db ethdb.Has, hash common.Hash, number uint64) (bool, error) {
+	return db.Has(dbutils.HeadersBucket, dbutils.HeaderKey(number, hash))
 }
 
 // ReadHeader retrieves the block header corresponding to the hash.

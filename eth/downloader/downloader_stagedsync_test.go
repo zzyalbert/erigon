@@ -145,7 +145,7 @@ func (st *stagedSyncTester) HasBlock(hash common.Hash, number uint64) bool {
 }
 
 // HasHeader is part of the implementation of BlockChain interface defined in downloader.go
-func (st *stagedSyncTester) HasHeader(hash common.Hash, number uint64) bool {
+func (st *stagedSyncTester) HasHeader(hash common.Hash, number uint64) (bool, error) {
 	return rawdb.HasHeader(st.db, hash, number)
 }
 
