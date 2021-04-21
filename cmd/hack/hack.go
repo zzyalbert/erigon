@@ -1775,6 +1775,7 @@ func invert(chaindata string) error {
 		if err != nil {
 			return err
 		}
+		fmt.Printf("%x,%x\n", k, v)
 		k4 := v[:32]
 		v4 := append(append([]byte{}, k...), v[32:]...)
 		err = collector4.Collect(k4, v4)
