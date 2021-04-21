@@ -1741,7 +1741,7 @@ func fixUnwind(chaindata string) error {
 }
 
 func invert(chaindata string) error {
-	db := ethdb.MustOpen(chaindata).RwKV()
+	db := ethdb.NewMDBX().Path(chaindata).MustOpen()
 	defer db.Close()
 
 	tx, err := db.BeginRw(context.Background())
