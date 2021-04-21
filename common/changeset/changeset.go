@@ -164,7 +164,7 @@ func Truncate(tx ethdb.RwTx, from uint64) error {
 			}
 			err = c.DeleteCurrentDuplicates()
 			if err != nil {
-				return err
+				return fmt.Errorf("account changesets truncate: %w", err)
 			}
 		}
 	}
@@ -180,7 +180,7 @@ func Truncate(tx ethdb.RwTx, from uint64) error {
 			}
 			err = c.DeleteCurrentDuplicates()
 			if err != nil {
-				return err
+				return fmt.Errorf("storage changesets truncate: %w", err)
 			}
 		}
 	}
