@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/holiman/uint256"
+	"github.com/ledgerwatch/turbo-geth/common/etl"
 	"github.com/wcharczuk/go-chart"
 	"github.com/wcharczuk/go-chart/util"
 
@@ -1739,6 +1740,55 @@ func fixUnwind(chaindata string) error {
 	return nil
 }
 
+func invert(chaindata string) error {
+	db := ethdb.MustOpen(chaindata).RwKV()
+	defer db.Close()
+
+	tx, err := db.BeginRw(context.Background())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	c, _ := tx.CursorDupSort(dbutils.PlainStateBucket)
+	defer c.Close()
+
+	b3 := etl.NewSortableBuffer(etl.BufferOptimalSize)
+	b3.SetComparator(dbutils.DefaultDupCmpFunc)
+	collector3 := etl.NewCollector("", b3)
+
+	b4 := etl.NewSortableBuffer(etl.BufferOptimalSize)
+	b4.SetComparator(dbutils.DefaultDupCmpFunc)
+	collector4 := etl.NewCollector("", b4)
+	for k, v, err := c.First(); k != nil; k, v, err = c.Next() {
+		if err != nil {
+			return err
+		}
+		if len(k) == 20 {
+			continue
+		}
+
+		err = collector3.Collect(k, v)
+		if err != nil {
+			return err
+		}
+		k4 := v[:32]
+		v4 := append(append([]byte{}, k...), v[32:]...)
+		err = collector4.Collect(k4, v4)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := collector3.Load("", tx, dbutils.PlainStateBucket3, etl.IdentityLoadFunc, etl.TransformArgs{}); err != nil {
+		return err
+	}
+	if err := collector4.Load("", tx, dbutils.PlainStateBucket4, etl.IdentityLoadFunc, etl.TransformArgs{}); err != nil {
+		return err
+	}
+
+	return nil
+}
 func snapSizes(chaindata string) error {
 	db := ethdb.MustOpen(chaindata)
 	defer db.Close()
@@ -1927,6 +1977,8 @@ func main() {
 
 	case "snapSizes":
 		err = snapSizes(*chaindata)
+	case "invert":
+		err = invert(*chaindata)
 
 	}
 

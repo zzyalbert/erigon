@@ -37,6 +37,8 @@ Physical layout:
 						...
 */
 const PlainStateBucket = "PLAIN-CST2"
+const PlainStateBucket3 = "PLAIN-CST3"
+const PlainStateBucket4 = "PLAIN-CST4"
 const PlainStateBucketOld1 = "PLAIN-CST"
 
 const (
@@ -286,6 +288,9 @@ var Buckets = []string{
 	HeaderCanonicalBucket,
 	HeadersBucket,
 	HeaderTDBucket,
+
+	PlainStateBucket3,
+	PlainStateBucket4,
 }
 
 // DeprecatedBuckets - list of buckets which can be programmatically deleted - for example after migration
@@ -375,6 +380,12 @@ var BucketsConfigs = BucketsCfg{
 		AutoDupSortKeysConversion: true,
 		DupFromLen:                60,
 		DupToLen:                  28,
+	},
+	PlainStateBucket3: {
+		Flags: DupSort,
+	},
+	PlainStateBucket4: {
+		Flags: DupSort,
 	},
 	IntermediateTrieHashBucketOld2: {
 		Flags:               DupSort,
