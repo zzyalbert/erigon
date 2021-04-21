@@ -5,10 +5,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/ledgerwatch/turbo-geth/log"
 )
 
 type Walker interface {
@@ -149,7 +151,10 @@ func Walk(db ethdb.Tx, bucket string, startkey []byte, fixedbits int, walker fun
 	})
 }
 
-func Truncate(tx ethdb.RwTx, from uint64) error {
+func Truncate(logPrefix string, tx ethdb.RwTx, from uint64) error {
+	logEvery := time.NewTicker(30 * time.Second)
+	defer logEvery.Stop()
+
 	keyStart := dbutils.EncodeBlockNumber(from)
 
 	{
@@ -166,6 +171,12 @@ func Truncate(tx ethdb.RwTx, from uint64) error {
 			if err != nil {
 				return fmt.Errorf("account changesets truncate: %w", err)
 			}
+
+			select {
+			default:
+			case <-logEvery.C:
+				log.Info(fmt.Sprintf("[%s] truncating account change sets", logPrefix), "block_number", binary.BigEndian.Uint64(k))
+			}
 		}
 	}
 	{
@@ -181,6 +192,12 @@ func Truncate(tx ethdb.RwTx, from uint64) error {
 			err = c.DeleteCurrentDuplicates()
 			if err != nil {
 				return fmt.Errorf("storage changesets truncate: %w", err)
+			}
+
+			select {
+			default:
+			case <-logEvery.C:
+				log.Info(fmt.Sprintf("[%s] truncating storage change sets", logPrefix), "block_number", binary.BigEndian.Uint64(k))
 			}
 		}
 	}
