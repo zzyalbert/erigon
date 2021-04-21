@@ -1798,6 +1798,7 @@ func invert(chaindata string) error {
 		return err
 	}
 
+	_ = tx.Commit()
 	return nil
 }
 func snapSizes(chaindata string) error {
