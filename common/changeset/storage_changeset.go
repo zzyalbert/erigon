@@ -2,10 +2,13 @@ package changeset
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	"github.com/ledgerwatch/turbo-geth/ethdb"
+	"github.com/ledgerwatch/turbo-geth/log"
 )
 
 const (
@@ -46,11 +49,12 @@ func (b StorageChangeSetPlain) FindWithoutIncarnation(blockNumber uint64, addres
 
 // RewindDataPlain generates rewind data for all plain buckets between the timestamp
 // timestapSrc is the current timestamp, and timestamp Dst is where we rewind
-func RewindData(db ethdb.Tx, timestampSrc, timestampDst uint64, quit <-chan struct{}) (map[string][]byte, map[string][]byte, error) {
+func RewindData(losPrefix string, db ethdb.Tx, timestampSrc, timestampDst uint64, quit <-chan struct{}) (map[string][]byte, map[string][]byte, error) {
 	// Collect list of buckets and keys that need to be considered
 	collector := newRewindDataCollector()
 
 	if err := walkAndCollect(
+		losPrefix+" accounts",
 		collector.AccountWalker,
 		db, dbutils.PlainAccountChangeSetBucket,
 		timestampDst+1, timestampSrc,
@@ -60,6 +64,7 @@ func RewindData(db ethdb.Tx, timestampSrc, timestampDst uint64, quit <-chan stru
 	}
 
 	if err := walkAndCollect(
+		losPrefix+" storage",
 		collector.StorageWalker,
 		db, dbutils.PlainStorageChangeSetBucket,
 		timestampDst+1, timestampSrc,
@@ -94,14 +99,20 @@ func (c *rewindDataCollector) StorageWalker(k, v []byte) error {
 	return nil
 }
 
-func walkAndCollect(collectorFunc func([]byte, []byte) error, db ethdb.Tx, bucket string, timestampDst, timestampSrc uint64, quit <-chan struct{}) error {
+func walkAndCollect(logPrefix string, collectorFunc func([]byte, []byte) error, db ethdb.Tx, bucket string, timestampDst, timestampSrc uint64, quit <-chan struct{}) error {
+	logEvery := time.NewTicker(30 * time.Second)
+	defer logEvery.Stop()
+
 	fromDBFormat := FromDBFormat(Mapper[bucket].KeySize)
 	c, err := db.Cursor(bucket)
 	if err != nil {
 		return err
 	}
 	defer c.Close()
-	return ethdb.Walk(c, dbutils.EncodeBlockNumber(timestampDst), 0, func(dbKey, dbValue []byte) (bool, error) {
+
+	i := 0
+
+	err = ethdb.Walk(c, dbutils.EncodeBlockNumber(timestampDst), 0, func(dbKey, dbValue []byte) (bool, error) {
 		if err := common.Stopped(quit); err != nil {
 			return false, err
 		}
@@ -109,9 +120,21 @@ func walkAndCollect(collectorFunc func([]byte, []byte) error, db ethdb.Tx, bucke
 		if timestamp > timestampSrc {
 			return false, nil
 		}
+		i += len(k) + len(v)
 		if innerErr := collectorFunc(common.CopyBytes(k), common.CopyBytes(v)); innerErr != nil {
 			return false, innerErr
 		}
+		select {
+		default:
+		case <-logEvery.C:
+			log.Info(fmt.Sprintf("[%s] collecting changes", logPrefix), "block_number", timestamp)
+		}
+
 		return true, nil
 	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("collected: %dM bytes\n", i/1024/1024)
+	return nil
 }
