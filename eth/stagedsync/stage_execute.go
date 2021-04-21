@@ -261,7 +261,7 @@ func UnwindExecutionStage(u *UnwindState, s *StageState, stateDB ethdb.Database,
 	log.Info(fmt.Sprintf("[%s] Unwind Execution", logPrefix), "from", s.BlockNumber, "to", u.UnwindPoint)
 
 	if err := unwindExecutionStage(u, s, tx.(ethdb.HasTx).Tx().(ethdb.RwTx), quit, params); err != nil {
-		return err
+		return fmt.Errorf("[%s] %w", logPrefix, err)
 	}
 	if err := u.Done(tx); err != nil {
 		return fmt.Errorf("%s: reset: %v", logPrefix, err)
@@ -296,11 +296,11 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 			// Fetch the code hash
 			recoverCodeHashPlain(&acc, tx, key)
 			if err := writeAccountPlain(logPrefix, tx, key, acc); err != nil {
-				return err
+				return fmt.Errorf("update plain account: %w", err)
 			}
 		} else {
 			if err := deleteAccountPlain(tx, key); err != nil {
-				return err
+				return fmt.Errorf("delete plain account: %w", err)
 			}
 		}
 
@@ -315,11 +315,11 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 		k := []byte(key)
 		if len(value) > 0 {
 			if err := tx.Put(stateBucket, k[:storageKeyLength], value); err != nil {
-				return err
+				return fmt.Errorf("update plain storage: %w", err)
 			}
 		} else {
 			if err := tx.Delete(stateBucket, k[:storageKeyLength], nil); err != nil {
-				return err
+				return fmt.Errorf("delete plain storage: %w", err)
 			}
 		}
 
@@ -347,7 +347,6 @@ func writeAccountPlain(logPrefix string, db ethdb.RwTx, key string, acc accounts
 	var address common.Address
 	copy(address[:], key)
 	if err := cleanupContractCodeBucket(
-		logPrefix,
 		db,
 		dbutils.PlainContractCodeBucket,
 		acc,
@@ -356,14 +355,13 @@ func writeAccountPlain(logPrefix string, db ethdb.RwTx, key string, acc accounts
 		},
 		func(inc uint64) []byte { return dbutils.PlainGenerateStoragePrefix(address[:], inc) },
 	); err != nil {
-		return fmt.Errorf("%s: writeAccountPlain for %x: %w", logPrefix, address, err)
+		return err
 	}
 
 	return rawdb.PlainWriteAccount(db, address, acc)
 }
 
 func cleanupContractCodeBucket(
-	logPrefix string,
 	db ethdb.RwTx,
 	bucket string,
 	acc accounts.Account,
@@ -373,7 +371,7 @@ func cleanupContractCodeBucket(
 	var original accounts.Account
 	got, err := readAccountFunc(db, &original)
 	if err != nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
-		return fmt.Errorf("%s: cleanupContractCodeBucket: %w", logPrefix, err)
+		return fmt.Errorf("cleanupContractCodeBucket: %w", err)
 	}
 	if got {
 		// clean up all the code incarnations original incarnation and the new one
