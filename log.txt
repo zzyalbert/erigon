@@ -1,0 +1,940 @@
+commit 97d11b0187b4695ccf44e3b71b54155fe405a36f
+Author: Felix Lange <fjl@twurst.com>
+Date:   Thu Apr 8 13:02:25 2021 +0200
+
+    params: release go-ethereum v1.10.2 stable
+
+commit a665f5d2d6f62203f611dbc9ecc28a05130cb88f
+Merge: 264fff7dd e3ff37c47
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Thu Apr 8 13:27:01 2021 +0300
+
+    Merge pull request #22632 from karalabe/cht-1.10.2
+    
+    params: update CHTs for v1.10.2
+
+commit e3ff37c47a5aedd363e32c16c83be42e364253e3
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Thu Apr 8 13:23:34 2021 +0300
+
+    params: update CHTs for v1.10.2
+
+commit 264fff7dd468246d9b6aaa1f5db51d08935d1093
+Merge: 9d10856e8 2a7c4b62a
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Wed Apr 7 18:52:29 2021 +0300
+
+    Merge pull request #22629 from karalabe/fix-chain-tracing-from-0
+    
+    eth: fix tracing state retrieval if requesting the non-dirty genesis
+
+commit 2a7c4b62a9cce1b3d9cd3ad68d0c8b2acd25630c
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Wed Apr 7 18:14:24 2021 +0300
+
+    eth: fix tracing state retrieval if requesting the non-dirty genesis
+
+commit 9d10856e84e884936c2390360e60e9ebca6d7a34
+Author: Marius van der Wijden <m.vanderwijden@live.de>
+Date:   Wed Apr 7 16:54:31 2021 +0200
+
+    core, eth, internal/ethapi: create access list RPC API (#22550)
+    
+    * core/vm: implement AccessListTracer
+    
+    * eth: implement debug.createAccessList
+    
+    * core/vm: fixed nil panics in accessListTracer
+    
+    * eth: better error messages for createAccessList
+    
+    * eth: some fixes on CreateAccessList
+    
+    * eth: allow for provided accesslists
+    
+    * eth: pass accesslist by value
+    
+    * eth: remove created acocunt from accesslist
+    
+    * core/vm: simplify access list tracer
+    
+    * core/vm: unexport accessListTracer
+    
+    * eth: return best guess if al iteration times out
+    
+    * eth: return best guess if al iteration times out
+    
+    * core: docstring, unexport methods
+    
+    * eth: typo
+    
+    * internal/ethapi: move createAccessList to eth package
+    
+    * internal/ethapi: remove reexec from createAccessList
+    
+    * internal/ethapi: break if al is equal to last run, not if gas is equal
+    
+    * internal/web3ext: fixed arguments
+    
+    * core/types: fixed equality check for accesslist
+    
+    * core/types: no hardcoded vals
+    
+    * core, internal: simplify access list generation, make it precise
+    
+    * core/vm: fix typo
+    
+    Co-authored-by: Martin Holst Swende <martin@swende.se>
+    Co-authored-by: Péter Szilágyi <peterke@gmail.com>
+
+commit a600dab7e58a72968f111f8430c0e92a0511bc9c
+Author: gary rong <garyrong0905@gmail.com>
+Date:   Wed Apr 7 15:30:26 2021 +0800
+
+    eth, les: fix tracers (#22473)
+    
+    * eth, les: fix tracer
+    
+    * eth: isolate live trie database in tracer
+    
+    * eth: fix nil
+    
+    * eth: fix
+    
+    * eth, les: add checkLive param
+    
+    * eth/tracer: fix
+
+commit 2d89fe0883f0ebb5f0145763d46f5335febab3c0
+Author: Felföldi Zsolt <zsfelfoldi@gmail.com>
+Date:   Tue Apr 6 20:42:50 2021 +0200
+
+    les: move client pool to les/vflux/server (#22495)
+    
+    * les: move client pool to les/vflux/server
+    
+    * les/vflux/server: un-expose NodeBalance, remove unused fn, fix bugs
+    
+    * tests/fuzzers/vflux: add ClientPool fuzzer
+    
+    * les/vflux/server: fixed balance tests
+    
+    * les: rebase fix
+    
+    * les/vflux/server: fixed more bugs
+    
+    * les/vflux/server: unexported NodeStateMachine fields and flags
+    
+    * les/vflux/server: unexport all internal components and functions
+    
+    * les/vflux/server: fixed priorityPool test
+    
+    * les/vflux/server: polish balance
+    
+    * les/vflux/server: fixed mutex locking error
+    
+    * les/vflux/server: priorityPool bug fixed
+    
+    * common/prque: make Prque wrap-around priority handling optional
+    
+    * les/vflux/server: rename funcs, small optimizations
+    
+    * les/vflux/server: fixed timeUntil
+    
+    * les/vflux/server: separated balance.posValue and negValue
+    
+    * les/vflux/server: polish setup
+    
+    * les/vflux/server: enforce capacity curve monotonicity
+    
+    * les/vflux/server: simplified requestCapacity
+    
+    * les/vflux/server: requestCapacity with target range, no iterations in SetCapacity
+    
+    * les/vflux/server: minor changes
+    
+    * les/vflux/server: moved default factors to balanceTracker
+    
+    * les/vflux/server: set inactiveFlag in priorityPool
+    
+    * les/vflux/server: moved related metrics to vfs package
+    
+    * les/vflux/client: make priorityPool temp state logic cleaner
+    
+    * les/vflux/server: changed log.Crit to log.Error
+    
+    * add vflux fuzzer to oss-fuzz
+    
+    Co-authored-by: rjl493456442 <garyrong0905@gmail.com>
+
+commit e275b1a293bdbc8170a01c1612c1cdf8e82c1ca1
+Author: Evolution404 <35091674+Evolution404@users.noreply.github.com>
+Date:   Wed Apr 7 02:02:52 2021 +0800
+
+    consensus/ethash: replace a magic number with it's constant (#22618)
+
+commit 95219ae62dd157414e4ab9b3a63d2c80cf10efab
+Author: Peter Simard <petesimard56@gmail.com>
+Date:   Tue Apr 6 10:23:35 2021 -0400
+
+    cmd/utils: move cache sanity check to SetEthConfig (#22510)
+    
+    Move the cache sanity check to the SetEthConfig function
+    to allow the config file to load.
+
+commit 5338ce44475191eb8708509a44d92f1219a8a798
+Author: Sina Mahmoodi <1591639+s1na@users.noreply.github.com>
+Date:   Tue Apr 6 18:39:51 2021 +0430
+
+    internal/debug: add JSON log format and rename logging flags (#22341)
+    
+    This change adds support for logging JSON records when the --log.json flag is
+    given. The --debug and --backtrace flags are deprecated and replaced by
+    --log.debug and --log.backtrace.
+    
+    While changing this, it was noticed that the --memprofilerate and
+    --blockprofilerate were ineffective (they were always overridden even if
+    --pprof.memprofilerate was not set). This is also fixed.
+    
+    Co-authored-by: Felix Lange <fjl@twurst.com>
+
+commit adf09aeab1fc091e4ab56c04852b18b4b924eb50
+Author: AmitBRD <60668103+AmitBRD@users.noreply.github.com>
+Date:   Tue Apr 6 08:58:36 2021 -0500
+
+    graphql: add support for tx types and tx access lists (#22491)
+    
+    This adds support for EIP-2718 access list transactions in the GraphQL API.
+    
+    Co-authored-by: Amit Shah <amitshah0t7@gmail.com>
+    Co-authored-by: Felix Lange <fjl@twurst.com>
+
+commit 706683ea72c1b711bd3b56327fe6c08e70bd37e3
+Author: piersy <pierspowlesland@gmail.com>
+Date:   Tue Apr 6 11:24:39 2021 +0100
+
+    internal/ethapi: fix eth_chainId method (#22243)
+    
+    This removes the duplicated definition of eth_chainID
+    in package eth and updates the definition in internal/ethapi
+    to treat chain ID as a bigint.
+    
+    Co-authored-by: Felix Lange <fjl@twurst.com>
+
+commit c79fc209cdcdd3ec28e4643b12c954fdbeeba452
+Author: Edgar Aroutiounian <edgar.factorial@gmail.com>
+Date:   Tue Apr 6 04:57:00 2021 -0400
+
+    core/state/snapshot: fix data race in diff layer (#22540)
+
+commit 73ed68988fbbe2f55758d30c583b1b8d7879cf37
+Merge: 4a37ae510 55300d4fd
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Wed Mar 31 19:27:23 2021 +0300
+
+    Merge pull request #22604 from karalabe/hashrate-capitalization-fix
+    
+    all: fix miner hashRate -> hashrate on API calls
+
+commit 55300d4fdbfda751a7a3d4baadd9db65c50b22b8
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Wed Mar 31 10:56:51 2021 +0300
+
+    all: fix miner hashRate -> hashrate on API calls
+
+commit 4a37ae510eb02bb7daf1fa5982f326e92a401c60
+Author: Felix Lange <fjl@twurst.com>
+Date:   Tue Mar 30 20:09:30 2021 +0200
+
+    rpc: tighter shutdown synchronization in client subscription (#22597)
+    
+    This fixes a rare issue where the client subscription forwarding loop
+    would attempt send on the subscription's channel after Unsubscribe has
+    returned, leading to a panic if the subscription channel was already
+    closed by the user. Example:
+    
+        sub, _ := client.Subscribe(..., channel, ...)
+        sub.Unsubscribe()
+        close(channel)
+    
+    The race occurred because Unsubscribe called quitWithServer to tell the
+    forwarding loop to stop sending on sub.channel, but did not wait for the
+    loop to actually come down. This is fixed by adding an additional channel
+    to track the shutdown, on which Unsubscribe now waits.
+    
+    Fixes #22322
+
+commit 61ff3e86b2d33f32566cae4f9bd1be973d84d757
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Tue Mar 30 19:04:22 2021 +0300
+
+    core/state/snapshot, ethdb: track deletions more accurately (#22582)
+    
+    * core/state/snapshot, ethdb: track deletions more accurately
+    
+    * core/state/snapshot: don't reset the iterator, leveldb's screwy
+    
+    * ethdb: don't mess with the insert batches for now
+
+commit 3faae5defc0066a95c234da84462535aed1db463
+Author: Marius van der Wijden <m.vanderwijden@live.de>
+Date:   Tue Mar 30 15:52:03 2021 +0200
+
+    ethstats: avoid creating subscriptions on background goroutine (#22587)
+    
+    This fixes an issue where the ethstats service could crash if geth was
+    started and then immediately stopped due to an internal error. The
+    cause of the crash was a nil subscription being returned by the backend,
+    because the background goroutine creating them was scheduled after
+    the backend had already shut down.
+    
+    Moving the creation of subscriptions into the Start method, which runs
+    synchronously during startup of the node, means the returned subscriptions
+    can never be 'nil'.
+    
+    Co-authored-by: Felix Lange <fjl@twurst.com>
+    Co-authored-by: Martin Holst Swende <martin@swende.se>
+
+commit 44fe466999ce7f8b02de7e83de955f8847342309
+Author: nebojsa94 <nebojsa94@users.noreply.github.com>
+Date:   Tue Mar 30 15:38:53 2021 +0200
+
+    core/vm: fix Byzantium address list (#22603)
+
+commit 59ac3c9fd30eb4134da60d0549cfd84b27a3a3f7
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Tue Mar 30 13:57:21 2021 +0200
+
+    cmd/geth: add db dumptrie command (#22563)
+    
+    Adds the command "geth db dumptrie <root> <seek> <max>", to better help investigate the trie data
+
+commit 43a37680665aab365b1816890aaeb6b8601126be
+Merge: 24588bacf 764479595
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Tue Mar 30 14:49:59 2021 +0300
+
+    Merge pull request #22596 from holiman/snap_timelimits
+    
+    eth/protocols/snap: try to prevent requests timing out
+
+commit 24588bacfd81bb991f9832f6557a34ae5078b06e
+Author: Marius van der Wijden <m.vanderwijden@live.de>
+Date:   Mon Mar 29 20:58:58 2021 +0200
+
+    cmd/puppeth: specify working directory for nodejs 15 (#22549)
+
+commit b6912c10476bf24c25b780b91a892a71fba268b6
+Author: rene <41963722+renaynay@users.noreply.github.com>
+Date:   Mon Mar 29 19:54:49 2021 +0100
+
+    core: add BlockGen.GetBalance method  (#22589)
+
+commit 7644795950481432f6ba230421d41349b69774e8
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Mon Mar 29 14:17:35 2021 +0200
+
+    eth/protocols/snap: try to prevent requests timing out
+
+commit 76700ac892f6fe3d7865fbe2f724626c72a04227
+Author: gary rong <garyrong0905@gmail.com>
+Date:   Mon Mar 29 17:09:29 2021 +0800
+
+    core/state/pruner: move the compaction out of the pruning procedure (#22579)
+    
+    The main idea behind it is: the range compaction is very expensive
+    which can take a few hours to finish. During this long procedure,
+    a lot of exceptions can occur, e.g.
+    - Geth is killed manually
+    - Geth is killed because of machine crash
+    - etc
+    
+    In order to minimize the effect of the exceptions, the compaction
+    is moved out of the pruning. So that even the compaction is not
+    finished, the pruning is regarded as done.
+
+commit 27056f62e57e55ae91cfac95d7af24d1f707fb99
+Author: Felix Lange <fjl@twurst.com>
+Date:   Fri Mar 26 22:15:20 2021 +0100
+
+    cmd/devp2p: update to newer cloudflare API client (#22588)
+    
+    This upgrades the cloudflare client dependency to v0.14.0. The new
+    version changes the API because all methods now require a context
+    parameter. This change also reduces the log level of the 'Skipping...'
+    message to debug, following a similar change in the AWS deployer.
+
+commit e7f3962612237a285495b470a214280e90962244
+Merge: 063f78c6b 099be0410
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Fri Mar 26 23:14:16 2021 +0200
+
+    Merge pull request #22591 from karalabe/snap-detailed-timeout-logs
+    
+    eth/protocols/snap: add peer id and req id to the timeout logs
+
+commit 099be0410048c65f885b9112f09238523fe19b1d
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Fri Mar 26 22:29:22 2021 +0200
+
+    eth/protocols/snap: add peer id and req id to the timeout logs
+
+commit 063f78c6bacc53a95de14b00bd6d509c7b75c7ad
+Merge: cae6b5527 62379f02c
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Fri Mar 26 21:43:09 2021 +0200
+
+    Merge pull request #22590 from karalabe/nil-histogram
+    
+    metrics/influxdb: don't push empty histograms, no measurement != 0
+
+commit 62379f02c61f459020a1fb8d7fdea4935a1d8701
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Fri Mar 26 21:13:52 2021 +0200
+
+    metrics/influxdb: don't push empty histograms, no measurement != 0
+
+commit cae6b5527e34befb05d21e2c3d635d82d8c32582
+Author: Felix Lange <fjl@twurst.com>
+Date:   Fri Mar 26 18:30:10 2021 +0100
+
+    cmd/geth, consensus/ethash: add support for --miner.notify.full flag (#22558)
+    
+    The PR implements the --miner.notify.full flag that enables full pending block
+    notifications. When this flag is used, the block notifications sent to mining
+    endpoints contain the complete block header JSON instead of a work package
+    array.
+    
+    Co-authored-by: AlexSSD7 <alexandersadovskyi7@protonmail.com>
+    Co-authored-by: Martin Holst Swende <martin@swende.se>
+
+commit 955727181be3d4f6d919440f9709e3bf736ff8a4
+Author: Zou Guangxian <zouguangxian@gmail.com>
+Date:   Sat Mar 27 01:06:25 2021 +0800
+
+    eth: fix corner case in sync head determination (#21695)
+    
+    This avoids synchronisation failures when the local header is ahead of
+    the local full block.
+
+commit 6477ea6502fe53cf6139f1cf3ec2b444e246cde8
+Merge: efe022976 2550e4626
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Fri Mar 26 16:49:37 2021 +0200
+
+    Merge pull request #22586 from karalabe/resettting-histogram
+    
+    eth/protocols, metrics: use resetting histograms for rare packets
+
+commit 2550e46269b05aa89127b06c1e18d51ebadd9da3
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Fri Mar 26 16:14:12 2021 +0200
+
+    eth/protocols, metrics: use resetting histograms for rare packets
+
+commit efe022976851281fcd785a1ee21f4cec07d5c43e
+Merge: 54c0d573d 6d7ff6ace
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Fri Mar 26 14:26:51 2021 +0200
+
+    Merge pull request #22581 from karalabe/network-latency-monitoring
+    
+    eth/protocols, metrics, p2p: add handler performance metrics
+
+commit 6d7ff6acea32b19b7c23c411748925a24873de9a
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Fri Mar 26 14:00:06 2021 +0200
+
+    eth/protocols, metrics, p2p: add handler performance metrics
+
+commit 54c0d573d75ab9baa239db3f071d6cb4d1ec6aad
+Author: Marius van der Wijden <m.vanderwijden@live.de>
+Date:   Thu Mar 25 15:37:51 2021 +0100
+
+    eth: dump rpc gas cap and tx fee cap (#22574)
+
+commit 4adf0b9187060539e8c0dd9eda2ad5a7d3c53cac
+Merge: bed74b38d 497448bf9
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Thu Mar 25 13:33:53 2021 +0200
+
+    Merge pull request #22573 from holiman/checkfreq
+    
+    core: fix condition on header verification
+
+commit bed74b38d985e48d1e8b4b8c132e97a8987e07ac
+Author: Felix Lange <fjl@twurst.com>
+Date:   Thu Mar 25 12:32:32 2021 +0100
+
+    cmd/devp2p: fix comparison of TXT record value (#22572)
+    
+    * cmd/devp2p: fix comparison of TXT record value
+    
+    The AWS API returns quoted DNS strings, so we must encode the new value
+    before comparing it against the existing record content.
+    
+    * cmd/devp2p: add test
+    
+    * cmd/devp2p: fix typo and rename val -> newValue
+
+commit 497448bf90226eb088a41d1d102ffbb6cb2d1d6f
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Thu Mar 25 11:50:14 2021 +0100
+
+    core: fix condition on header verification
+
+commit 0fda25e471aa0e061396050c3d5e59fbaaf1e7b0
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Thu Mar 25 10:13:14 2021 +0100
+
+    eth/tracers, core: use scopecontext in tracers, provide statedb in capturestart (#22333)
+    
+    Fixes the CaptureStart api to include the EVM, thus being able to set the statedb early on. This pr also exposes the struct we used internally in the interpreter to encapsulate the contract, mem, stack, rstack, so we pass it as a single struct to the tracer, and removes the error returns on the capture methods.
+
+commit c5df05b9a9529cb17b4416e23cd24583335c6a9d
+Author: gary rong <garyrong0905@gmail.com>
+Date:   Wed Mar 24 22:33:34 2021 +0800
+
+    eth/protocols/snap: fix the flaws in the snap sync (#22553)
+    
+    * eth/protocols/snap: fix snap sync
+    
+    * eth/protocols/snap: fix tests
+    
+    * eth: fix tiny
+    
+    * eth: update tests
+    
+    * eth: update tests
+    
+    * core/state/snapshot: testcase for #22534
+    
+    * eth/protocols/snap: fix boundary loss on full-but-proven range
+    
+    * core/state/snapshot: lintfix
+    
+    * eth: address comment
+    
+    * eth: fix handler
+    
+    Co-authored-by: Martin Holst Swende <martin@swende.se>
+    Co-authored-by: Péter Szilágyi <peterke@gmail.com>
+
+commit ab8fd4d005bd8d3fdf677f12c3b59f636c06f1a8
+Author: Felix Lange <fjl@twurst.com>
+Date:   Wed Mar 24 13:37:20 2021 +0100
+
+    p2p/dnsdisc: rate limit resolving before checking cache (#22566)
+    
+    This makes the rate limit apply regardless of whether the node is
+    already cached.
+
+commit 15e6c27f8bcc6a30b47b956701d70f5eb14c1b7c
+Author: Chen Quan <terasum@163.com>
+Date:   Wed Mar 24 20:18:29 2021 +0800
+
+    p2p: fix minor typo and remove fd parameter in checkInboundConn (#22547)
+
+commit 5129cdc4f04889d3f21cadba5a246d62391301a6
+Author: Felix Lange <fjl@twurst.com>
+Date:   Wed Mar 24 12:32:39 2021 +0100
+
+    cmd/devp2p: skip ENR field tails properly in nodeset filter (#22565)
+    
+    In Geth v1.10, we changed the structure of the "les" ENR entry. As a result, the DHT crawler that creates the DNS lists
+    no longer recognizes the les nodes, which is fixed in this commit.
+    
+    * cmd/devp2p: skip ENR field tails properly in nodeset filter
+    * cmd/devp2p: fix tail decoder for snap as well
+    * les: fix tail decoding in "eth" ENR entry
+
+commit e862cbff95ef76daf49779cff94aecaa54538aa4
+Author: meowsbits <b5c6@protonmail.com>
+Date:   Tue Mar 23 04:41:23 2021 -0500
+
+    internal/web3ext, node: migrate node admin API (Start|Stop)RPC->HTTP (#22461)
+    
+    * internal/web3ext,node: migrate node admin API (Start|Stop)RPC->HTTP
+    
+    Corresponding CLI flags --rpc have been moved to --http.
+    
+    This moves the admin module HTTP RPC start/stop
+    methods to an equivalent namespace.
+    
+    Rel https://github.com/ethereum/go-ethereum/pull/22263
+    
+    Date: 2021-03-08 08:00:11-06:00
+    Signed-off-by: meows <b5c6@protonmail.com>
+    
+    * internal/web3ext: fix startRPC/HTTP param count (4->5)
+    
+    Date: 2021-03-16 06:13:23-05:00
+    Signed-off-by: meows <b5c6@protonmail.com>
+
+commit 477ec753230778147af9682d6ffa595b005590e9
+Merge: f304290b7 410089afe
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Tue Mar 23 11:37:32 2021 +0200
+
+    Merge pull request #22513 from holiman/no_snap_bloom
+    
+    eth/protocols/snap, eth/downloader: don't use bloom filter in snap sync
+
+commit f304290b7dd771c07a7580741ec51567d1d9bcd9
+Merge: 8d6cc1674 a31f6d54d
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Mon Mar 22 23:34:12 2021 +0200
+
+    Merge pull request #22551 from karalabe/snapshot-parent-get-panic
+    
+    core/state/snapshot: fix panic on missing parent
+
+commit a31f6d54dfd49e277b78017c3c5e34d544687f7f
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Mon Mar 22 22:41:28 2021 +0200
+
+    core/state/snapshot: fix panic on missing parent
+
+commit 8d6cc1674252371c7441279fd9d482d9416dc8aa
+Author: Sina Mahmoodi <1591639+s1na@users.noreply.github.com>
+Date:   Mon Mar 22 19:11:10 2021 +0100
+
+    cmd/geth: check block range against chain head in export cmd (#22387)
+    
+    Check the input parameters against the actual head block, exit on error
+
+commit 0c70b83e0012ce0f9c7b76e61eef7dde5a360838
+Author: gary rong <garyrong0905@gmail.com>
+Date:   Tue Mar 23 02:06:30 2021 +0800
+
+    all: add read-only option to database (#22407)
+    
+    * all: add read-only option to database
+    
+    * all: fixes tests
+    
+    * cmd/geth: migrate flags
+    
+    * cmd/geth: fix the compact
+    
+    * cmd/geth: fix the format
+    
+    * cmd/geth: fix log
+    
+    * cmd: add chain-readonly
+    
+    * core: add readonly notion to freezer
+    
+    * core/rawdb: add log
+    
+    * core/rawdb: fix freezer close
+    
+    * cmd: fix
+    
+    * cmd, core: construct db
+    
+    * core: update tests
+
+commit aab35600bcfbf1c7cfff39c4b7b8b594d19ce358
+Author: MrChico <martin.lundfall@protonmail.com>
+Date:   Mon Mar 22 09:29:32 2021 +0100
+
+    accounts: eip-712 signing for ledger (#22378)
+    
+    * accounts: eip-712 signing for ledger
+    
+    * address review comments
+
+commit eaccdba4ab310e3fb98edbc4b340b5e7c4d767fd
+Author: Derek Chiang <me@derekchiang.com>
+Date:   Mon Mar 22 00:10:51 2021 -0700
+
+    core: fix method comment for `txpool.requestReset` (#22543)
+
+commit ec73ec092d149e20e13cdb0f4b9dbefa9d21a19e
+Author: Tobias Hildebrandt <79341166+tobias-hildebrandt@users.noreply.github.com>
+Date:   Sat Mar 20 18:54:17 2021 +0000
+
+    cmd/utils: fix compilation issue on openbsd (#22511)
+
+commit 36b51b8156a4079952d646aac2800423dd8df163
+Author: rene <41963722+renaynay@users.noreply.github.com>
+Date:   Sat Mar 20 18:50:44 2021 +0000
+
+    cmd/devp2p: add old block announcement test to eth test suite (#22474)
+    
+    Add old block announcement test to eth test suite, checks to make sure old block announcement isn't propagated
+
+commit 5bf6612a2e19693b7faa032187f02a019cbea700
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Sat Mar 20 10:35:22 2021 +0100
+
+    cmd/devp2p: fix error in updating the cursor when collecting records for route53 (#22538)
+    
+    This PR fixes a regression introduced in #22360, when we updated to the v2 of the AWS sdk, which causes current crawler to just get the same first 100 results over and over, and get stuck in a loop.
+
+commit 9429ab14727f55d3d0231a86a3cf37039ea79c9a
+Author: Felix Lange <fjl@twurst.com>
+Date:   Sat Mar 20 00:22:24 2021 +0100
+
+    cmd/devp2p: add flag for AWS region (#22537)
+
+commit d3040a80d7a0721297cfac93b82e0e9428ddd3d1
+Author: rene <41963722+renaynay@users.noreply.github.com>
+Date:   Fri Mar 19 14:15:39 2021 +0000
+
+    cmd/devp2p/internal/ethtest: skip eth/66 tests when v66 not supported (#22460)
+
+commit c454717fa67df71b4a3c2f16cd0f6bc186148a04
+Author: Sina Mahmoodi <1591639+s1na@users.noreply.github.com>
+Date:   Fri Mar 19 13:32:57 2021 +0100
+
+    core: fix potential race in chainIndexerTest (#22346)
+
+commit 5bc0343ed3de7dd491edf42f9714ad6b93930408
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Fri Mar 19 13:20:27 2021 +0100
+
+    p2p/dnsdisc: fix flaw in dns size calculation (#22533)
+    
+    This fixes the calculation of the tree branch factor. With the new
+    formula, we now creat at most 13 children instead of 30, ensuring
+    the TXT record size will be below 370 bytes.
+
+commit e3a3f7cd6472f692f4fad97a302d09fb60f53430
+Author: Quest Henkart <qhenkart@gmail.com>
+Date:   Fri Mar 19 06:15:57 2021 -0600
+
+    cmd/devp2p: use AWS-SDK v2 (#22360)
+    
+    This updates the DNS deployer to use AWS SDK v2. Migration is relatively
+    seamless, although there were two locations that required a slightly
+    different approach to achieve the same results. In particular, waiting for
+    DNS change propagation is very different with SDK v2.
+    
+    This change also optimizes DNS updates by publishing all changes before
+    waiting for propagation.
+
+commit d50e9d24be6ae410af7b5975f453456367a7b28c
+Author: jacksoom <lifengliu1994@gmail.com>
+Date:   Fri Mar 19 19:04:15 2021 +0800
+
+    consensus/ethash: remove unnecessary variable definition (#22512)
+
+commit 345890a558257a76acb92a3ae88fbfb0dfea4520
+Author: ucwong <ucwong@126.com>
+Date:   Fri Mar 19 19:03:33 2021 +0800
+
+    go.mod: upgrade goupnp to commit 0ca76305 (#22479)
+    
+    This pulls in a fix to skip the broadcast on interfaces which are down.
+
+commit a90861ae0c2a5d294fb4abb46eac65181d560264
+Author: ucwong <ucwong@126.com>
+Date:   Fri Mar 19 18:58:12 2021 +0800
+
+    go.mod: upgrade goleveldb to commit 64b5b1c (#22436)
+    
+    This pulls in a fix for a corruption issue when the process crashes
+    while a new manifest file is being added.
+
+commit 38ea7f2cf460fb12a5769f8c0767726334111b99
+Author: Martin Redmond <21436+reds@users.noreply.github.com>
+Date:   Fri Mar 19 06:56:10 2021 -0400
+
+    accounts/abi/bind: add NoSend transact option (#22446)
+    
+    This adds a new option to avoid sending the transaction which is
+    created by calling a bound contract method.
+
+commit aa8b2189c6ad5148377076b3fab7ca5e0d8c0b62
+Author: meowsbits <b5c6@protonmail.com>
+Date:   Fri Mar 19 05:14:23 2021 -0500
+
+    ethclient: fix error handling for header test (#22514)
+    
+    The wantErr field was disused, and the error returned by HeaderByNumber
+    was not properly tested.
+    
+    This simplifies the error checking using errors.Is and asserts that getting
+    an expected missing header returns ethereum.NotFound. Also adds a nil
+    check condition for header.Number before using big.Int's Sign method.
+
+commit 6a528fce3357176e2da2fe07b379842f596bb566
+Author: rene <41963722+renaynay@users.noreply.github.com>
+Date:   Fri Mar 19 09:57:23 2021 +0000
+
+    cmd/devp2p/internal/ethtest: return request ID in BlockHeaders response (#22508)
+    
+    This PR fixes an issue with the eth66 test suite where, during a readAndServe when
+    the test is manually responding to GetBlockHeader requests, it now responds
+    with a BlockHeaders eth66 packet that includes the inbound request ID.
+
+commit 117fa7d4a1ac0211b6a59aac5f3c5f7e5890e053
+Author: wuff1996 <33193253+wuff1996@users.noreply.github.com>
+Date:   Fri Mar 19 15:49:24 2021 +0800
+
+    eth/protocols/snap: fix typo (#22530)
+
+commit 410089afea1907d4abbf1dc4d1b42bda1094a5e5
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Wed Mar 17 09:36:34 2021 +0100
+
+    eth/protocols/snap, eth/downloader: don't use bloom filter in snap sync
+
+commit 91726e8aadeebc4bda8f136aebf4b5c7da8b9d74
+Author: Felföldi Zsolt <zsfelfoldi@gmail.com>
+Date:   Tue Mar 16 12:55:43 2021 +0100
+
+    les: allow either full enode strings or raw hex ids in the API (#22423)
+
+commit 6d9707a458ad0d82e7f53722219656c432c9bb92
+Author: Felföldi Zsolt <zsfelfoldi@gmail.com>
+Date:   Tue Mar 16 12:54:45 2021 +0100
+
+    les: fix UDP connection query (#22451)
+    
+    This PR fixes multiple issues with the UDP connection pre-negotiation feature:
+    - the enable condition was wrong (it checked the existence of the DiscV5 struct where it wasn't initialized yet, disabling the feature even if discv5 was enabled)
+    - the server pool queried already connected nodes when the discovery iterators returned them again
+    - servers responded positively before they were synced and really willing to accept connections
+    
+    Metrics are also added on the server side that count the positive and negative replies to served connection queries.
+
+commit 62d8022b513772666d92c3ba45312b61c403fea7
+Author: Felföldi Zsolt <zsfelfoldi@gmail.com>
+Date:   Tue Mar 16 12:53:54 2021 +0100
+
+    les: fix UDP connection query (#22451)
+    
+    This PR fixes multiple issues with the UDP connection pre-negotiation feature:
+    
+    - the enable condition was wrong (it checked the existence of the DiscV5 struct where it wasn't initialized yet, disabling the feature even if discv5 was enabled)
+    - the server pool queried already connected nodes when the discovery iterators returned them again
+    - servers responded positively before they were synced and really willing to accept connections
+    
+    Metrics are also added on the server side that count the positive and negative replies to served connection queries.
+
+commit 94ab4ea341c34ee692b707928a6da285fab85ea3
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Tue Mar 16 11:15:14 2021 +0100
+
+    core/rawdb: fix transaction indexing/unindexing hashing error (#22457)
+    
+    * core/rawdb: more verbose error logs + better hashing
+    
+    * core/rawdb: add failing testcase
+    
+    * core/rawdb: properly hash transactions while indexing/unindexing
+    
+    * core/rawdb: exit on error + better log msg
+
+commit 7cbf1d70a7428fdd247882a840c416c80c30454f
+Author: ligi <ligi@ligi.de>
+Date:   Tue Mar 16 09:55:03 2021 +0100
+
+    cmd/clef (docs): fix image background (#22399)
+    
+    Flatten the image so we do not have dark text on dark background
+
+commit 7076e8e42ff528e0ff058da3e357343dfb6fd71d
+Author: ligi <ligi@ligi.de>
+Date:   Tue Mar 16 09:53:43 2021 +0100
+
+    cmd/clef: docs - link to ethereum org repo (#22400)
+
+commit 99830720f681e5120fc131daaf0ad74d329bb074
+Author: lightclient <14004106+lightclient@users.noreply.github.com>
+Date:   Tue Mar 16 02:48:54 2021 -0600
+
+    core/types: improve comments in new EIP-2718 code (#22402)
+    
+    Responding to these comments:
+    
+        https://github.com/ethereum/go-ethereum/pull/21502/files#r579010962
+        https://github.com/ethereum/go-ethereum/pull/21502/files#r579021565
+        https://github.com/ethereum/go-ethereum/pull/21502/files#r579023510
+        https://github.com/ethereum/go-ethereum/pull/21502/files#r578983734
+
+commit bc47993692a446437b0d91cae758fb6be664050e
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Tue Mar 16 09:43:33 2021 +0100
+
+    tests/fuzzers: fix goroutine leak in les fuzzer (#22455)
+    
+    The oss-fuzz fuzzer has been reporting some failing testcases for les. They're all spurious, and cannot reliably be reproduced. However, running them showed that there was a goroutine leak: the tests created a lot of new clients, which started an exec queue that was never torn down.
+    
+    This PR fixes the goroutine leak, and also a log message which was erroneously formatted.
+
+commit faacc8e0faa89f5b3a7055e86924a95b6a9be944
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Mon Mar 15 15:25:45 2021 +0100
+
+    cmd/geth, eth/downloader: remove copydb command (#22501)
+    
+    * cmd/geth: remove copydb command
+    
+    * eth/downloader: remove fakepeer
+
+commit c6d45009f1ab46f61ebaa66d71d08d48097cc1a9
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Sun Mar 14 16:13:25 2021 +0100
+
+    eth, les: properly init statedb accesslist during tracing (#22480)
+    
+    * eth/state, les/state: properly init statedb accesslist when tracing, fixes #22475
+    
+    * eth: review comments
+    
+    * eth/tracers: fix compilation err
+    
+    * eth/tracers: apply @karalabe's suggested fix
+
+commit 3f74c8e0e504fe7606bc970dff71cf1266a4a9ed
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Sat Mar 13 21:33:30 2021 +0100
+
+    cmd/devp2p: better testcase failure output for ethtests (#22482)
+
+commit 6387c520b724525861539c43b8da98372fc42534
+Author: michael1011 <me@michael1011.at>
+Date:   Fri Mar 12 10:16:19 2021 +0100
+
+    cmd/geth: add ancient datadir flag to snapshot subcommands (#22486)
+
+commit aae7660410f0ef90279e14afaaf2f429fdc2a186
+Author: Felix Lange <fjl@twurst.com>
+Date:   Thu Mar 11 15:09:25 2021 +0100
+
+    p2p/enr: fix decoding of incomplete lists (#22484)
+    
+    Given a list of less than two elements DecodeRLP returned rlp.EOL,
+    leading to issues in outer decoders.
+
+commit 22082f9e565665f7da045b9ff708e4698f383c77
+Author: gary rong <garyrong0905@gmail.com>
+Date:   Tue Mar 9 17:50:25 2021 +0800
+
+    cmd: extend dumpgenesis to support network flags on the cmd (#22406)
+
+commit 3d299b746893e39f580dfcca3cef90604d05f4b6
+Author: Martin Holst Swende <martin@swende.se>
+Date:   Tue Mar 9 09:04:03 2021 +0100
+
+    les: fix errors in metric namespace (#22459)
+    
+    * les: add trailing slash to metric namespace
+    
+    * les: omit '.' in metric namespace
+
+commit be87f769f676cbe3bf028e856160396ed08c64fc
+Author: Marius van der Wijden <m.vanderwijden@live.de>
+Date:   Mon Mar 8 14:23:28 2021 +0100
+
+    core/types: reduce allocations in GasPriceCmp (#22456)
+
+commit 182670849eafdde729d009ec99d12358f996fbd0
+Author: Péter Szilágyi <peterke@gmail.com>
+Date:   Mon Mar 8 11:34:08 2021 +0200
+
+    params: begin v1.10.2 release cycle
