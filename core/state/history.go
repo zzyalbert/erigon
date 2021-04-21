@@ -29,7 +29,13 @@ func GetAsOf(tx ethdb.Tx, storage bool, key []byte, timestamp uint64) ([]byte, e
 	if !errors.Is(err, ethdb.ErrKeyNotFound) {
 		return nil, err
 	}
-	v, err = tx.GetOne(dbutils.PlainStateBucket, key)
+	cur, err := tx.CursorDupSort(dbutils.PlainStateBucket)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close()
+
+	v, err = cur.SeekBothRange(key)
 	if err != nil {
 		return nil, err
 	}
