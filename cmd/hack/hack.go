@@ -1753,6 +1753,9 @@ func invert(chaindata string) error {
 	c, _ := tx.CursorDupSort(dbutils.PlainStateBucket)
 	defer c.Close()
 
+	logEvery := time.NewTicker(10 * time.Second)
+	defer logEvery.Stop()
+
 	b3 := etl.NewSortableBuffer(etl.BufferOptimalSize)
 	b3.SetComparator(dbutils.DefaultDupCmpFunc)
 	collector3 := etl.NewCollector("", b3)
@@ -1777,6 +1780,11 @@ func invert(chaindata string) error {
 		err = collector4.Collect(k4, v4)
 		if err != nil {
 			return err
+		}
+		select {
+		default:
+		case <-logEvery.C:
+			fmt.Printf("extracting: %x\n", k)
 		}
 	}
 
