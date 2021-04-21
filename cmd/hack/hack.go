@@ -1773,7 +1773,6 @@ func invert(chaindata string) error {
 		if len(k) == 20 {
 			continue
 		}
-		fmt.Printf("%x,%x\n", k, v)
 
 		err = collector3.Collect(k, v)
 		if err != nil {
