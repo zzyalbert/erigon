@@ -901,7 +901,7 @@ func (tx *MdbxTx) Cursor(bucket string) (Cursor, error) {
 	return c, nil
 }
 
-func (tx *MdbxTx) stdCursor(bucket string) (RwCursor, error) {
+func (tx *MdbxTx) stdCursor(bucket string) (*MdbxCursor, error) {
 	b := tx.db.buckets[bucket]
 	c := &MdbxCursor{bucketName: bucket, tx: tx, bucketCfg: b, dbi: mdbx.DBI(tx.db.buckets[bucket].DBI)}
 
@@ -924,7 +924,9 @@ func (tx *MdbxTx) RwCursorDupSort(bucket string) (RwCursorDupSort, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MdbxDupSortCursor{MdbxCursor: basicCursor.(*MdbxCursor)}, nil
+
+	basicCursor.bucketCfg.AutoDupSortKeysConversion = false
+	return &MdbxDupSortCursor{MdbxCursor: basicCursor}, nil
 }
 
 func (tx *MdbxTx) CursorDupSort(bucket string) (CursorDupSort, error) {
