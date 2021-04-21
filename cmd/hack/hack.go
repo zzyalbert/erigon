@@ -1750,7 +1750,10 @@ func invert(chaindata string) error {
 	}
 	defer tx.Rollback()
 
-	c, _ := tx.CursorDupSort(dbutils.PlainStateBucket)
+	c, err := tx.CursorDupSort(dbutils.PlainStateBucket)
+	if err != nil {
+		panic(err)
+	}
 	defer c.Close()
 
 	logEvery := time.NewTicker(10 * time.Second)
@@ -1770,12 +1773,12 @@ func invert(chaindata string) error {
 		if len(k) == 20 {
 			continue
 		}
+		fmt.Printf("%x,%x\n", k, v)
 
 		err = collector3.Collect(k, v)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%x,%x\n", k, v)
 		k4 := v[:32]
 		v4 := append(append([]byte{}, k...), v[32:]...)
 		err = collector4.Collect(k4, v4)
