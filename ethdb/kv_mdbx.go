@@ -691,7 +691,7 @@ func (tx *MdbxTx) PrintDebugInfo(minTxSizeKb uint) {
 			"space_retired_kb", txInfo.SpaceRetired/1024,
 			"space_dirty_kb", txInfo.SpaceDirty/1024,
 			"space_leftover_kb", txInfo.SpaceLeftover/1024,
-			"callers", debug.Callers(7),
+			//"callers", debug.Callers(7),
 		)
 	}
 }
