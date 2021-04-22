@@ -290,6 +290,9 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 	del := 0
 	updSize := 0
 	for key, value := range accountMap {
+		if err := common.Stopped(quit); err != nil {
+			return err
+		}
 		if len(value) > 0 {
 			var acc accounts.Account
 			if err := acc.DecodeForStorage(value); err != nil {
@@ -323,6 +326,9 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 	updSize = 0
 
 	for key, value := range storageMap {
+		if err := common.Stopped(quit); err != nil {
+			return err
+		}
 		k := []byte(key)
 		if len(value) > 0 {
 			upd++
