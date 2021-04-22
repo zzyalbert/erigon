@@ -633,7 +633,9 @@ func (tx *MdbxTx) Commit() error {
 	commitTimer := time.Now()
 	defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
 
-	//tx.printDebugInfo()
+	if debug.BigRoTxKb() > 0 {
+		tx.PrintDebugInfo(debug.BigRoTxKb())
+	}
 
 	latency, err := tx.tx.Commit()
 	if err != nil {
@@ -675,26 +677,22 @@ func (tx *MdbxTx) Rollback() {
 }
 
 //nolint
-func (tx *MdbxTx) printDebugInfo() {
-	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
-		txInfo, err := tx.tx.Info(true)
-		if err != nil {
-			panic(err)
-		}
-
-		txSize := uint(txInfo.SpaceDirty / 1024)
-		doPrint := tx.readOnly && debug.BigRoTxKb() > 0 && txSize > debug.BigRoTxKb()
-		doPrint = doPrint || (!tx.readOnly && debug.BigRwTxKb() > 0 && txSize > debug.BigRwTxKb())
-		if doPrint {
-			log.Info("Tx info",
-				"id", txInfo.Id,
-				"read_lag", txInfo.ReadLag,
-				"ro", tx.readOnly,
-				//"space_retired_mb", txInfo.SpaceRetired/1024/1024,
-				"space_dirty_kb", txInfo.SpaceDirty/1024,
-				"callers", debug.Callers(7),
-			)
-		}
+func (tx *MdbxTx) PrintDebugInfo(minTxSizeKb uint) {
+	txInfo, err := tx.tx.Info(true)
+	if err != nil {
+		panic(err)
+	}
+	txSize := uint(txInfo.SpaceDirty / 1024)
+	if txSize > minTxSizeKb {
+		log.Info("Tx info",
+			"id", txInfo.Id,
+			"read_lag", txInfo.ReadLag,
+			"ro", tx.readOnly,
+			"space_retired_kb", txInfo.SpaceRetired/1024,
+			"space_dirty_kb", txInfo.SpaceDirty/1024,
+			"space_leftover_kb", txInfo.SpaceLeftover/1024,
+			"callers", debug.Callers(7),
+		)
 	}
 }
 

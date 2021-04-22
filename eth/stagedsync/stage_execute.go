@@ -313,6 +313,7 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 		default:
 		case <-logEvery.C:
 			fmt.Printf("acc stat: updated values %d, updated values bytes %d, deleted keys %d\n", upd, del, updSize)
+			tx.(ethdb.Printable).PrintDebugInfo(0)
 			log.Info(fmt.Sprintf("[%s] updating accounts", logPrefix))
 		}
 	}
@@ -340,6 +341,7 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 		default:
 		case <-logEvery.C:
 			fmt.Printf("storage stat: updated values %d, updated values bytes %d, deleted keys %d\n", upd, del, updSize)
+			tx.(ethdb.Printable).PrintDebugInfo(0)
 			log.Info(fmt.Sprintf("[%s] updating accounts", logPrefix))
 		}
 	}

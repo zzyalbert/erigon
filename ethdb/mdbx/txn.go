@@ -425,7 +425,7 @@ type TxInfo struct {
 
 // scan_rlt   The boolean flag controls the scan of the read lock
 //  table to provide complete information. Such scan
-//  is relatively expensive and you can avoid it
+//  is relatively expensive and youm can avoid it
 //  if corresponding fields are not needed.
 //  See description of \ref MDBX_txn_info.
 func (txn *Txn) Info(scanRlt bool) (*TxInfo, error) {

@@ -229,3 +229,7 @@ type HasStats interface {
 	BucketSize(name string) (uint64, error)
 	DiskSize(context.Context) (uint64, error) // db size
 }
+
+type Printable interface {
+	PrintDebugInfo(minTxSizeKb uint)
+}
