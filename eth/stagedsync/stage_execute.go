@@ -276,7 +276,7 @@ func UnwindExecutionStage(u *UnwindState, s *StageState, stateDB ethdb.Database,
 }
 
 func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-chan struct{}, params ExecuteBlockStageParams) error {
-	logEvery := time.NewTicker(30 * time.Second)
+	logEvery := time.NewTicker(5 * time.Second)
 	defer logEvery.Stop()
 	logPrefix := s.state.LogPrefix()
 	stateBucket := dbutils.PlainStateBucket
@@ -286,19 +286,24 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 	if errRewind != nil {
 		return fmt.Errorf("%s: getting rewind data: %v", logPrefix, errRewind)
 	}
+	upd := 0
+	del := 0
+	updSize := 0
 	for key, value := range accountMap {
 		if len(value) > 0 {
 			var acc accounts.Account
 			if err := acc.DecodeForStorage(value); err != nil {
 				return err
 			}
-
+			upd++
+			updSize += int(acc.EncodingLengthForStorage())
 			// Fetch the code hash
 			recoverCodeHashPlain(&acc, tx, key)
 			if err := writeAccountPlain(logPrefix, tx, key, acc); err != nil {
 				return fmt.Errorf("update plain account: %w", err)
 			}
 		} else {
+			del++
 			if err := deleteAccountPlain(tx, key); err != nil {
 				return fmt.Errorf("delete plain account: %w", err)
 			}
@@ -307,17 +312,25 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 		select {
 		default:
 		case <-logEvery.C:
+			fmt.Printf("acc stat: updated values %d, updated values bytes %d, deleted keys %d\n", upd, del, updSize)
 			log.Info(fmt.Sprintf("[%s] updating accounts", logPrefix))
 		}
 	}
 
+	upd = 0
+	del = 0
+	updSize = 0
+
 	for key, value := range storageMap {
 		k := []byte(key)
 		if len(value) > 0 {
+			upd++
+			updSize += len(value)
 			if err := tx.Put(stateBucket, k[:storageKeyLength], value); err != nil {
 				return fmt.Errorf("update plain storage: %w", err)
 			}
 		} else {
+			del++
 			if err := tx.Delete(stateBucket, k[:storageKeyLength], nil); err != nil {
 				return fmt.Errorf("delete plain storage: %w", err)
 			}
@@ -326,6 +339,7 @@ func unwindExecutionStage(u *UnwindState, s *StageState, tx ethdb.RwTx, quit <-c
 		select {
 		default:
 		case <-logEvery.C:
+			fmt.Printf("storage stat: updated values %d, updated values bytes %d, deleted keys %d\n", upd, del, updSize)
 			log.Info(fmt.Sprintf("[%s] updating accounts", logPrefix))
 		}
 	}
