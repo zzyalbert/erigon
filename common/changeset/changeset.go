@@ -158,6 +158,8 @@ func Truncate(logPrefix string, tx ethdb.RwTx, from uint64) error {
 	keyStart := dbutils.EncodeBlockNumber(from)
 
 	{
+		keysAmount := 0
+		valuesAmount := []uint64{}
 		c, err := tx.RwCursorDupSort(dbutils.PlainAccountChangeSetBucket)
 		if err != nil {
 			return err
@@ -167,6 +169,9 @@ func Truncate(logPrefix string, tx ethdb.RwTx, from uint64) error {
 			if err != nil {
 				return err
 			}
+			keysAmount++
+			vals, _ := c.CountDuplicates()
+			valuesAmount = append(valuesAmount, vals)
 			err = c.DeleteCurrentDuplicates()
 			if err != nil {
 				return fmt.Errorf("account changesets truncate: %w", err)
@@ -178,8 +183,19 @@ func Truncate(logPrefix string, tx ethdb.RwTx, from uint64) error {
 				log.Info(fmt.Sprintf("[%s] truncating account change sets", logPrefix), "block_number", binary.BigEndian.Uint64(k))
 			}
 		}
+
+		keysAmountAfterDel := 0
+		for k, _, err := c.Seek(keyStart); k != nil; k, _, err = c.NextNoDup() {
+			if err != nil {
+				return err
+			}
+			keysAmountAfterDel++
+		}
+		fmt.Printf("Accs: Keys amount: %d, keys after del: %d, values amount: %d\n", keysAmount, keysAmountAfterDel, valuesAmount)
 	}
 	{
+		keysAmount := 0
+		valuesAmount := []uint64{}
 		c, err := tx.RwCursorDupSort(dbutils.PlainStorageChangeSetBucket)
 		if err != nil {
 			return err
@@ -189,6 +205,9 @@ func Truncate(logPrefix string, tx ethdb.RwTx, from uint64) error {
 			if err != nil {
 				return err
 			}
+			keysAmount++
+			vals, _ := c.CountDuplicates()
+			valuesAmount = append(valuesAmount, vals)
 			err = c.DeleteCurrentDuplicates()
 			if err != nil {
 				return fmt.Errorf("storage changesets truncate: %w", err)
@@ -200,6 +219,15 @@ func Truncate(logPrefix string, tx ethdb.RwTx, from uint64) error {
 				log.Info(fmt.Sprintf("[%s] truncating storage change sets", logPrefix), "block_number", binary.BigEndian.Uint64(k))
 			}
 		}
+
+		keysAmountAfterDel := 0
+		for k, _, err := c.Seek(keyStart); k != nil; k, _, err = c.NextNoDup() {
+			if err != nil {
+				return err
+			}
+			keysAmountAfterDel++
+		}
+		fmt.Printf("Stor: Keys amount: %d, keys after del: %d, values amount: %d\n", keysAmount, keysAmountAfterDel, valuesAmount)
 	}
 	return nil
 }
