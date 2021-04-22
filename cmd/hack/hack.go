@@ -1750,7 +1750,7 @@ func invert(chaindata string) error {
 	}
 	defer tx.Rollback()
 
-	c, err := tx.CursorDupSort(dbutils.PlainStateBucket)
+	c, err := tx.Cursor(dbutils.PlainStateBucket)
 	if err != nil {
 		panic(err)
 	}
