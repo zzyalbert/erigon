@@ -1763,9 +1763,6 @@ func invert(chaindata string) error {
 	b3.SetComparator(dbutils.DefaultDupCmpFunc)
 	collector3 := etl.NewCollector("", b3)
 
-	b4 := etl.NewSortableBuffer(etl.BufferOptimalSize)
-	b4.SetComparator(dbutils.DefaultDupCmpFunc)
-	collector4 := etl.NewCollector("", b4)
 	for k, v, err := c.First(); k != nil; k, v, err = c.Next() {
 		if err != nil {
 			return err
@@ -1778,12 +1775,7 @@ func invert(chaindata string) error {
 		if err != nil {
 			return err
 		}
-		k4 := v[:32]
-		v4 := append(append([]byte{}, k...), v[32:]...)
-		err = collector4.Collect(k4, v4)
-		if err != nil {
-			return err
-		}
+
 		select {
 		default:
 		case <-logEvery.C:
@@ -1791,10 +1783,7 @@ func invert(chaindata string) error {
 		}
 	}
 
-	if err := collector3.Load("", tx, dbutils.PlainStateBucket3, etl.IdentityLoadFunc, etl.TransformArgs{}); err != nil {
-		return err
-	}
-	if err := collector4.Load("", tx, dbutils.PlainStateBucket4, etl.IdentityLoadFunc, etl.TransformArgs{}); err != nil {
+	if err := collector3.Load("", tx, dbutils.PlainStateBucket5, etl.IdentityLoadFunc, etl.TransformArgs{}); err != nil {
 		return err
 	}
 

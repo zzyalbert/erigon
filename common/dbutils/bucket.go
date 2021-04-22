@@ -39,6 +39,7 @@ Physical layout:
 const PlainStateBucket = "PLAIN-CST2"
 const PlainStateBucket3 = "PLAIN-CST3"
 const PlainStateBucket4 = "PLAIN-CST4"
+const PlainStateBucket5 = "PLAIN-CST5"
 const PlainStateBucketOld1 = "PLAIN-CST"
 
 const (
