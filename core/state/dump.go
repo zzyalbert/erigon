@@ -192,8 +192,11 @@ func (d *Dumper) DumpToCollector(c DumpCollector, excludeCode, excludeStorage, _
 
 			if !excludeCode && codeHash != nil && !bytes.Equal(codeHash, emptyCodeHash[:]) {
 				var code []byte
-				if code, err = ethdb.Get(d.db, dbutils.CodeBucket, codeHash); err != nil {
+				if code, err = d.db.GetOne(dbutils.CodeBucket, codeHash); err != nil {
 					return nil, err
+				}
+				if code == nil {
+					return nil, fmt.Errorf("no code found for hash %x", codeHash)
 				}
 				account.Code = common.Bytes2Hex(code)
 			}

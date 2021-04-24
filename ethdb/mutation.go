@@ -131,15 +131,7 @@ func (m *mutation) GetOne(table string, key []byte) ([]byte, error) {
 // Can only be called from the worker thread
 func (m *mutation) Get(table string, key []byte) ([]byte, error) {
 	value, err := m.GetOne(table, key)
-	if err != nil {
-		return nil, err
-	}
-
-	if value == nil {
-		return nil, ErrKeyNotFound
-	}
-
-	return value, nil
+	return getOneWrapper(value, err)
 }
 
 func (m *mutation) Last(table string) ([]byte, []byte, error) {

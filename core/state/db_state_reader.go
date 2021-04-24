@@ -88,8 +88,8 @@ func (dbr *DbStateReader) ReadAccountStorage(address common.Address, incarnation
 			return enc, nil
 		}
 	}
-	enc, err2 := dbr.db.Get(dbutils.HashedStorageBucket, compositeKey)
-	if err2 != nil && !errors.Is(err2, ethdb.ErrKeyNotFound) {
+	enc, err2 := dbr.db.GetOne(dbutils.HashedStorageBucket, compositeKey)
+	if err2 != nil {
 		return nil, err2
 	}
 	if dbr.storageCache != nil {

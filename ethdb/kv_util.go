@@ -8,22 +8,6 @@ import (
 	"github.com/ledgerwatch/turbo-geth/log"
 )
 
-func Get(tx Tx, bucket string, key []byte) ([]byte, error) {
-	var dat []byte
-	v, err := tx.GetOne(bucket, key)
-	if err != nil {
-		return nil, err
-	}
-	if v != nil {
-		dat = make([]byte, len(v))
-		copy(dat, v)
-	}
-	if dat == nil {
-		return nil, ErrKeyNotFound
-	}
-	return dat, err
-}
-
 func ForEach(c Cursor, walker func(k, v []byte) (bool, error)) error {
 	for k, v, err := c.First(); k != nil; k, v, err = c.Next() {
 		if err != nil {
