@@ -3,7 +3,6 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 
 	"github.com/RoaringBitmap/roaring/roaring64"
@@ -91,9 +90,6 @@ func FindByHistory(tx ethdb.Tx, storage bool, key []byte, timestamp uint64) ([]b
 			data, err = changeset.Mapper[csBucket].WalkerAdapter(c).Find(changeSetBlock, key)
 		}
 		if err != nil {
-			if errors.Is(err, changeset.ErrNotFound) {
-				return nil, nil
-			}
 			return nil, fmt.Errorf("finding %x in the changeset %d: %w", key, changeSetBlock, err)
 		}
 	} else {

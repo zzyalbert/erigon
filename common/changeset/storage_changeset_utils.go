@@ -48,7 +48,7 @@ func doSearch2(
 			}
 			_, k, v = fromDBFormat(k, v)
 			if !bytes.HasPrefix(k, addrBytesToFind) {
-				return nil, ErrNotFound
+				return nil, nil
 			}
 
 			stHash := k[keyPrefixLen+common.IncarnationLength:]
@@ -56,7 +56,7 @@ func doSearch2(
 				return v, nil
 			}
 		}
-		return nil, ErrNotFound
+		return nil, nil
 	}
 
 	seek := make([]byte, 8+keyPrefixLen+common.IncarnationLength)
@@ -69,7 +69,7 @@ func doSearch2(
 		return nil, err
 	}
 	if !bytes.HasPrefix(v, keyBytesToFind) {
-		return nil, ErrNotFound
+		return nil, nil
 	}
 	_, _, v = fromDBFormat(k, v)
 	return v, nil

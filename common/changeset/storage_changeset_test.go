@@ -472,12 +472,15 @@ func TestMultipleIncarnationsOfTheSameContract(t *testing.T) {
 	assert.NoError(t, err5)
 	assert.Equal(t, data5, val5)
 
-	_, errA := cs.FindWithIncarnation(1, dbutils.PlainGenerateCompositeStorageKey(contractA.Bytes(), 1, key1.Bytes()))
-	assert.Error(t, errA)
+	cs1, errA := cs.FindWithIncarnation(1, dbutils.PlainGenerateCompositeStorageKey(contractA.Bytes(), 1, key1.Bytes()))
+	assert.NoError(t, errA)
+	assert.Nil(t, cs1)
 
-	_, errB := cs.FindWithIncarnation(1, dbutils.PlainGenerateCompositeStorageKey(contractD.Bytes(), 2, key1.Bytes()))
-	assert.Error(t, errB)
+	cs2, errB := cs.FindWithIncarnation(1, dbutils.PlainGenerateCompositeStorageKey(contractD.Bytes(), 2, key1.Bytes()))
+	assert.NoError(t, errB)
+	assert.Nil(t, cs2)
 
-	_, errC := cs.FindWithIncarnation(1, dbutils.PlainGenerateCompositeStorageKey(contractB.Bytes(), 1, key7.Bytes()))
-	assert.Error(t, errC)
+	cs3, errC := cs.FindWithIncarnation(1, dbutils.PlainGenerateCompositeStorageKey(contractB.Bytes(), 1, key7.Bytes()))
+	assert.NoError(t, errC)
+	assert.Nil(t, cs3)
 }
