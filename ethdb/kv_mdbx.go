@@ -151,7 +151,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptDpReverseLimit, 4*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, 2*1024*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpLimit, 4*1024*1024); err != nil {
 			return nil, err
 		}
 	}
