@@ -107,7 +107,7 @@ func (dbr *DbStateReader) ReadAccountCode(address common.Address, incarnation ui
 			return code, nil
 		}
 	}
-	code, err := dbr.db.Get(dbutils.CodeBucket, codeHash[:])
+	code, err := dbr.db.GetOne(dbutils.CodeBucket, codeHash[:])
 	if dbr.codeCache != nil && len(code) <= 1024 {
 		dbr.codeCache.Set(address[:], code)
 	}

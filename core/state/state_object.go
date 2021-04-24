@@ -326,6 +326,9 @@ func (so *stateObject) Code() []byte {
 	if err != nil {
 		so.setError(fmt.Errorf("can't load code hash %x: %v", so.CodeHash(), err))
 	}
+	if code == nil {
+		so.setError(fmt.Errorf("code not found for hash %x", so.CodeHash()))
+	}
 	so.code = code
 	return code
 }
