@@ -492,7 +492,7 @@ func (tx *MdbxTx) CreateBucket(name string) error {
 
 	dbi, err := tx.tx.OpenDBI(name, mdbx.DBAccede, nil, dcmp)
 	if err != nil && !mdbx.IsNotFound(err) {
-		return fmt.Errorf("create bucket: %s, %w", name, err)
+		return fmt.Errorf("create bucket 1: %s, %w", name, err)
 	}
 	if err == nil {
 		cnfCopy.DBI = dbutils.DBI(dbi)
@@ -525,7 +525,7 @@ func (tx *MdbxTx) CreateBucket(name string) error {
 
 	dbi, err = tx.tx.OpenDBI(name, nativeFlags, nil, dcmp)
 	if err != nil {
-		return fmt.Errorf("create bucket: %s, %w", name, err)
+		return fmt.Errorf("create bucket 2: %s, %w", name, err)
 	}
 	cnfCopy.DBI = dbutils.DBI(dbi)
 
