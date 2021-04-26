@@ -8,10 +8,10 @@ import (
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/hexutil"
 	"github.com/ledgerwatch/turbo-geth/core/types"
-	"github.com/ledgerwatch/turbo-geth/ethdb"
 	"github.com/ledgerwatch/turbo-geth/gointerfaces"
 	"github.com/ledgerwatch/turbo-geth/gointerfaces/remote"
 	"github.com/ledgerwatch/turbo-geth/log"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
 
@@ -42,16 +42,44 @@ type EthBackend interface {
 
 type RemoteBackend struct {
 	remoteEthBackend remote.ETHBACKENDClient
+	conn             *grpc.ClientConn
 	log              log.Logger
 }
 
-func NewRemoteBackend(kv ethdb.RoKV) *RemoteBackend {
+func NewRemoteBackend(conn *grpc.ClientConn) *RemoteBackend {
 	return &RemoteBackend{
-		remoteEthBackend: remote.NewETHBACKENDClient(kv.(*ethdb.RemoteKV).GrpcConn()),
+		remoteEthBackend: remote.NewETHBACKENDClient(conn),
+		conn:             conn,
 		log:              log.New("remote_db"),
 	}
 }
 
+func (back *RemoteBackend) EnsureVersion() error {
+	/*TODO:
+	kvClient := remote.NewKVClient(back.conn)
+	// Perform compatibility check
+	versionReply, err := kvClient.Version(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
+	if err != nil {
+		return fmt.Errorf("getting Version info from remove KV: %w", err)
+	}
+	var compatible bool
+	if versionReply.Major != back.opts.versionMajor {
+		compatible = false
+	} else if versionReply.Minor != back.opts.versionMinor {
+		compatible = false
+	} else {
+		compatible = true
+	}
+	if !compatible {
+		return fmt.Errorf("incompatible KV interface versions: client %d.%d.%d, server %d.%d.%d",
+			back.opts.versionMajor, back.opts.versionMinor, back.opts.versionPatch,
+			versionReply.Major, versionReply.Minor, versionReply.Patch)
+	}
+	log.Info("KV interfaces compatible", "client", fmt.Sprintf("%d.%d.%d", db.opts.versionMajor, db.opts.versionMinor, db.opts.versionPatch),
+		"server", fmt.Sprintf("%d.%d.%d", versionReply.Major, versionReply.Minor, versionReply.Patch))
+	*/
+	return nil
+}
 func (back *RemoteBackend) AddLocal(ctx context.Context, signedTx []byte) ([]byte, error) {
 	res, err := back.remoteEthBackend.Add(ctx, &remote.TxRequest{Signedtx: signedTx})
 	if err != nil {

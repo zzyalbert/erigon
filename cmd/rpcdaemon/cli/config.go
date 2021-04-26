@@ -154,7 +154,7 @@ func checkDbCompatibility(db ethdb.RwKV) error {
 	return nil
 }
 
-func OpenDB(cfg Flags) (ethdb.RoKV, core.ApiBackend, error) {
+func OpenDB(cfg Flags, stopTheApp context.CancelFunc) (ethdb.RoKV, core.ApiBackend, error) {
 	var kv ethdb.RwKV
 	var ethBackend core.ApiBackend
 	var err error
@@ -164,7 +164,6 @@ func OpenDB(cfg Flags) (ethdb.RoKV, core.ApiBackend, error) {
 	// Do not change the order of these checks. Chaindata needs to be checked first, because PrivateApiAddr has default value which is not ""
 	// If PrivateApiAddr is checked first, the Chaindata option will never work
 	if cfg.SingleNodeMode {
-		fmt.Printf("a\n")
 		if cfg.Database == "mdbx" {
 			kv, err = ethdb.NewMDBX().Path(cfg.Chaindata).Readonly().Open()
 			if err != nil {
@@ -192,7 +191,7 @@ func OpenDB(cfg Flags) (ethdb.RoKV, core.ApiBackend, error) {
 		}
 	}
 	if cfg.PrivateApiAddr != "" {
-		var remoteKv ethdb.RwKV
+		var remoteKv *ethdb.RemoteKV
 		remoteKv, err = ethdb.NewRemote(
 			remotedbserver.KvServiceAPIVersion.Major,
 			remotedbserver.KvServiceAPIVersion.Minor,
@@ -200,11 +199,24 @@ func OpenDB(cfg Flags) (ethdb.RoKV, core.ApiBackend, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("could not connect to remoteKv: %w", err)
 		}
-		ethBackend = core.NewRemoteBackend(remoteKv)
+
+		remoteEthBackend := core.NewRemoteBackend(remoteKv.GrpcConn())
 		if kv == nil {
 			kv = remoteKv
 		}
+		ethBackend = remoteEthBackend
+		go func() {
+			if err := remoteKv.EnsureVersion(); err != nil {
+				log.Error("ensure KV version compatibility", err)
+				stopTheApp()
+			}
+			if err := remoteEthBackend.EnsureVersion(); err != nil {
+				log.Error("ensure eth backend version compatibility", err)
+				stopTheApp()
+			}
+		}()
 	}
+
 	return kv, ethBackend, err
 }
 

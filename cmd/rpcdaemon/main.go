@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/ledgerwatch/turbo-geth/cmd/rpcdaemon/cli"
@@ -16,7 +17,10 @@ func main() {
 	raiseFdLimit()
 	cmd, cfg := cli.RootCommand()
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		db, backend, err := cli.OpenDB(*cfg)
+		ctx, cancel := context.WithCancel(cmd.Context())
+		defer cancel()
+
+		db, backend, err := cli.OpenDB(*cfg, cancel)
 		if err != nil {
 			log.Error("Could not connect to DB", "error", err)
 			return nil
@@ -30,7 +34,7 @@ func main() {
 			log.Info("filters are not supported in chaindata mode")
 		}
 
-		if err := cli.StartRpcServer(cmd.Context(), *cfg, commands.APIList(cmd.Context(), db, backend, ff, *cfg, nil)); err != nil {
+		if err := cli.StartRpcServer(ctx, *cfg, commands.APIList(ctx, db, backend, ff, *cfg, nil)); err != nil {
 			log.Error(err.Error())
 			return nil
 		}

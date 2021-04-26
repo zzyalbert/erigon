@@ -86,7 +86,7 @@ func (opts remoteOpts) InMem(listener *bufconn.Listener) remoteOpts {
 	return opts
 }
 
-func (opts remoteOpts) Open(certFile, keyFile, caCert string) (RwKV, error) {
+func (opts remoteOpts) Open(certFile, keyFile, caCert string) (*RemoteKV, error) {
 	var dialOpts []grpc.DialOption
 	dialOpts = []grpc.DialOption{
 		grpc.WithConnectParams(grpc.ConnectParams{Backoff: backoff.DefaultConfig, MinConnectTimeout: 10 * time.Minute}),
@@ -204,8 +204,32 @@ func (db *RemoteKV) GrpcConn() *grpc.ClientConn {
 	return db.conn
 }
 
-// Close
-// All transactions must be closed before closing the database.
+// EnsureVersion - needs to be run inside goroutine, because it blocks until grpc connection is ready to use.
+func (db *RemoteKV) EnsureVersion() error {
+	kvClient := remote.NewKVClient(db.conn)
+	// Perform compatibility check
+	versionReply, err := kvClient.Version(context.Background(), &emptypb.Empty{}, grpc.WaitForReady(true))
+	if err != nil {
+		return fmt.Errorf("getting Version info from remove KV: %w", err)
+	}
+	var compatible bool
+	if versionReply.Major != db.opts.versionMajor {
+		compatible = false
+	} else if versionReply.Minor != db.opts.versionMinor {
+		compatible = false
+	} else {
+		compatible = true
+	}
+	if !compatible {
+		return fmt.Errorf("incompatible KV interface versions: client %d.%d.%d, server %d.%d.%d",
+			db.opts.versionMajor, db.opts.versionMinor, db.opts.versionPatch,
+			versionReply.Major, versionReply.Minor, versionReply.Patch)
+	}
+	log.Info("KV interfaces compatible", "client", fmt.Sprintf("%d.%d.%d", db.opts.versionMajor, db.opts.versionMinor, db.opts.versionPatch),
+		"server", fmt.Sprintf("%d.%d.%d", versionReply.Major, versionReply.Minor, versionReply.Patch))
+	return nil
+}
+
 func (db *RemoteKV) Close() {
 	if db.conn != nil {
 		if err := db.conn.Close(); err != nil {
