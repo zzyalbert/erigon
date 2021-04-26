@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	dbg "runtime/debug"
 	"sync"
 	"time"
 	"unsafe"
@@ -525,6 +526,7 @@ func (tx *MdbxTx) CreateBucket(name string) error {
 
 	dbi, err = tx.tx.OpenDBI(name, nativeFlags, nil, dcmp)
 	if err != nil {
+		fmt.Printf("%s\n", dbg.Stack())
 		return fmt.Errorf("create bucket 2: %s, %w", name, err)
 	}
 	cnfCopy.DBI = dbutils.DBI(dbi)
