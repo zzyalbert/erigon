@@ -654,7 +654,7 @@ func (tx *MdbxTx) ItsTimeToCommit() bool {
 		panic(err)
 	}
 
-	return tx.db.opts.dirtyListMaxPages*4096 < 2*txInfo.SpaceDirty
+	return tx.db.opts.dirtyListMaxPages*4096*4 < txInfo.SpaceDirty
 }
 
 func (tx *MdbxTx) PrintDebugInfo() {
