@@ -214,11 +214,7 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 					if hasTx2, ok := tt.(ethdb.HasTx); ok {
 						tt = hasTx2.Tx()
 						fmt.Printf("%T\n", tt)
-						if p, canPrint := tt.(P); canPrint {
-							p.PrintDebugInfo()
-						} else {
-							fmt.Printf("can't print?")
-						}
+						tt.(*ethdb.MdbxTx).PrintDebugInfo()
 					}
 				}
 			}
