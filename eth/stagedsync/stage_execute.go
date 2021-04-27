@@ -168,7 +168,7 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 
 	logEvery := time.NewTicker(5 * time.Second)
 	defer logEvery.Stop()
-	commitEvery := time.NewTicker(5 * time.Minute)
+	commitEvery := time.NewTicker(2 * time.Minute)
 	defer commitEvery.Stop()
 	stageProgress := s.BlockNumber
 	logBlock := stageProgress
@@ -201,21 +201,11 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 
 		stageProgress = blockNum
 
-		if !useExternalTx && blockNum%100 == 0 {
-			doCommit := false
-			if hasTx, ok := tx.(ethdb.HasTx); ok {
-				tt := hasTx.Tx()
-				if p, found := tt.(*ethdb.MdbxTx); found {
-					doCommit = p.ItsTimeToCommit()
-				} else {
-					if hasTx2, ok := tt.(ethdb.HasTx); ok {
-						tt = hasTx2.Tx()
-						doCommit = tt.(*ethdb.MdbxTx).ItsTimeToCommit()
-					}
-				}
-			}
+		select {
+		default:
+		case <-commitEvery.C:
+			if !useExternalTx {
 
-			if doCommit {
 				if err = s.Update(tx, stageProgress); err != nil {
 					return err
 				}
@@ -223,10 +213,7 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 					return err
 				}
 			}
-		}
 
-		select {
-		default:
 		case <-logEvery.C:
 			if hasTx, ok := tx.(ethdb.HasTx); ok {
 				tt := hasTx.Tx()
