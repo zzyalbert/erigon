@@ -693,7 +693,7 @@ func (tx *MdbxTx) PrintDebugInfo() {
 			"read_lag", txInfo.ReadLag,
 			"ro", tx.readOnly,
 			//"space_retired_mb", txInfo.SpaceRetired/1024/1024,
-			"space_dirty_kb", txInfo.SpaceDirty/1024,
+			"space_dirty_mb", txInfo.SpaceDirty/1024/1024,
 			//"callers", debug.Callers(7),
 		)
 	}
