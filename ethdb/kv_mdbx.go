@@ -599,7 +599,7 @@ func (tx *MdbxTx) Commit() error {
 	}()
 	tx.closeCursors()
 
-	slowTx := 10 * time.Second
+	slowTx := 200 * time.Millisecond
 	if debug.SlowCommit() > 0 {
 		slowTx = debug.SlowCommit()
 	}
@@ -607,7 +607,9 @@ func (tx *MdbxTx) Commit() error {
 	commitTimer := time.Now()
 	defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
 
-	//tx.printDebugInfo()
+	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
+		tx.PrintDebugInfo()
+	}
 
 	latency, err := tx.tx.Commit()
 	if err != nil {
@@ -649,26 +651,34 @@ func (tx *MdbxTx) Rollback() {
 }
 
 //nolint
-func (tx *MdbxTx) printDebugInfo() {
-	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
-		txInfo, err := tx.tx.Info(true)
-		if err != nil {
-			panic(err)
-		}
+func (tx *MdbxTx) ItsTimeToCommit() bool {
+	txInfo, err := tx.tx.Info(true)
+	if err != nil {
+		panic(err)
+	}
 
-		txSize := uint(txInfo.SpaceDirty / 1024)
-		doPrint := tx.readOnly && debug.BigRoTxKb() > 0 && txSize > debug.BigRoTxKb()
-		doPrint = doPrint || (!tx.readOnly && debug.BigRwTxKb() > 0 && txSize > debug.BigRwTxKb())
-		if doPrint {
-			log.Info("Tx info",
-				"id", txInfo.Id,
-				"read_lag", txInfo.ReadLag,
-				"ro", tx.readOnly,
-				//"space_retired_mb", txInfo.SpaceRetired/1024/1024,
-				"space_dirty_kb", txInfo.SpaceDirty/1024,
-				"callers", debug.Callers(7),
-			)
-		}
+	return tx.db.opts.dirtyListMaxPages*4096 < 2*txInfo.SpaceDirty
+}
+
+func (tx *MdbxTx) PrintDebugInfo() {
+	txInfo, err := tx.tx.Info(true)
+	if err != nil {
+		panic(err)
+	}
+
+	txSize := uint(txInfo.SpaceDirty / 1024)
+	doPrint := debug.BigRoTxKb() == 0 && debug.BigRwTxKb() == 0 ||
+		tx.readOnly && debug.BigRoTxKb() > 0 && txSize > debug.BigRoTxKb() ||
+		(!tx.readOnly && debug.BigRwTxKb() > 0 && txSize > debug.BigRwTxKb())
+	if doPrint {
+		log.Info("Tx info",
+			"id", txInfo.Id,
+			"read_lag", txInfo.ReadLag,
+			"ro", tx.readOnly,
+			//"space_retired_mb", txInfo.SpaceRetired/1024/1024,
+			"space_dirty_mb", txInfo.SpaceDirty/1024/1024,
+			//"callers", debug.Callers(7),
+		)
 	}
 }
 

@@ -204,12 +204,23 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 		select {
 		default:
 		case <-logEvery.C:
+			if hasTx, ok := tx.(ethdb.HasTx); ok {
+				tt := hasTx.Tx()
+				if p, canPrint := tt.(*ethdb.MdbxTx); canPrint {
+					p.PrintDebugInfo()
+				} else {
+					if hasTx2, ok := tt.(ethdb.HasTx); ok {
+						tt = hasTx2.Tx()
+						tt.(*ethdb.MdbxTx).PrintDebugInfo()
+					}
+				}
+			}
 			logBlock, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, nil)
 		case <-commitEvery.C:
-			if err = s.Update(tx, stageProgress); err != nil {
-				return err
-			}
 			if !useExternalTx {
+				if err = s.Update(tx, stageProgress); err != nil {
+					return err
+				}
 				if err = tx.CommitAndBegin(context.Background()); err != nil {
 					return err
 				}
