@@ -15,7 +15,17 @@ var (
 	ErrAttemptToDeleteNonDeprecatedBucket = errors.New("only buckets from dbutils.DeprecatedBuckets can be deleted")
 	ErrUnknownBucket                      = errors.New("unknown bucket. add it to dbutils.Buckets")
 
-	dbSize = metrics.GetOrRegisterGauge("db/size", metrics.DefaultRegistry) //nolint
+	dbSize  = metrics.GetOrRegisterGauge("db/size", metrics.DefaultRegistry)  //nolint
+	txDirty = metrics.GetOrRegisterGauge("tx/dirty", metrics.DefaultRegistry) //nolint
+
+	dbPgopsNewly   = metrics.GetOrRegisterGauge("db/pgops/newly", metrics.DefaultRegistry)   //nolint
+	dbPgopsCow     = metrics.GetOrRegisterGauge("db/pgops/cow", metrics.DefaultRegistry)     //nolint
+	dbPgopsClone   = metrics.GetOrRegisterGauge("db/pgops/clone", metrics.DefaultRegistry)   //nolint
+	dbPgopsSplit   = metrics.GetOrRegisterGauge("db/pgops/split", metrics.DefaultRegistry)   //nolint
+	dbPgopsMerge   = metrics.GetOrRegisterGauge("db/pgops/merge", metrics.DefaultRegistry)   //nolint
+	dbPgopsSpill   = metrics.GetOrRegisterGauge("db/pgops/spill", metrics.DefaultRegistry)   //nolint
+	dbPgopsUnspill = metrics.GetOrRegisterGauge("db/pgops/unspill", metrics.DefaultRegistry) //nolint
+	dbPgopsWops    = metrics.GetOrRegisterGauge("db/pgops/wops", metrics.DefaultRegistry)    //nolint
 )
 
 type Has interface {
@@ -142,6 +152,7 @@ type Tx interface {
 	Comparator(bucket string) dbutils.CmpFunc
 
 	CHandle() unsafe.Pointer // Pointer to the underlying C transaction handle (e.g. *C.MDB_txn)
+	CollectMetrics()
 }
 
 type RwTx interface {
@@ -228,8 +239,4 @@ type RwCursorDupSort interface {
 type HasStats interface {
 	BucketSize(name string) (uint64, error)
 	DiskSize(context.Context) (uint64, error) // db size
-}
-
-type Printable interface {
-	PrintDebugInfo(minTxSizeKb uint)
 }
