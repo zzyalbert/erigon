@@ -205,6 +205,9 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 		default:
 		case <-logEvery.C:
 			if hasTx, ok := tx.(ethdb.HasTx); ok {
+				hasTx.Tx().CollectMetrics()
+			}
+			if hasTx, ok := tx.(ethdb.HasTx); ok {
 				tt := hasTx.Tx()
 				if p, canPrint := tt.(*ethdb.MdbxTx); canPrint {
 					p.PrintDebugInfo()
