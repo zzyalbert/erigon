@@ -401,7 +401,7 @@ func writeAccountPlain(logPrefix string, db ethdb.RwTx, key string, acc accounts
 		},
 		func(inc uint64) []byte { return dbutils.PlainGenerateStoragePrefix(address[:], inc) },
 	); err != nil {
-		return err
+		return fmt.Errorf("clean code: %w", err)
 	}
 
 	return rawdb.PlainWriteAccount(db, address, acc)
