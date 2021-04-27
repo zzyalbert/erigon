@@ -98,7 +98,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 	if err != nil {
 		return nil, err
 	}
-	//_ = env.SetDebug(mdbx.LogLvlExtra, mdbx.DbgAssert, mdbx.LoggerDoNotChange) // temporary disable error, because it works if call it 1 time, but returns error if call it twice in same process (what often happening in tests)
+	_ = env.SetDebug(mdbx.LogLvlExtra, mdbx.DbgAssert, mdbx.LoggerDoNotChange) // temporary disable error, because it works if call it 1 time, but returns error if call it twice in same process (what often happening in tests)
 
 	if err = env.SetOption(mdbx.OptMaxDB, 100); err != nil {
 		return nil, err
@@ -633,7 +633,7 @@ func (tx *MdbxTx) Commit() error {
 	commitTimer := time.Now()
 	defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
 
-	//tx.printDebugInfo()
+	tx.printDebugInfo()
 
 	latency, err := tx.tx.Commit()
 	if err != nil {
