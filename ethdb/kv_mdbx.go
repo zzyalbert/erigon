@@ -622,10 +622,10 @@ func (tx *MdbxTx) Commit() error {
 	}()
 	tx.closeCursors()
 
-	slowTx := 10 * time.Second
-	if debug.SlowCommit() > 0 {
-		slowTx = debug.SlowCommit()
-	}
+	//slowTx := 10 * time.Second
+	//if debug.SlowCommit() > 0 {
+	//	slowTx = debug.SlowCommit()
+	//}
 
 	commitTimer := time.Now()
 	defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
@@ -639,17 +639,17 @@ func (tx *MdbxTx) Commit() error {
 		return err
 	}
 
-	if latency.Whole > slowTx {
-		log.Info("Commit",
-			"preparation", latency.Preparation,
-			"gc", latency.GC,
-			"audit", latency.Audit,
-			"write", latency.Write,
-			"fsync", latency.Sync,
-			"ending", latency.Ending,
-			"whole", latency.Whole,
-		)
-	}
+	//if latency.Whole > slowTx {
+	log.Info("Commit",
+		"preparation", latency.Preparation,
+		"gc", latency.GC,
+		"audit", latency.Audit,
+		"write", latency.Write,
+		"fsync", latency.Sync,
+		"ending", latency.Ending,
+		"whole", latency.Whole,
+	)
+	//}
 
 	return nil
 }
@@ -681,7 +681,6 @@ func (tx *MdbxTx) ItsTimeToCommit() bool {
 	}
 
 	return tx.db.opts.dirtyListMaxPages*4096 < 2*txInfo.SpaceDirty
-
 }
 
 func (tx *MdbxTx) PrintDebugInfo() {
