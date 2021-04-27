@@ -34,7 +34,7 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>. */
 
-#define MDBX_BUILD_SOURCERY bbcb0fd59ce19d2a8624d61216a54afc8ff2e62bc38e846a0ea2f96f3999bda5_v0_9_3_150_g31cfce4c
+#define MDBX_BUILD_SOURCERY d1c23690d2abde80214b55466db8d493ca2663ce5fee3daa44fa591c31442973_v0_9_3_155_g8b95be91
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -1653,6 +1653,25 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
       MDBX_DPL_PREALLOC_FOR_RADIXSORT == 1)
 #error MDBX_DPL_PREALLOC_FOR_RADIXSORT must be defined as 0 or 1
 #endif /* MDBX_DPL_PREALLOC_FOR_RADIXSORT */
+
+/* Basically, this build-option is for TODO. Guess it should be replaced
+ * with MDBX_ENABLE_WRITEMAP_SPILLING with the three variants:
+ *  0/OFF = Don't track dirty pages at all and don't spilling ones.
+ *          This should be by-default on Linux and may-be other systems
+ *          (not sure: Darwin/OSX, FreeBSD, Windows 10) where kernel provides
+ *          properly LRU tracking and async writing on-demand.
+ *  1/ON  = Lite tracking of dirty pages but with LRU labels and explicit
+ *          spilling with msync(MS_ASYNC). */
+#ifndef MDBX_FAKE_SPILL_WRITEMAP
+#if defined(__linux__) || defined(__gnu_linux__)
+#define MDBX_FAKE_SPILL_WRITEMAP 1 /* msync(MS_ASYNC) is no-op on Linux */
+#else
+#define MDBX_FAKE_SPILL_WRITEMAP 0
+#endif
+#endif
+#if !(MDBX_FAKE_SPILL_WRITEMAP == 0 || MDBX_FAKE_SPILL_WRITEMAP == 1)
+#error MDBX_FAKE_SPILL_WRITEMAP must be defined as 0 or 1
+#endif /* MDBX_FAKE_SPILL_WRITEMAP */
 
 /** Controls sort order of internal page number lists.
  * The database format depend on this option and libmdbx builded with different
