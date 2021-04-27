@@ -1269,7 +1269,11 @@ func (c *MdbxCursor) putDupSort(key []byte, value []byte) error {
 		err := c.putNoOverwrite(key, value)
 		if err != nil {
 			if mdbx.IsKeyExists(err) {
-				return c.putCurrent(key, value)
+				if err := c.putCurrent(key, value); err != nil {
+					return fmt.Errorf("putCurrent, bucket: %s, key: %x, val: %x, err: %w", c.bucketName, key, value, err)
+				}
+				return nil
+
 			}
 			return fmt.Errorf("putNoOverwrite, bucket: %s, key: %x, val: %x, err: %w", c.bucketName, key, value, err)
 		}
