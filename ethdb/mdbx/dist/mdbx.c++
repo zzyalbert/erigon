@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define MDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY 80ecc6a92f276361414347337e98f7e5b628045bc254b9d214f9743d7b316365_v0_9_3_126_gaaf465b9
+#define MDBX_BUILD_SOURCERY d1c23690d2abde80214b55466db8d493ca2663ce5fee3daa44fa591c31442973_v0_9_3_155_g8b95be91
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -1632,6 +1632,25 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
 #error MDBX_DPL_PREALLOC_FOR_RADIXSORT must be defined as 0 or 1
 #endif /* MDBX_DPL_PREALLOC_FOR_RADIXSORT */
 
+/* Basically, this build-option is for TODO. Guess it should be replaced
+ * with MDBX_ENABLE_WRITEMAP_SPILLING with the three variants:
+ *  0/OFF = Don't track dirty pages at all and don't spilling ones.
+ *          This should be by-default on Linux and may-be other systems
+ *          (not sure: Darwin/OSX, FreeBSD, Windows 10) where kernel provides
+ *          properly LRU tracking and async writing on-demand.
+ *  1/ON  = Lite tracking of dirty pages but with LRU labels and explicit
+ *          spilling with msync(MS_ASYNC). */
+#ifndef MDBX_FAKE_SPILL_WRITEMAP
+#if defined(__linux__) || defined(__gnu_linux__)
+#define MDBX_FAKE_SPILL_WRITEMAP 1 /* msync(MS_ASYNC) is no-op on Linux */
+#else
+#define MDBX_FAKE_SPILL_WRITEMAP 0
+#endif
+#endif
+#if !(MDBX_FAKE_SPILL_WRITEMAP == 0 || MDBX_FAKE_SPILL_WRITEMAP == 1)
+#error MDBX_FAKE_SPILL_WRITEMAP must be defined as 0 or 1
+#endif /* MDBX_FAKE_SPILL_WRITEMAP */
+
 /** Controls sort order of internal page number lists.
  * The database format depend on this option and libmdbx builded with different
  * option value are incompatible. */
@@ -2480,8 +2499,15 @@ typedef txnid_t *MDBX_TXL;
 
 /* An Dirty-Page list item is an pgno/pointer pair. */
 typedef struct MDBX_dp {
-  pgno_t pgno;
   MDBX_page *ptr;
+  pgno_t pgno;
+  union {
+    unsigned extra;
+    __anonymous_struct_extension__ struct {
+      unsigned multi : 1;
+      unsigned lru : 31;
+    };
+  };
 } MDBX_dp;
 
 /* An DPL (dirty-page list) is a sorted array of MDBX_DPs. */
@@ -2632,6 +2658,8 @@ struct MDBX_txn {
        * dirty/spilled pages. Thus commit(nested txn) has room to merge
        * dirtylist into mt_parent after freeing hidden mt_parent pages. */
       unsigned dirtyroom;
+      /* a sequence to spilling dirty page with LRU policy */
+      unsigned dirtylru;
       /* For write txns: Modified pages. Sorted when not MDBX_WRITEMAP. */
       MDBX_dpl *dirtylist;
       /* The list of reclaimed txns from GC */
@@ -3215,7 +3243,8 @@ ceil_powerof2(size_t value, size_t granularity) {
   return floor_powerof2(value + granularity - 1, granularity);
 }
 
-MDBX_NOTHROW_CONST_FUNCTION static __maybe_unused unsigned log2n(size_t value) {
+MDBX_NOTHROW_CONST_FUNCTION static __maybe_unused unsigned
+log2n_powerof2(size_t value) {
   assert(value > 0 && value < INT32_MAX && is_powerof2(value));
   assert((value & -(int32_t)value) == value);
 #if __GNUC_PREREQ(4, 1) || __has_builtin(__builtin_ctzl)
