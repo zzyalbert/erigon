@@ -38,7 +38,7 @@ func NewMDBX() MdbxOpts {
 	return MdbxOpts{
 		bucketsCfg:        DefaultBucketConfigs,
 		flags:             mdbx.NoReadahead | mdbx.Coalesce | mdbx.Durable, // | mdbx.LifoReclaim,
-		dirtyListMaxPages: 128 * 1024,
+		dirtyListMaxPages: 1024 * 1024,
 	}
 }
 
@@ -151,7 +151,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptDpReverseLimit, 32*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, 1024*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpLimit, opts.dirtyListMaxPages); err != nil {
 			return nil, err
 		}
 	}
