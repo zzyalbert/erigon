@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define MDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY d1c23690d2abde80214b55466db8d493ca2663ce5fee3daa44fa591c31442973_v0_9_3_155_g8b95be91
+#define MDBX_BUILD_SOURCERY d6f808426f8a269988a7b1d226eefaef3c4c91e0bdbb504c5ec43b15d6b79e79_v0_9_3_158_gf95a277a
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -1599,6 +1599,14 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
 #error MDBX_ENABLE_REFUND must be defined as 0 or 1
 #endif /* MDBX_ENABLE_REFUND */
 
+/** Controls gathering statistics for page operations. */
+#ifndef MDBX_ENABLE_PGOP_STAT
+#define MDBX_ENABLE_PGOP_STAT 1
+#endif
+#if !(MDBX_ENABLE_PGOP_STAT == 0 || MDBX_ENABLE_PGOP_STAT == 1)
+#error MDBX_ENABLE_PGOP_STAT must be defined as 0 or 1
+#endif /* MDBX_ENABLE_PGOP_STAT */
+
 /** Controls use of POSIX madvise() hints and friends. */
 #ifndef MDBX_ENABLE_MADVISE
 #define MDBX_ENABLE_MADVISE 1
@@ -2006,8 +2014,13 @@ atomic_store64(MDBX_atomic_uint64_t *p, const uint64_t value,
   return value;
 }
 
-static __maybe_unused __always_inline uint64_t
-atomic_load64(const MDBX_atomic_uint64_t *p, enum MDBX_memory_order order) {
+static __maybe_unused
+#if MDBX_64BIT_ATOMIC
+    __always_inline
+#endif /* MDBX_64BIT_ATOMIC */
+        uint64_t
+        atomic_load64(const MDBX_atomic_uint64_t *p,
+                      enum MDBX_memory_order order) {
   STATIC_ASSERT(sizeof(MDBX_atomic_uint64_t) == 8);
 #if MDBX_64BIT_ATOMIC
 #ifdef MDBX_HAVE_C11ATOMICS
@@ -2051,10 +2064,10 @@ atomic_load64(const MDBX_atomic_uint64_t *p, enum MDBX_memory_order order) {
  * recognizable, and it will reflect any byte order mismatches. */
 #define MDBX_MAGIC UINT64_C(/* 56-bit prime */ 0x59659DBDEF4C11)
 
-/* The version number for a database's datafile format. */
+/* FROZEN: The version number for a database's datafile format. */
 #define MDBX_DATA_VERSION 2
 /* The version number for a database's lockfile format. */
-#define MDBX_LOCK_VERSION 3
+#define MDBX_LOCK_VERSION 4
 
 /* handle for the DB used to track free pages. */
 #define FREE_DBI 0
@@ -2246,6 +2259,23 @@ typedef struct MDBX_page {
 
 #pragma pack(pop)
 
+#if MDBX_ENABLE_PGOP_STAT
+/* Statistics of page operations overall of all (running, completed and aborted)
+ * transactions */
+typedef struct {
+  MDBX_atomic_uint64_t newly;   /* Quantity of a new pages added */
+  MDBX_atomic_uint64_t cow;     /* Quantity of pages copied for update */
+  MDBX_atomic_uint64_t clone;   /* Quantity of parent's dirty pages clones
+                                   for nested transactions */
+  MDBX_atomic_uint64_t split;   /* Page splits */
+  MDBX_atomic_uint64_t merge;   /* Page merges */
+  MDBX_atomic_uint64_t spill;   /* Quantity of spilled dirty pages */
+  MDBX_atomic_uint64_t unspill; /* Quantity of unspilled/reloaded pages */
+  MDBX_atomic_uint64_t
+      wops; /* Number of explicit write operations (not a pages) to a disk */
+} MDBX_pgop_stat_t;
+#endif /* MDBX_ENABLE_PGOP_STAT */
+
 #if MDBX_LOCKING == MDBX_LOCKING_WIN32FILES
 #define MDBX_CLOCK_SIGN UINT32_C(0xF10C)
 typedef void mdbx_ipclock_t;
@@ -2374,6 +2404,14 @@ typedef struct MDBX_lockinfo {
 
   /* Marker to distinguish uniqueness of DB/CLK. */
   MDBX_atomic_uint64_t mti_bait_uniqueness;
+
+  alignas(MDBX_CACHELINE_SIZE) /* cacheline ---------------------------------*/
+
+#if MDBX_ENABLE_PGOP_STAT
+      /* Statistics of costly ops of all (running, completed and aborted)
+       * transactions */
+      MDBX_pgop_stat_t mti_pgop_stat;
+#endif /* MDBX_ENABLE_PGOP_STAT*/
 
   alignas(MDBX_CACHELINE_SIZE) /* cacheline ---------------------------------*/
 
@@ -2760,6 +2798,7 @@ typedef struct MDBX_cursor_couple {
 
 /* The database environment. */
 struct MDBX_env {
+  /* ----------------------------------------------------- mostly static part */
 #define MDBX_ME_SIGNATURE UINT32_C(0x9A899641)
   MDBX_atomic_uint32_t me_signature;
   /* Failed to update the meta page. Probably an I/O error. */
@@ -2785,36 +2824,18 @@ struct MDBX_env {
   uint8_t me_psize2log;     /* log2 of DB page size */
   int8_t me_stuck_meta; /* recovery-only: target meta page or less that zero */
   unsigned me_os_psize; /* OS page size, from mdbx_syspagesize() */
-  unsigned me_maxreaders; /* size of the reader table */
-  mdbx_fastmutex_t me_dbi_lock;
-  MDBX_dbi me_numdbs;         /* number of DBs opened */
+  unsigned me_maxreaders;     /* size of the reader table */
   MDBX_dbi me_maxdbs;         /* size of the DB table */
   uint32_t me_pid;            /* process ID of this env */
   mdbx_thread_key_t me_txkey; /* thread-key for readers */
   char *me_pathname;          /* path to the DB files */
   void *me_pbuf;              /* scratch area for DUPSORT put() */
-  MDBX_txn *me_txn;           /* current write transaction */
   MDBX_txn *me_txn0;          /* prealloc'd write transaction */
-
-  /* write-txn lock */
-#if MDBX_LOCKING == MDBX_LOCKING_SYSV
-  union {
-    key_t key;
-    int semid;
-  } me_sysv_ipc;
-#endif /* MDBX_LOCKING == MDBX_LOCKING_SYSV */
-
-#if MDBX_LOCKING > 0
-  mdbx_ipclock_t *me_wlock;
-#endif /* MDBX_LOCKING > 0 */
 
   MDBX_dbx *me_dbxs;         /* array of static DB info */
   uint16_t *me_dbflags;      /* array of flags from MDBX_db.md_flags */
   unsigned *me_dbiseqs;      /* array of dbi sequence numbers */
   atomic_txnid_t *me_oldest; /* ID of oldest reader last time we looked */
-  MDBX_page *me_dp_reserve;  /* list of malloc'ed blocks for re-use */
-  /* PNL of pages that became unused in a write txn */
-  MDBX_PNL me_retired_pages;
   /* Number of freelist items that can fit in a single overflow page */
   unsigned me_maxgc_ov1page;
   uint32_t me_live_reader; /* have liveness lock in reader table */
@@ -2826,8 +2847,10 @@ struct MDBX_env {
   atomic_pgno_t *me_discarded_tail;
   pgno_t *me_readahead_anchor;
   MDBX_atomic_uint32_t *me_meta_sync_txnid;
+#if MDBX_ENABLE_PGOP_STAT
+  MDBX_pgop_stat_t *me_pgop_stat;
+#endif                            /* MDBX_ENABLE_PGOP_STAT*/
   MDBX_hsr_func *me_hsr_callback; /* Callback for kicking laggard readers */
-  unsigned me_dp_reserve_len;
   struct {
     unsigned dp_reserve_limit;
     unsigned rp_augment_limit;
@@ -2838,29 +2861,6 @@ struct MDBX_env {
     uint8_t spill_min_denominator;
     uint8_t spill_parent4child_denominator;
   } me_options;
-  struct {
-#if MDBX_LOCKING > 0
-    mdbx_ipclock_t wlock;
-#endif /* MDBX_LOCKING > 0 */
-    atomic_txnid_t oldest;
-    MDBX_atomic_uint64_t sync_timestamp;
-    MDBX_atomic_uint64_t autosync_period;
-    atomic_pgno_t autosync_pending;
-    atomic_pgno_t autosync_threshold;
-    atomic_pgno_t discarded_tail;
-    pgno_t readahead_anchor;
-    MDBX_atomic_uint32_t meta_sync_txnid;
-  } me_lckless_stub;
-#if MDBX_DEBUG
-  MDBX_assert_func *me_assert_func; /*  Callback for assertion failures */
-#endif
-#ifdef MDBX_USE_VALGRIND
-  int me_valgrind_handle;
-#endif
-#if defined(MDBX_USE_VALGRIND) || defined(__SANITIZE_ADDRESS__)
-  pgno_t me_poison_edge;
-#endif /* MDBX_USE_VALGRIND || __SANITIZE_ADDRESS__ */
-  MDBX_env *me_lcklist_next;
 
   /* struct me_dbgeo used for accepting db-geo params from user for the new
    * database creation, i.e. when mdbx_env_set_geometry() was called before
@@ -2873,6 +2873,31 @@ struct MDBX_env {
     size_t shrink; /* threshold to shrink datafile */
   } me_dbgeo;
 
+#if MDBX_LOCKING == MDBX_LOCKING_SYSV
+  union {
+    key_t key;
+    int semid;
+  } me_sysv_ipc;
+#endif /* MDBX_LOCKING == MDBX_LOCKING_SYSV */
+
+  MDBX_env *me_lcklist_next;
+
+  /* --------------------------------------------------- mostly volatile part */
+
+  MDBX_txn *me_txn; /* current write transaction */
+  mdbx_fastmutex_t me_dbi_lock;
+  MDBX_dbi me_numdbs; /* number of DBs opened */
+
+  MDBX_page *me_dp_reserve; /* list of malloc'ed blocks for re-use */
+  unsigned me_dp_reserve_len;
+  /* PNL of pages that became unused in a write txn */
+  MDBX_PNL me_retired_pages;
+
+  /* write-txn lock */
+#if MDBX_LOCKING > 0
+  mdbx_ipclock_t *me_wlock;
+#endif /* MDBX_LOCKING > 0 */
+
 #if defined(_WIN32) || defined(_WIN64)
   MDBX_srwlock me_remap_guard;
   /* Workaround for LockFileEx and WriteFile multithread bug */
@@ -2880,6 +2905,35 @@ struct MDBX_env {
 #else
   mdbx_fastmutex_t me_remap_guard;
 #endif
+
+  struct {
+#if MDBX_LOCKING > 0
+    mdbx_ipclock_t wlock;
+#endif /* MDBX_LOCKING > 0 */
+    atomic_txnid_t oldest;
+    MDBX_atomic_uint64_t sync_timestamp;
+    MDBX_atomic_uint64_t autosync_period;
+    atomic_pgno_t autosync_pending;
+    atomic_pgno_t autosync_threshold;
+    atomic_pgno_t discarded_tail;
+    pgno_t readahead_anchor;
+    MDBX_atomic_uint32_t meta_sync_txnid;
+#if MDBX_ENABLE_PGOP_STAT
+    MDBX_pgop_stat_t pgop_stat;
+#endif /* MDBX_ENABLE_PGOP_STAT*/
+  } me_lckless_stub;
+
+  /* -------------------------------------------------------------- debugging */
+
+#if MDBX_DEBUG
+  MDBX_assert_func *me_assert_func; /*  Callback for assertion failures */
+#endif
+#ifdef MDBX_USE_VALGRIND
+  int me_valgrind_handle;
+#endif
+#if defined(MDBX_USE_VALGRIND) || defined(__SANITIZE_ADDRESS__)
+  pgno_t me_poison_edge;
+#endif /* MDBX_USE_VALGRIND || __SANITIZE_ADDRESS__ */
 };
 
 #ifndef __cplusplus
@@ -4329,15 +4383,29 @@ static __always_inline uint64_t safe64_read(const MDBX_atomic_uint64_t *p) {
   return atomic_load32(&p->high, mo_AcquireRelease) != UINT32_MAX;
 #endif /* MDBX_64BIT_ATOMIC */
 }
+#endif /* unused for now */
 
+/* non-atomic write with safety for reading a half-updated value */
 static __always_inline void safe64_update(MDBX_atomic_uint64_t *p,
                                           const uint64_t v) {
 #if MDBX_64BIT_ATOMIC
+  atomic_store64(p, v, mo_Relaxed);
+#else
   safe64_reset(p, true);
-#endif /* MDBX_64BIT_ATOMIC */
   safe64_write(p, v);
+#endif /* MDBX_64BIT_ATOMIC */
 }
-#endif /* unused for now */
+
+/* non-atomic increment with safety for reading a half-updated value */
+static
+#if MDBX_64BIT_ATOMIC
+    __always_inline
+#endif /* MDBX_64BIT_ATOMIC */
+    void
+    safe64_inc(MDBX_atomic_uint64_t *p, const uint64_t v) {
+  assert(v > 0);
+  safe64_update(p, atomic_load64(p, mo_Relaxed) + v);
+}
 
 /*----------------------------------------------------------------------------*/
 /* rthc (tls keys and destructors) */
@@ -6819,7 +6887,7 @@ static txnid_t mdbx_kick_longlived_readers(MDBX_env *env,
                                            const txnid_t laggard);
 
 static struct page_result mdbx_page_new(MDBX_cursor *mc, const unsigned flags,
-                                        const unsigned num);
+                                        const unsigned npages);
 static int mdbx_page_touch(MDBX_cursor *mc);
 static int mdbx_cursor_touch(MDBX_cursor *mc);
 static int mdbx_touch_dbi(MDBX_cursor *mc);
@@ -8273,6 +8341,10 @@ static int mdbx_iov_write(MDBX_txn *const txn, struct mdbx_iov_ctx *ctx) {
   for (unsigned i = 0; i < ctx->iov_items; i++)
     mdbx_dpage_free(env, (MDBX_page *)ctx->iov[i].iov_base,
                     bytes2pgno(env, ctx->iov[i].iov_len));
+
+#if MDBX_ENABLE_PGOP_STAT
+  safe64_inc(&txn->mt_env->me_pgop_stat->wops, ctx->iov_items);
+#endif /* MDBX_ENABLE_PGOP_STAT */
   ctx->iov_items = 0;
   ctx->iov_bytes = 0;
   return rc;
@@ -8332,8 +8404,13 @@ static int spill_page(MDBX_txn *txn, struct mdbx_iov_ctx *ctx, MDBX_page *dp,
   mdbx_tassert(txn, !(txn->mt_flags & MDBX_WRITEMAP));
   pgno_t pgno = dp->mp_pgno;
   int err = iov_page(txn, ctx, dp, npages);
-  if (likely(err == MDBX_SUCCESS))
+  if (likely(err == MDBX_SUCCESS)) {
     err = mdbx_pnl_append_range(true, &txn->tw.spill_pages, pgno << 1, npages);
+#if MDBX_ENABLE_PGOP_STAT
+    if (likely(err == MDBX_SUCCESS))
+      safe64_inc(&txn->mt_env->me_pgop_stat->spill, npages);
+#endif /* MDBX_ENABLE_PGOP_STAT */
+  }
   return err;
 }
 
@@ -9901,7 +9978,7 @@ __hot static void mdbx_page_copy(MDBX_page *dst, MDBX_page *src, size_t psize) {
  * it back and make it dirty/writable again. */
 static struct page_result __must_check_result
 mdbx_page_unspill(MDBX_txn *const txn, MDBX_page *mp) {
-  mdbx_notice("unspill page %" PRIaPGNO, mp->mp_pgno);
+  mdbx_verbose("unspill page %" PRIaPGNO, mp->mp_pgno);
   mdbx_tassert(txn, (txn->mt_flags & MDBX_WRITEMAP) == 0);
   mdbx_tassert(txn, IS_SPILLED(txn, mp));
   const pgno_t spilled_pgno = mp->mp_pgno << 1;
@@ -9932,6 +10009,9 @@ mdbx_page_unspill(MDBX_txn *const txn, MDBX_page *mp) {
     ret.err = mdbx_page_dirty(txn, ret.page, npages);
     if (unlikely(ret.err != MDBX_SUCCESS))
       return ret;
+#if MDBX_ENABLE_PGOP_STAT
+    safe64_inc(&txn->mt_env->me_pgop_stat->unspill, npages);
+#endif /* MDBX_ENABLE_PGOP_STAT */
     ret.page->mp_flags |= (scan == txn) ? 0 : P_SPILLED;
     ret.err = MDBX_SUCCESS;
     return ret;
@@ -9996,6 +10076,9 @@ __hot static int mdbx_page_touch(MDBX_cursor *mc) {
       mc->mc_db->md_root = pgno;
     }
 
+#if MDBX_ENABLE_PGOP_STAT
+    safe64_inc(&txn->mt_env->me_pgop_stat->cow, 1);
+#endif /* MDBX_ENABLE_PGOP_STAT */
     mdbx_page_copy(np, mp, txn->mt_env->me_psize);
     np->mp_pgno = pgno;
     np->mp_txnid = txn->mt_front;
@@ -10029,6 +10112,10 @@ __hot static int mdbx_page_touch(MDBX_cursor *mc) {
     rc = mdbx_page_dirty(txn, np, 1);
     if (unlikely(rc != MDBX_SUCCESS))
       goto fail;
+
+#if MDBX_ENABLE_PGOP_STAT
+    safe64_inc(&txn->mt_env->me_pgop_stat->clone, 1);
+#endif /* MDBX_ENABLE_PGOP_STAT */
   }
 
 done:
@@ -14959,6 +15046,9 @@ static __cold int mdbx_setup_lck(MDBX_env *env, char *lck_pathname,
 #if MDBX_LOCKING > 0
     env->me_wlock = &env->me_lckless_stub.wlock;
 #endif /* MDBX_LOCKING > 0 */
+#if MDBX_ENABLE_PGOP_STAT
+    env->me_pgop_stat = &env->me_lckless_stub.pgop_stat;
+#endif /* MDBX_ENABLE_PGOP_STAT */
     mdbx_debug("lck-setup:%s%s%s", " lck-less",
                (env->me_flags & MDBX_RDONLY) ? " readonly" : "",
                (rc == MDBX_RESULT_TRUE) ? " exclusive" : " cooperative");
@@ -15116,6 +15206,9 @@ static __cold int mdbx_setup_lck(MDBX_env *env, char *lck_pathname,
 #if MDBX_LOCKING > 0
   env->me_wlock = &lck->mti_wlock;
 #endif /* MDBX_LOCKING > 0 */
+#if MDBX_ENABLE_PGOP_STAT
+  env->me_pgop_stat = &lck->mti_pgop_stat;
+#endif /* MDBX_ENABLE_PGOP_STAT */
   return lck_seize_rc;
 }
 
@@ -15707,6 +15800,9 @@ static __cold int mdbx_env_close0(MDBX_env *env) {
   env->me_discarded_tail = nullptr;
   env->me_readahead_anchor = nullptr;
   env->me_meta_sync_txnid = nullptr;
+#if MDBX_ENABLE_PGOP_STAT
+  env->me_pgop_stat = nullptr;
+#endif /* MDBX_ENABLE_PGOP_STAT */
   if (env->me_flags & MDBX_ENV_TXKEY)
     mdbx_rthc_remove(env->me_txkey);
 
@@ -17835,6 +17931,9 @@ int mdbx_cursor_put(MDBX_cursor *mc, const MDBX_val *key, MDBX_val *data,
               goto fail;
             }
 
+#if MDBX_ENABLE_PGOP_STAT
+            safe64_inc(&mc->mc_txn->mt_env->me_pgop_stat->clone, ovpages);
+#endif                                       /* MDBX_ENABLE_PGOP_STAT */
             memcpy(np, pgr.page, PAGEHDRSZ); /* Copy header of page */
             pgr.page = np;
             mdbx_cassert(mc, mdbx_dirtylist_check(mc->mc_txn));
@@ -18336,17 +18435,20 @@ fail:
  *
  * Returns 0 on success, non-zero on failure. */
 static struct page_result mdbx_page_new(MDBX_cursor *mc, const unsigned flags,
-                                        const unsigned num) {
-  struct page_result ret = mdbx_page_alloc(mc, num, MDBX_ALLOC_ALL);
+                                        const unsigned npages) {
+  struct page_result ret = mdbx_page_alloc(mc, npages, MDBX_ALLOC_ALL);
   if (unlikely(ret.err != MDBX_SUCCESS))
     return ret;
 
   mdbx_debug("db %u allocated new page %" PRIaPGNO ", num %u", mc->mc_dbi,
-             ret.page->mp_pgno, num);
+             ret.page->mp_pgno, npages);
   ret.page->mp_flags = (uint16_t)flags;
   ret.page->mp_txnid = mc->mc_txn->mt_front;
   mdbx_cassert(mc, *mc->mc_dbistate & DBI_DIRTY);
   mdbx_cassert(mc, mc->mc_txn->mt_flags & MDBX_TXN_DIRTY);
+#if MDBX_ENABLE_PGOP_STAT
+  safe64_inc(&mc->mc_txn->mt_env->me_pgop_stat->newly, npages);
+#endif /* MDBX_ENABLE_PGOP_STAT */
 
   if (likely((flags & P_OVERFLOW) == 0)) {
     STATIC_ASSERT(P_BRANCH == 1);
@@ -18361,8 +18463,8 @@ static struct page_result mdbx_page_new(MDBX_cursor *mc, const unsigned flags,
       outer->md_leaf_pages += 1 - is_branch;
     }
   } else {
-    mc->mc_db->md_overflow_pages += num;
-    ret.page->mp_pages = num;
+    mc->mc_db->md_overflow_pages += npages;
+    ret.page->mp_pages = npages;
     mdbx_cassert(mc, !(mc->mc_flags & C_SUB));
   }
 
@@ -19683,6 +19785,10 @@ static int mdbx_page_merge(MDBX_cursor *csrc, MDBX_cursor *cdst) {
   mdbx_cassert(cdst, cdst->mc_snum <= cdst->mc_db->md_depth);
   mdbx_cassert(cdst, cdst->mc_snum == cdst->mc_top + 1);
 
+#if MDBX_ENABLE_PGOP_STAT
+  safe64_inc(&cdst->mc_txn->mt_env->me_pgop_stat->merge, 1);
+#endif /* MDBX_ENABLE_PGOP_STAT */
+
   if (IS_LEAF(cdst->mc_pg[cdst->mc_top])) {
     /* LY: don't touch cursor if top-page is a LEAF */
     mdbx_cassert(cdst, IS_LEAF(cdst->mc_pg[cdst->mc_top]) ||
@@ -19692,7 +19798,7 @@ static int mdbx_page_merge(MDBX_cursor *csrc, MDBX_cursor *cdst) {
 
   mdbx_cassert(cdst, page_numkeys(top_page) == dst_nkeys + src_nkeys);
 
-  if (pagetype != PAGETYPE(top_page)) {
+  if (unlikely(pagetype != PAGETYPE(top_page))) {
     /* LY: LEAF-page becomes BRANCH, unable restore cursor's stack */
     goto bailout;
   }
@@ -21162,6 +21268,9 @@ done:
       if (!(node_flags(node) & F_BIGDATA))
         newdata->iov_base = node_data(node);
     }
+#if MDBX_ENABLE_PGOP_STAT
+    safe64_inc(&env->me_pgop_stat->split, 1);
+#endif /* MDBX_ENABLE_PGOP_STAT */
   }
 
   mdbx_debug("<< mp #%u, rc %d", mp->mp_pgno, rc);
@@ -22138,7 +22247,9 @@ __cold int mdbx_env_info_ex(const MDBX_env *env, const MDBX_txn *txn,
   }
 
   const size_t size_before_bootid = offsetof(MDBX_envinfo, mi_bootid);
-  if (unlikely(bytes != sizeof(MDBX_envinfo)) && bytes != size_before_bootid)
+  const size_t size_before_pgop_stat = offsetof(MDBX_envinfo, mi_pgop_stat);
+  if (unlikely(bytes != sizeof(MDBX_envinfo)) && bytes != size_before_bootid &&
+      bytes != size_before_pgop_stat)
     return MDBX_EINVAL;
 
   /* is the environment open? (https://github.com/erthink/libmdbx/issues/171) */
@@ -22251,6 +22362,28 @@ __cold int mdbx_env_info_ex(const MDBX_env *env, const MDBX_txn *txn,
     arg->mi_bootid.current.x = bootid.x;
     arg->mi_bootid.current.y = bootid.y;
     arg->mi_mode = lck ? lck->mti_envmode.weak : env->me_flags;
+  }
+
+  if (likely(bytes > size_before_pgop_stat)) {
+#if MDBX_ENABLE_PGOP_STAT
+    arg->mi_pgop_stat.newly =
+        atomic_load64(&env->me_pgop_stat->newly, mo_Relaxed);
+    arg->mi_pgop_stat.cow = atomic_load64(&env->me_pgop_stat->cow, mo_Relaxed);
+    arg->mi_pgop_stat.clone =
+        atomic_load64(&env->me_pgop_stat->clone, mo_Relaxed);
+    arg->mi_pgop_stat.split =
+        atomic_load64(&env->me_pgop_stat->split, mo_Relaxed);
+    arg->mi_pgop_stat.merge =
+        atomic_load64(&env->me_pgop_stat->merge, mo_Relaxed);
+    arg->mi_pgop_stat.spill =
+        atomic_load64(&env->me_pgop_stat->spill, mo_Relaxed);
+    arg->mi_pgop_stat.unspill =
+        atomic_load64(&env->me_pgop_stat->unspill, mo_Relaxed);
+    arg->mi_pgop_stat.wops =
+        atomic_load64(&env->me_pgop_stat->wops, mo_Relaxed);
+#else
+    memset(&arg->mi_pgop_stat, 0, sizeof(arg->mi_pgop_stat));
+#endif /* MDBX_ENABLE_PGOP_STAT*/
   }
 
   arg->mi_self_latter_reader_txnid = arg->mi_latter_reader_txnid = 0;
@@ -27711,9 +27844,9 @@ __dll_export
         0,
         9,
         3,
-        155,
-        {"2021-04-27T00:12:09+03:00", "183566e53c22e31df97b1000fc38c86c722a3856", "8b95be91db66fd316d027dca78e2c17d14c8bb2f",
-         "v0.9.3-155-g8b95be91"},
+        158,
+        {"2021-04-27T18:02:11+03:00", "f1a790f3ddf486a082cab58b39f5c32b5c8e6c81", "f95a277ac58fca4a3c9e4579f7ce855b9a61b403",
+         "v0.9.3-158-gf95a277a"},
         sourcery};
 
 __dll_export
