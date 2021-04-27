@@ -276,6 +276,9 @@ func (s *sn2TX) getSnapshotTX(bucket string) (Tx, error) {
 	return tx, nil
 }
 
+func (s *sn2TX) Tx() Tx {
+	return s.dbTX
+}
 func (s *sn2TX) Has(bucket string, key []byte) (bool, error) {
 	v, err := s.dbTX.Has(bucket, key)
 	if err != nil {
