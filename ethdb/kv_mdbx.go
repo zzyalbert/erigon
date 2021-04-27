@@ -633,7 +633,9 @@ func (tx *MdbxTx) Commit() error {
 	commitTimer := time.Now()
 	defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
 
-	tx.PrintDebugInfo()
+	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
+		tx.PrintDebugInfo()
+	}
 
 	latency, err := tx.tx.Commit()
 	if err != nil {
@@ -676,15 +678,15 @@ func (tx *MdbxTx) Rollback() {
 
 //nolint
 func (tx *MdbxTx) PrintDebugInfo() {
-	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
 		txInfo, err := tx.tx.Info(true)
 		if err != nil {
 			panic(err)
 		}
 
 		txSize := uint(txInfo.SpaceDirty / 1024)
-		doPrint := tx.readOnly && debug.BigRoTxKb() > 0 && txSize > debug.BigRoTxKb()
-		doPrint = doPrint || (!tx.readOnly && debug.BigRwTxKb() > 0 && txSize > debug.BigRwTxKb())
+		doPrint := debug.BigRoTxKb()==0  &&debug.BigRwTxKb()==0 ||
+			tx.readOnly && debug.BigRoTxKb() > 0 && txSize > debug.BigRoTxKb() ||
+			 (!tx.readOnly && debug.BigRwTxKb() > 0 && txSize > debug.BigRwTxKb())
 		if doPrint {
 			log.Info("Tx info",
 				"id", txInfo.Id,
