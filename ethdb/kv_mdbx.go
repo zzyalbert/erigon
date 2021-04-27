@@ -633,7 +633,7 @@ func (tx *MdbxTx) Commit() error {
 	commitTimer := time.Now()
 	defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
 
-	tx.printDebugInfo()
+	tx.PrintDebugInfo()
 
 	latency, err := tx.tx.Commit()
 	if err != nil {
@@ -675,7 +675,7 @@ func (tx *MdbxTx) Rollback() {
 }
 
 //nolint
-func (tx *MdbxTx) printDebugInfo() {
+func (tx *MdbxTx) PrintDebugInfo() {
 	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
 		txInfo, err := tx.tx.Info(true)
 		if err != nil {

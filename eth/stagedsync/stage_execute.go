@@ -166,7 +166,7 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 		panic("ChangeSetHook is not supported with Silkworm")
 	}
 
-	logEvery := time.NewTicker(logInterval)
+	logEvery := time.NewTicker(time.Second)
 	defer logEvery.Stop()
 	commitEvery := time.NewTicker(5 * time.Minute)
 	defer commitEvery.Stop()
@@ -204,6 +204,18 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 		select {
 		default:
 		case <-logEvery.C:
+			type P interface{ PrintDebugInfo() }
+			if hasTx, ok := tx.(ethdb.HasTx); ok {
+				if p, canPrint := hasTx.Tx().(P); canPrint {
+					p.PrintDebugInfo()
+				} else {
+					if hasTx2, ok := hasTx.(ethdb.HasTx); ok {
+						if p, canPrint := hasTx2.Tx().(P); canPrint {
+							p.PrintDebugInfo()
+						}
+					}
+				}
+			}
 			logBlock, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, nil)
 		case <-commitEvery.C:
 			if err = s.Update(tx, stageProgress); err != nil {
