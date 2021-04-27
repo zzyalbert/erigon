@@ -206,14 +206,13 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 		case <-logEvery.C:
 			type P interface{ PrintDebugInfo() }
 			if hasTx, ok := tx.(ethdb.HasTx); ok {
-				fmt.Printf("%T\n", tx)
-				if p, canPrint := hasTx.Tx().(P); canPrint {
+				tt := hasTx.Tx()
+				if p, canPrint := tt.(P); canPrint {
 					p.PrintDebugInfo()
 				} else {
-					fmt.Printf("%T\n", hasTx)
-					if hasTx2, ok := hasTx.(ethdb.HasTx); ok {
-						fmt.Printf("%T\n", hasTx2)
-						if p, canPrint := hasTx2.Tx().(P); canPrint {
+					if hasTx2, ok := tt.(ethdb.HasTx); ok {
+						tt = hasTx2.Tx()
+						if p, canPrint := tt.(P); canPrint {
 							p.PrintDebugInfo()
 						} else {
 							fmt.Printf("can't print?")
