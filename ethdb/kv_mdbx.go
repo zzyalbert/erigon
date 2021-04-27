@@ -142,9 +142,6 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		// 1/8 is good for transactions with a lot of modifications - to reduce invalidation size.
 		// But TG app now using Batch and etl.Collectors to avoid writing to DB frequently changing data.
 		// It means most of our writes are: APPEND or "single UPSERT per key during transaction"
-		if err = env.SetOption(mdbx.OptSpillMinDenominator, 8); err != nil {
-			return nil, err
-		}
 		if err = env.SetOption(mdbx.OptTxnDpInitial, 32*1024); err != nil {
 			return nil, err
 		}
