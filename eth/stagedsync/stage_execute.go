@@ -166,15 +166,10 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 		panic("ChangeSetHook is not supported with Silkworm")
 	}
 
-	var batch ethdb.DbWithPendingMutations
-	useBatch := !useSilkworm
-	if useBatch {
-		batch = tx.NewBatch()
-		defer batch.Rollback()
-	}
-
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
+	commitEvery := time.NewTicker(5 * time.Minute)
+	defer commitEvery.Stop()
 	stageProgress := s.BlockNumber
 	logBlock := stageProgress
 	logTime := time.Now()
@@ -199,22 +194,23 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 				log.Error(fmt.Sprintf("[%s] Empty block", logPrefix), "blocknum", blockNum)
 				break
 			}
-			if err = executeBlockWithGo(block, tx, batch, params); err != nil {
+			if err = executeBlockWithGo(block, tx, tx, params); err != nil {
 				return err
 			}
 		}
 
 		stageProgress = blockNum
 
-		updateProgress := !useBatch || batch.BatchSize() >= int(params.batchSize)
-		if updateProgress {
+		select {
+		default:
+		case <-logEvery.C:
+			logBlock, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, nil)
+			if hasTx, ok := tx.(ethdb.HasTx); ok {
+				hasTx.Tx().CollectMetrics()
+			}
+		case <-commitEvery.C:
 			if err = s.Update(tx, stageProgress); err != nil {
 				return err
-			}
-			if useBatch {
-				if err = batch.CommitAndBegin(context.Background()); err != nil {
-					return err
-				}
 			}
 			if !useExternalTx {
 				if err = tx.CommitAndBegin(context.Background()); err != nil {
@@ -223,24 +219,11 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 			}
 		}
 
-		select {
-		default:
-		case <-logEvery.C:
-			logBlock, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, batch)
-			if hasTx, ok := tx.(ethdb.HasTx); ok {
-				hasTx.Tx().CollectMetrics()
-			}
-		}
 		stageExecutionGauge.Update(int64(blockNum))
 	}
 
-	if useBatch {
-		if err := s.Update(batch, stageProgress); err != nil {
-			return err
-		}
-		if err := batch.Commit(); err != nil {
-			return fmt.Errorf("%s: failed to write batch commit: %v", logPrefix, err)
-		}
+	if err := s.Update(tx, stageProgress); err != nil {
+		return err
 	}
 	if !useExternalTx {
 		if err := tx.Commit(); err != nil {
