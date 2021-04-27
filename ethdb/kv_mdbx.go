@@ -678,25 +678,24 @@ func (tx *MdbxTx) Rollback() {
 
 //nolint
 func (tx *MdbxTx) PrintDebugInfo() {
-		txInfo, err := tx.tx.Info(true)
-		if err != nil {
-			panic(err)
-		}
+	txInfo, err := tx.tx.Info(true)
+	if err != nil {
+		panic(err)
+	}
 
-		txSize := uint(txInfo.SpaceDirty / 1024)
-		doPrint := debug.BigRoTxKb()==0  &&debug.BigRwTxKb()==0 ||
-			tx.readOnly && debug.BigRoTxKb() > 0 && txSize > debug.BigRoTxKb() ||
-			 (!tx.readOnly && debug.BigRwTxKb() > 0 && txSize > debug.BigRwTxKb())
-		if doPrint {
-			log.Info("Tx info",
-				"id", txInfo.Id,
-				"read_lag", txInfo.ReadLag,
-				"ro", tx.readOnly,
-				//"space_retired_mb", txInfo.SpaceRetired/1024/1024,
-				"space_dirty_kb", txInfo.SpaceDirty/1024,
-				"callers", debug.Callers(7),
-			)
-		}
+	txSize := uint(txInfo.SpaceDirty / 1024)
+	doPrint := debug.BigRoTxKb() == 0 && debug.BigRwTxKb() == 0 ||
+		tx.readOnly && debug.BigRoTxKb() > 0 && txSize > debug.BigRoTxKb() ||
+		(!tx.readOnly && debug.BigRwTxKb() > 0 && txSize > debug.BigRwTxKb())
+	if doPrint {
+		log.Info("Tx info",
+			"id", txInfo.Id,
+			"read_lag", txInfo.ReadLag,
+			"ro", tx.readOnly,
+			//"space_retired_mb", txInfo.SpaceRetired/1024/1024,
+			"space_dirty_kb", txInfo.SpaceDirty/1024,
+			"callers", debug.Callers(7),
+		)
 	}
 }
 
