@@ -148,7 +148,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptDpReverseLimit, 32*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, 128*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpLimit, opts.dirtyListMaxPages); err != nil {
 			return nil, err
 		}
 	}
@@ -674,14 +674,22 @@ func (tx *MdbxTx) Rollback() {
 }
 
 //nolint
-func (tx *MdbxTx) PrintDebugInfo() {
-	t := time.Now()
+func (tx *MdbxTx) ItsTimeToCommit() bool {
 	txInfo, err := tx.tx.Info(true)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("%s\n", time.Since(t))
+	return tx.db.opts.dirtyListMaxPages*4096 < 2*txInfo.SpaceDirty
+
+}
+
+func (tx *MdbxTx) PrintDebugInfo() {
+	txInfo, err := tx.tx.Info(true)
+	if err != nil {
+		panic(err)
+	}
+
 	txSize := uint(txInfo.SpaceDirty / 1024)
 	doPrint := debug.BigRoTxKb() == 0 && debug.BigRwTxKb() == 0 ||
 		tx.readOnly && debug.BigRoTxKb() > 0 && txSize > debug.BigRoTxKb() ||
