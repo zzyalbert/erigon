@@ -1273,7 +1273,6 @@ func (c *MdbxCursor) putDupSort(key []byte, value []byte) error {
 					return fmt.Errorf("putCurrent, bucket: %s, key: %x, val: %x, err: %w", c.bucketName, key, value, err)
 				}
 				return nil
-
 			}
 			return fmt.Errorf("putNoOverwrite, bucket: %s, key: %x, val: %x, err: %w", c.bucketName, key, value, err)
 		}
