@@ -166,9 +166,9 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 		panic("ChangeSetHook is not supported with Silkworm")
 	}
 
-	logEvery := time.NewTicker(5 * time.Second)
+	logEvery := time.NewTicker(10 * time.Second)
 	defer logEvery.Stop()
-	commitEvery := time.NewTicker(2 * time.Minute)
+	commitEvery := time.NewTicker(1 * time.Minute)
 	defer commitEvery.Stop()
 	stageProgress := s.BlockNumber
 	logBlock := stageProgress
