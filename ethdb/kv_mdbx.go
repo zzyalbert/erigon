@@ -610,8 +610,8 @@ func (tx *MdbxTx) Commit() error {
 		slowTx = debug.SlowCommit()
 	}
 
-	commitTimer := time.Now()
-	defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
+	//commitTimer := time.Now()
+	//defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
 
 	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
 		tx.PrintDebugInfo()
