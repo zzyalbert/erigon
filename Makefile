@@ -4,6 +4,7 @@ GOTEST = go test ./... -p 1 --tags 'mdbx'
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD)
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 GOBUILD = env GO111MODULE=on go build -trimpath -tags "mdbx" -ldflags "-X main.gitCommit=${GIT_COMMIT} -X main.gitBranch=${GIT_BRANCH}"
+GO_DBG_BUILD = env CGO_CFLAGS='-O0 -g' go build -trimpath -tags "mdbx" -ldflags "-X main.gitCommit=${GIT_COMMIT} -X main.gitBranch=${GIT_BRANCH}" -gcflags="all=-N -l"  # see delve docs
 
 GO_MAJOR_VERSION = $(shell go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
 GO_MINOR_VERSION = $(shell go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
@@ -31,6 +32,10 @@ docker:
 
 docker-compose:
 	docker-compose up
+
+dbg:
+	$(GO_DBG_BUILD) -o $(GOBIN)/tg ./cmd/tg
+	$(GO_DBG_BUILD) -o $(GOBIN)/integration ./cmd/integration
 
 geth:
 	$(GOBUILD) -o $(GOBIN)/tg ./cmd/tg
