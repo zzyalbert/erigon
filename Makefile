@@ -33,7 +33,7 @@ docker:
 docker-compose:
 	docker-compose up
 
-dbg:
+dbg: mdbx
 	$(GO_DBG_BUILD) -o $(GOBIN)/tg ./cmd/tg
 	$(GO_DBG_BUILD) -o $(GOBIN)/integration ./cmd/integration
 
