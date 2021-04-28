@@ -605,7 +605,7 @@ func (tx *MdbxTx) Commit() error {
 	}()
 	tx.closeCursors()
 
-	slowTx := 200 * time.Millisecond
+	slowTx := 10 * time.Second
 	if debug.SlowCommit() > 0 {
 		slowTx = debug.SlowCommit()
 	}
