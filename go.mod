@@ -36,6 +36,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.1.1
 	github.com/huin/goupnp v1.0.1-0.20200620063722-49508fba0031
+	github.com/ianlancetaylor/cgosymbolizer v0.0.0-20210303021718-7cb7081f6b86
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
 	github.com/julienschmidt/httprouter v1.3.0
