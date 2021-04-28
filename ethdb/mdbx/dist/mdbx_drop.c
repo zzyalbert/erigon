@@ -36,7 +36,7 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>. */
 
-#define MDBX_BUILD_SOURCERY 0fa18705bce8544b313e2b98c087251e86a712a5174509e45b9e6f6d217edfb6_v0_9_3_167_g5029fa9b
+#define MDBX_BUILD_SOURCERY 78c9b83cb9d887314e895b374713cc03ca81a384f500ebb3255926ccb7ed9781_v0_9_3_168_g0a584eb1
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -2842,8 +2842,6 @@ struct MDBX_env {
 #define me_lfd me_lck_mmap.fd
 #define me_lck me_lck_mmap.lck
 
-  unsigned last_est, dirtied;
-
   unsigned me_psize;        /* DB page size, initialized from me_os_psize */
   unsigned me_leaf_nodemax; /* max size of a leaf-node */
   uint8_t me_psize2log;     /* log2 of DB page size */
@@ -2966,6 +2964,13 @@ struct MDBX_env {
 #if defined(MDBX_USE_VALGRIND) || defined(__SANITIZE_ADDRESS__)
   pgno_t me_poison_edge;
 #endif /* MDBX_USE_VALGRIND || __SANITIZE_ADDRESS__ */
+
+#ifndef MDBX_DEBUG_SPILLING
+#define MDBX_DEBUG_SPILLING 2
+#endif
+#if MDBX_DEBUG_SPILLING == 2
+  unsigned debug_dirtied_est, debug_dirtied_act;
+#endif /* MDBX_DEBUG_SPILLING */
 };
 
 #ifndef __cplusplus

@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define MDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY 0fa18705bce8544b313e2b98c087251e86a712a5174509e45b9e6f6d217edfb6_v0_9_3_167_g5029fa9b
+#define MDBX_BUILD_SOURCERY 78c9b83cb9d887314e895b374713cc03ca81a384f500ebb3255926ccb7ed9781_v0_9_3_168_g0a584eb1
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -2818,8 +2818,6 @@ struct MDBX_env {
 #define me_lfd me_lck_mmap.fd
 #define me_lck me_lck_mmap.lck
 
-  unsigned last_est, dirtied;
-
   unsigned me_psize;        /* DB page size, initialized from me_os_psize */
   unsigned me_leaf_nodemax; /* max size of a leaf-node */
   uint8_t me_psize2log;     /* log2 of DB page size */
@@ -2942,6 +2940,13 @@ struct MDBX_env {
 #if defined(MDBX_USE_VALGRIND) || defined(__SANITIZE_ADDRESS__)
   pgno_t me_poison_edge;
 #endif /* MDBX_USE_VALGRIND || __SANITIZE_ADDRESS__ */
+
+#ifndef MDBX_DEBUG_SPILLING
+#define MDBX_DEBUG_SPILLING 2
+#endif
+#if MDBX_DEBUG_SPILLING == 2
+  unsigned debug_dirtied_est, debug_dirtied_act;
+#endif /* MDBX_DEBUG_SPILLING */
 };
 
 #ifndef __cplusplus
@@ -8447,13 +8452,15 @@ static int spill_page(MDBX_txn *txn, struct mdbx_iov_ctx *ctx, MDBX_page *dp,
  * parent txn. That would alter the parent txns' data even though
  * the child hasn't committed yet, and we'd have no way to undo it if
  * the child aborted. */
-static int mdbx_txn_spill(MDBX_txn *txn, MDBX_cursor *m0, unsigned need) {
-#ifndef MDBX_DEBUG_SPILLING
+static int mdbx_txn_spill(MDBX_txn *const txn, MDBX_cursor *const m0,
+                          const unsigned need) {
+#if MDBX_DEBUG_SPILLING != 1
+  /* production mode */
   if (likely(txn->tw.dirtyroom >= need))
     return MDBX_SUCCESS;
   unsigned wanna_spill = need - txn->tw.dirtyroom;
 #else
-  /* spill at least one page if defined MDBX_DEBUG_SPILLING */
+  /* debug mode: spill at least one page if MDBX_DEBUG_SPILLING == 1 */
   unsigned wanna_spill =
       (need > txn->tw.dirtyroom) ? need - txn->tw.dirtyroom : 1;
 #endif /* MDBX_DEBUG_SPILLING */
@@ -8642,26 +8649,35 @@ static int mdbx_txn_spill(MDBX_txn *txn, MDBX_cursor *m0, unsigned need) {
   while (r <= dl->length)
     dl->items[++w] = dl->items[r++];
   mdbx_tassert(txn, r - 1 - w == spilled);
-  if (unlikely(spilled == 0)) {
+
+  if (likely(spilled > 0)) {
+    dl->sorted = dpl_setlen(dl, w);
+    txn->tw.dirtyroom += spilled;
+    mdbx_tassert(txn, mdbx_dirtylist_check(txn));
+
+    if (ctx.iov_items)
+      rc = mdbx_iov_write(txn, &ctx);
+
+    if (unlikely(rc != MDBX_SUCCESS))
+      goto bailout;
+
+    mdbx_pnl_sort(txn->tw.spill_pages);
+    txn->mt_flags |= MDBX_TXN_SPILLS;
+    mdbx_notice("spilled %u dirty-entries, now have %u dirty-room", spilled,
+                txn->tw.dirtyroom);
+    mdbx_iov_done(txn, &ctx);
+  } else {
     mdbx_tassert(txn, ctx.iov_items == 0 && rc == MDBX_SUCCESS);
-    return MDBX_SUCCESS;
   }
-  dl->sorted = dpl_setlen(dl, w);
-  txn->tw.dirtyroom += spilled;
-  mdbx_tassert(txn, mdbx_dirtylist_check(txn));
 
-  if (ctx.iov_items)
-    rc = mdbx_iov_write(txn, &ctx);
+#if MDBX_DEBUG_SPILLING == 2
+  if (spilled <= need / 2 + 1)
+    mdbx_error("needed %u, spilled %u dirty-entries, now have %u dirty-room",
+                need, spilled, txn->tw.dirtyroom);
+  mdbx_ensure(txn->mt_env, spilled > need / 2);
+#endif /* MDBX_DEBUG_SPILLING */
 
-  if (unlikely(rc != MDBX_SUCCESS))
-    goto bailout;
-
-  mdbx_pnl_sort(txn->tw.spill_pages);
-  txn->mt_flags |= MDBX_TXN_SPILLS;
-  mdbx_notice("spilled %u dirty-entries, now have %u dirty-room", spilled,
-              txn->tw.dirtyroom);
-  mdbx_iov_done(txn, &ctx);
-  return MDBX_SUCCESS;
+  return likely(spilled > need / 2) ? MDBX_SUCCESS : MDBX_TXN_FULL;
 }
 
 static int mdbx_cursor_spill(MDBX_cursor *mc, const MDBX_val *key,
@@ -8683,8 +8699,10 @@ static int mdbx_cursor_spill(MDBX_cursor *mc, const MDBX_val *key,
   /* 5) Factor the key+data which to be put in */
   need += bytes2pgno(txn->mt_env, node_size(key, data)) + 1;
 
-  mc->mc_txn->mt_env->last_est = need;
-  mc->mc_txn->mt_env->dirtied = 0;
+#if MDBX_DEBUG_SPILLING == 2
+  mc->mc_txn->mt_env->debug_dirtied_est = need;
+  mc->mc_txn->mt_env->debug_dirtied_act = 0;
+#endif /* MDBX_DEBUG_SPILLING == 2 */
 
   return mdbx_txn_spill(txn, mc, need);
 }
@@ -8981,9 +8999,11 @@ static __cold pgno_t mdbx_find_largest(MDBX_env *env, pgno_t largest) {
 static int __must_check_result mdbx_page_dirty(MDBX_txn *txn, MDBX_page *mp,
                                                unsigned npages) {
 
-  txn->mt_env->dirtied += 1;
-  mdbx_ensure(txn->mt_env, txn->mt_env->dirtied < txn->mt_env->last_est);
+#if MDBX_DEBUG_SPILLING == 2
+  txn->mt_env->debug_dirtied_act += 1;
+  mdbx_ensure(txn->mt_env, txn->mt_env->debug_dirtied_act < txn->mt_env->debug_dirtied_est);
   mdbx_ensure(txn->mt_env, txn->tw.dirtyroom > 0);
+#endif /* MDBX_DEBUG_SPILLING == 2 */
 
   mp->mp_txnid = txn->mt_front;
   if (unlikely(txn->tw.dirtyroom == 0)) {
@@ -27877,9 +27897,9 @@ __dll_export
         0,
         9,
         3,
-        167,
-        {"2021-04-28T01:06:49+03:00", "ea0de9f0480c042b0b4f3a6fb7df8e02834ab145", "5029fa9b460acbd8faa4613e3e58758bd8de71e6",
-         "v0.9.3-167-g5029fa9b"},
+        168,
+        {"2021-04-28T12:57:43+03:00", "213cfc33e9f183fdf68322852a416d521af5154d", "0a584eb1966f69565bc2ec6433200577baff9e6b",
+         "v0.9.3-168-g0a584eb1"},
         sourcery};
 
 __dll_export
