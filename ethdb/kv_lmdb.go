@@ -652,6 +652,7 @@ func (tx *lmdbTx) Put(bucket string, k, v []byte) error {
 		if err != nil {
 			return err
 		}
+		defer c.Close()
 		return c.Put(k, v)
 	}
 
@@ -665,6 +666,7 @@ func (tx *lmdbTx) Delete(bucket string, k, v []byte) error {
 		if err != nil {
 			return err
 		}
+		defer c.Close()
 		return c.Delete(k, v)
 	}
 	err := tx.tx.Del(lmdb.DBI(b.DBI), k, v)
