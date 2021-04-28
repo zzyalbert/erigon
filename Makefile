@@ -63,7 +63,6 @@ state:
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/state\" to launch state."
 
-
 pics:
 	$(GOBUILD) -o $(GOBIN)/pics ./cmd/pics
 	@echo "Done building."
