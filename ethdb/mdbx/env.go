@@ -8,7 +8,6 @@ package mdbx
 import "C"
 import (
 	"errors"
-	"fmt"
 	"os"
 	"runtime"
 	"sync"
