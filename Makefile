@@ -19,6 +19,7 @@ ifeq ($(OS),Linux)
 PROTOC_OS = linux
 endif
 
+
 all: tg hack rpctest state pics rpcdaemon integration db-tools
 
 go-version:
