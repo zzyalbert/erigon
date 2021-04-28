@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define MDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY 78c9b83cb9d887314e895b374713cc03ca81a384f500ebb3255926ccb7ed9781_v0_9_3_168_g0a584eb1
+#define MDBX_BUILD_SOURCERY 65a81909f0f4d5e2a580e7c0205c4e5fc5216fd05c0c888076bd79a94e7e2f6c_v0_9_3_168_g990f527c
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -8671,13 +8671,13 @@ static int mdbx_txn_spill(MDBX_txn *const txn, MDBX_cursor *const m0,
   }
 
 #if MDBX_DEBUG_SPILLING == 2
-  if (spilled <= need / 2 + 1)
+  if (txn->tw.dirtyroom <= need / 2 + 1)
     mdbx_error("needed %u, spilled %u dirty-entries, now have %u dirty-room",
-                need, spilled, txn->tw.dirtyroom);
-  mdbx_ensure(txn->mt_env, spilled > need / 2);
+               need, spilled, txn->tw.dirtyroom);
+  mdbx_ensure(txn->mt_env, txn->tw.dirtyroom > need / 2);
 #endif /* MDBX_DEBUG_SPILLING */
 
-  return likely(spilled > need / 2) ? MDBX_SUCCESS : MDBX_TXN_FULL;
+  return likely(txn->tw.dirtyroom > need / 2) ? MDBX_SUCCESS : MDBX_TXN_FULL;
 }
 
 static int mdbx_cursor_spill(MDBX_cursor *mc, const MDBX_val *key,
@@ -8695,7 +8695,7 @@ static int mdbx_cursor_spill(MDBX_cursor *mc, const MDBX_val *key,
   }
   /* 4) Double the page chain estimation
    * for extensively splitting, rebalance and merging */
-//  need += need;
+  //  need += need;
   /* 5) Factor the key+data which to be put in */
   need += bytes2pgno(txn->mt_env, node_size(key, data)) + 1;
 
@@ -9001,7 +9001,8 @@ static int __must_check_result mdbx_page_dirty(MDBX_txn *txn, MDBX_page *mp,
 
 #if MDBX_DEBUG_SPILLING == 2
   txn->mt_env->debug_dirtied_act += 1;
-  mdbx_ensure(txn->mt_env, txn->mt_env->debug_dirtied_act < txn->mt_env->debug_dirtied_est);
+  mdbx_ensure(txn->mt_env,
+              txn->mt_env->debug_dirtied_act < txn->mt_env->debug_dirtied_est);
   mdbx_ensure(txn->mt_env, txn->tw.dirtyroom > 0);
 #endif /* MDBX_DEBUG_SPILLING == 2 */
 
@@ -27898,8 +27899,8 @@ __dll_export
         9,
         3,
         168,
-        {"2021-04-28T12:57:43+03:00", "213cfc33e9f183fdf68322852a416d521af5154d", "0a584eb1966f69565bc2ec6433200577baff9e6b",
-         "v0.9.3-168-g0a584eb1"},
+        {"2021-04-28T13:14:16+03:00", "620840ca429957dd112458867454b05dbf35093a", "990f527c95055df4319a451301587b95e3dfda3a",
+         "v0.9.3-168-g990f527c"},
         sourcery};
 
 __dll_export
