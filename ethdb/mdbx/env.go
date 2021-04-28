@@ -368,7 +368,6 @@ func (env *Env) Info() (*EnvInfo, error) {
 	if ret != success {
 		return nil, operrno("mdbx_env_info", ret)
 	}
-	fmt.Printf("%+v\n", _info.mi_pgop_stat)
 	info := EnvInfo{
 		MapSize: int64(_info.mi_mapsize),
 		Geo: EnvInfoGeo{
