@@ -34,7 +34,7 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>. */
 
-#define MDBX_BUILD_SOURCERY 0fa18705bce8544b313e2b98c087251e86a712a5174509e45b9e6f6d217edfb6_v0_9_3_167_g5029fa9b
+#define MDBX_BUILD_SOURCERY 3c041ab4d3d07620cff579b3acb5605660c47b2ee4e2ced50c29871f19a2ae10_v0_9_3_165_gde4a52e9
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -2839,8 +2839,6 @@ struct MDBX_env {
   mdbx_mmap_t me_lck_mmap; /* The lock file */
 #define me_lfd me_lck_mmap.fd
 #define me_lck me_lck_mmap.lck
-
-  unsigned last_est, dirtied;
 
   unsigned me_psize;        /* DB page size, initialized from me_os_psize */
   unsigned me_leaf_nodemax; /* max size of a leaf-node */

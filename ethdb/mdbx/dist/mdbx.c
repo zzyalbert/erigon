@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define MDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY 0fa18705bce8544b313e2b98c087251e86a712a5174509e45b9e6f6d217edfb6_v0_9_3_167_g5029fa9b
+#define MDBX_BUILD_SOURCERY 3c041ab4d3d07620cff579b3acb5605660c47b2ee4e2ced50c29871f19a2ae10_v0_9_3_165_gde4a52e9
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -2817,8 +2817,6 @@ struct MDBX_env {
   mdbx_mmap_t me_lck_mmap; /* The lock file */
 #define me_lfd me_lck_mmap.fd
 #define me_lck me_lck_mmap.lck
-
-  unsigned last_est, dirtied;
 
   unsigned me_psize;        /* DB page size, initialized from me_os_psize */
   unsigned me_leaf_nodemax; /* max size of a leaf-node */
@@ -8679,13 +8677,9 @@ static int mdbx_cursor_spill(MDBX_cursor *mc, const MDBX_val *key,
   }
   /* 4) Double the page chain estimation
    * for extensively splitting, rebalance and merging */
-//  need += need;
+  need += need;
   /* 5) Factor the key+data which to be put in */
   need += bytes2pgno(txn->mt_env, node_size(key, data)) + 1;
-
-  mc->mc_txn->mt_env->last_est = need;
-  mc->mc_txn->mt_env->dirtied = 0;
-
   return mdbx_txn_spill(txn, mc, need);
 }
 
@@ -8980,11 +8974,6 @@ static __cold pgno_t mdbx_find_largest(MDBX_env *env, pgno_t largest) {
 /* Add a page to the txn's dirty list */
 static int __must_check_result mdbx_page_dirty(MDBX_txn *txn, MDBX_page *mp,
                                                unsigned npages) {
-
-  txn->mt_env->dirtied += 1;
-  mdbx_ensure(txn->mt_env, txn->mt_env->dirtied < txn->mt_env->last_est);
-  mdbx_ensure(txn->mt_env, txn->tw.dirtyroom > 0);
-
   mp->mp_txnid = txn->mt_front;
   if (unlikely(txn->tw.dirtyroom == 0)) {
     mdbx_error("Dirtyroom is depleted, DPL length %u",
@@ -19936,12 +19925,16 @@ static int mdbx_rebalance(MDBX_cursor *mc) {
   STATIC_ASSERT(P_BRANCH == 1);
   const unsigned minkeys = (pagetype & P_BRANCH) + 1;
 
-  /* The threshold of minimum page fill, as a number of free bytes on a page.
+  /* The threshold of minimum page fill factor, in form of a negative binary
+   * exponent, i.e. X = 2 means 1/(2**X) == 1/(2**2) == 1/4 == 25%.
    * Pages emptier than this are candidates for merging. */
-  unsigned room_threshold = (mc->mc_dbi == FREE_DBI)
-                                ? page_space(mc->mc_txn->mt_env) * 2u / 3u
-                                : page_space(mc->mc_txn->mt_env) / 2u;
-  mdbx_cassert(mc, room_threshold * 2 >= page_space(mc->mc_txn->mt_env));
+  const unsigned threshold_fill_exp2 = 2;
+
+  /* The threshold of minimum page fill factor, as a number of free bytes on a
+   * page. Pages emptier than this are candidates for merging. */
+  unsigned room_threshold =
+      page_space(mc->mc_txn->mt_env) -
+      (page_space(mc->mc_txn->mt_env) >> threshold_fill_exp2);
 
   const MDBX_page *const tp = mc->mc_pg[mc->mc_top];
   const unsigned numkeys = page_numkeys(tp);
@@ -27877,9 +27870,9 @@ __dll_export
         0,
         9,
         3,
-        167,
-        {"2021-04-28T01:06:49+03:00", "ea0de9f0480c042b0b4f3a6fb7df8e02834ab145", "5029fa9b460acbd8faa4613e3e58758bd8de71e6",
-         "v0.9.3-167-g5029fa9b"},
+        165,
+        {"2021-04-28T00:20:12+03:00", "fd78c638c115ae3d64f4d2c1ba0be2efe1eea353", "de4a52e953cc8bbff45be99eaf4bf25fc3636b2a",
+         "v0.9.3-165-gde4a52e9"},
         sourcery};
 
 __dll_export
