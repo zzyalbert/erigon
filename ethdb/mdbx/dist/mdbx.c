@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define MDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY 65a81909f0f4d5e2a580e7c0205c4e5fc5216fd05c0c888076bd79a94e7e2f6c_v0_9_3_168_g990f527c
+#define MDBX_BUILD_SOURCERY f3956580fbfaf5f4a521b1855b23bf8b315f037a519bf70dbe230ae8dce333ad_v0_9_3_170_g935f50ac
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -8456,7 +8456,7 @@ static int mdbx_txn_spill(MDBX_txn *const txn, MDBX_cursor *const m0,
                           const unsigned need) {
 #if MDBX_DEBUG_SPILLING != 1
   /* production mode */
-  if (likely(txn->tw.dirtyroom >= need))
+  if (likely(txn->tw.dirtyroom + txn->tw.loose_count >= need))
     return MDBX_SUCCESS;
   unsigned wanna_spill = need - txn->tw.dirtyroom;
 #else
@@ -8572,7 +8572,7 @@ static int mdbx_txn_spill(MDBX_txn *const txn, MDBX_cursor *const m0,
   }
 
   /* half of 8-bit radix-sort */
-  unsigned radix_counters[256], spillable = 0;
+  unsigned radix_counters[256], spillable = 0, spilled = 0;
   memset(&radix_counters, 0, sizeof(radix_counters));
   unsigned const reciprocal = 255 * 256 / (lru_max - lru_min + 1);
   for (unsigned i = 1; i <= dl->length; ++i) {
@@ -8583,74 +8583,82 @@ static int mdbx_txn_spill(MDBX_txn *const txn, MDBX_cursor *const m0,
     }
   }
 
-  unsigned prio2spill = 0, prio2adjacent = 127, amount = radix_counters[0];
-  for (unsigned i = 1; i < 256; i++) {
-    if (amount < wanna_spill) {
-      prio2spill = i;
-      prio2adjacent = i + (255 - i) / 2;
-      amount += radix_counters[i];
-    } else if (amount + amount < spillable + wanna_spill
-               /* РАВНОЗНАЧНО: amount - wanna_spill < spillable - amount */) {
-      prio2adjacent = i;
-      amount += radix_counters[i];
-    } else
-      break;
-  }
+  if (likely(spillable > 0)) {
+    unsigned prio2spill = 0, prio2adjacent = 128, amount = radix_counters[0];
+    for (unsigned i = 1; i < 256; i++) {
+      if (amount < wanna_spill) {
+        prio2spill = i;
+        prio2adjacent = i + (257 - i) / 2;
+        amount += radix_counters[i];
+      } else if (amount + amount < spillable + wanna_spill
+                 /* РАВНОЗНАЧНО: amount - wanna_spill < spillable - amount */) {
+        prio2adjacent = i;
+        amount += radix_counters[i];
+      } else
+        break;
+    }
 
-  unsigned prev_prio = 256, spilled = 0;
-  unsigned r, w, prio;
-  for (w = 0, r = 1; r <= dl->length && spilled < wanna_spill;
-       prev_prio = prio, ++r) {
-    prio = spill_prio(txn, r, lru_min, reciprocal);
-    MDBX_page *const dp = dl->items[r].ptr;
-    if (prio < prio2adjacent) {
-      const pgno_t pgno = dl->items[r].pgno;
-      const unsigned npages = dpl_npages(dl, r);
-      if (prio <= prio2spill) {
-        if (prev_prio < prio2adjacent && prev_prio > prio2spill &&
-            dpl_endpgno(dl, r - 1) == pgno) {
-          mdbx_debug("co-spill %u prev-adjacent page %" PRIaPGNO
-                     " (lru-dist %d, prio %u)",
-                     dpl_npages(dl, w), dl->items[r - 1].pgno,
-                     txn->tw.dirtylru - dl->items[r - 1].lru, prev_prio);
-          --w;
-          rc = spill_page(txn, &ctx, dl->items[r - 1].ptr,
-                          dpl_npages(dl, r - 1));
+    mdbx_verbose("prio2spill %u, prio2adjacent %u, amount %u, spillable %u, "
+                 "wanna_spill %u",
+                 prio2spill, prio2adjacent, amount, spillable, wanna_spill);
+    mdbx_tassert(txn, prio2spill < prio2adjacent && prio2adjacent <= 256);
+
+    unsigned prev_prio = 256;
+    unsigned r, w, prio;
+    for (w = 0, r = 1; r <= dl->length && spilled < wanna_spill;
+         prev_prio = prio, ++r) {
+      prio = spill_prio(txn, r, lru_min, reciprocal);
+      MDBX_page *const dp = dl->items[r].ptr;
+      if (prio < prio2adjacent) {
+        const pgno_t pgno = dl->items[r].pgno;
+        const unsigned npages = dpl_npages(dl, r);
+        if (prio <= prio2spill) {
+          if (prev_prio < prio2adjacent && prev_prio > prio2spill &&
+              dpl_endpgno(dl, r - 1) == pgno) {
+            mdbx_debug("co-spill %u prev-adjacent page %" PRIaPGNO
+                       " (lru-dist %d, prio %u)",
+                       dpl_npages(dl, w), dl->items[r - 1].pgno,
+                       txn->tw.dirtylru - dl->items[r - 1].lru, prev_prio);
+            --w;
+            rc = spill_page(txn, &ctx, dl->items[r - 1].ptr,
+                            dpl_npages(dl, r - 1));
+            if (unlikely(rc != MDBX_SUCCESS))
+              break;
+            ++spilled;
+          }
+
+          mdbx_debug("spill %u page %" PRIaPGNO " (lru-dist %d, prio %u)",
+                     npages, dp->mp_pgno, txn->tw.dirtylru - dl->items[r].lru,
+                     prio);
+          rc = spill_page(txn, &ctx, dp, npages);
           if (unlikely(rc != MDBX_SUCCESS))
             break;
           ++spilled;
+          continue;
         }
 
-        mdbx_debug("spill %u page %" PRIaPGNO " (lru-dist %d, prio %u)", npages,
-                   dp->mp_pgno, txn->tw.dirtylru - dl->items[r].lru, prio);
-        rc = spill_page(txn, &ctx, dp, npages);
-        if (unlikely(rc != MDBX_SUCCESS))
-          break;
-        ++spilled;
-        continue;
+        if (prev_prio <= prio2spill && dpl_endpgno(dl, r - 1) == pgno) {
+          mdbx_debug("co-spill %u next-adjacent page %" PRIaPGNO
+                     " (lru-dist %d, prio %u)",
+                     npages, dp->mp_pgno, txn->tw.dirtylru - dl->items[r].lru,
+                     prio);
+          rc = spill_page(txn, &ctx, dp, npages);
+          if (unlikely(rc != MDBX_SUCCESS))
+            break;
+          prio = prev_prio /* to continue co-spilling next adjacent pages */;
+          ++spilled;
+          continue;
+        }
       }
-
-      if (prev_prio <= prio2spill && dpl_endpgno(dl, r - 1) == pgno) {
-        mdbx_debug("co-spill %u next-adjacent page %" PRIaPGNO
-                   " (lru-dist %d, prio %u)",
-                   npages, dp->mp_pgno, txn->tw.dirtylru - dl->items[r].lru,
-                   prio);
-        rc = spill_page(txn, &ctx, dp, npages);
-        if (unlikely(rc != MDBX_SUCCESS))
-          break;
-        prio = prev_prio /* to continue co-spilling next adjacent pages */;
-        ++spilled;
-        continue;
-      }
+      dl->items[++w] = dl->items[r];
     }
-    dl->items[++w] = dl->items[r];
-  }
 
-  while (r <= dl->length)
-    dl->items[++w] = dl->items[r++];
-  mdbx_tassert(txn, r - 1 - w == spilled);
+    mdbx_tassert(txn, spillable == 0 || spilled > 0);
 
-  if (likely(spilled > 0)) {
+    while (r <= dl->length)
+      dl->items[++w] = dl->items[r++];
+    mdbx_tassert(txn, r - 1 - w == spilled);
+
     dl->sorted = dpl_setlen(dl, w);
     txn->tw.dirtyroom += spilled;
     mdbx_tassert(txn, mdbx_dirtylist_check(txn));
@@ -8671,13 +8679,22 @@ static int mdbx_txn_spill(MDBX_txn *const txn, MDBX_cursor *const m0,
   }
 
 #if MDBX_DEBUG_SPILLING == 2
-  if (txn->tw.dirtyroom <= need / 2 + 1)
-    mdbx_error("needed %u, spilled %u dirty-entries, now have %u dirty-room",
-               need, spilled, txn->tw.dirtyroom);
-  mdbx_ensure(txn->mt_env, txn->tw.dirtyroom > need / 2);
+  if (txn->tw.loose_count + txn->tw.dirtyroom <= need / 2 + 1)
+    mdbx_error("dirty-list length: before %u, after %u, parent %u, loose %u; "
+               "needed %u, spillable %u; "
+               "spilled %u dirty-entries, now have %u dirty-room",
+               dl->length + spilled, dl->length,
+               (txn->mt_parent && txn->mt_parent->tw.dirtylist)
+                   ? txn->mt_parent->tw.dirtylist->length
+                   : 0,
+               txn->tw.loose_count, need, spillable, spilled,
+               txn->tw.dirtyroom);
+  mdbx_ensure(txn->mt_env, txn->tw.loose_count + txn->tw.dirtyroom > need / 2);
 #endif /* MDBX_DEBUG_SPILLING */
 
-  return likely(txn->tw.dirtyroom > need / 2) ? MDBX_SUCCESS : MDBX_TXN_FULL;
+  return likely(txn->tw.loose_count + txn->tw.dirtyroom > need / 2)
+             ? MDBX_SUCCESS
+             : MDBX_TXN_FULL;
 }
 
 static int mdbx_cursor_spill(MDBX_cursor *mc, const MDBX_val *key,
@@ -8693,14 +8710,18 @@ static int mdbx_cursor_spill(MDBX_cursor *mc, const MDBX_val *key,
     if (mc->mc_dbi > MAIN_DBI)
       need += txn->mt_dbs[MAIN_DBI].md_depth + 3;
   }
+#if MDBX_DEBUG_SPILLING != 2
+  /* production mode */
   /* 4) Double the page chain estimation
    * for extensively splitting, rebalance and merging */
-  //  need += need;
+  need += need;
   /* 5) Factor the key+data which to be put in */
   need += bytes2pgno(txn->mt_env, node_size(key, data)) + 1;
-
-#if MDBX_DEBUG_SPILLING == 2
-  mc->mc_txn->mt_env->debug_dirtied_est = need;
+#else
+  /* debug mode */
+  (void)key;
+  (void)data;
+  mc->mc_txn->mt_env->debug_dirtied_est = ++need;
   mc->mc_txn->mt_env->debug_dirtied_act = 0;
 #endif /* MDBX_DEBUG_SPILLING == 2 */
 
@@ -8998,24 +9019,42 @@ static __cold pgno_t mdbx_find_largest(MDBX_env *env, pgno_t largest) {
 /* Add a page to the txn's dirty list */
 static int __must_check_result mdbx_page_dirty(MDBX_txn *txn, MDBX_page *mp,
                                                unsigned npages) {
-
 #if MDBX_DEBUG_SPILLING == 2
   txn->mt_env->debug_dirtied_act += 1;
   mdbx_ensure(txn->mt_env,
               txn->mt_env->debug_dirtied_act < txn->mt_env->debug_dirtied_est);
-  mdbx_ensure(txn->mt_env, txn->tw.dirtyroom > 0);
+  mdbx_ensure(txn->mt_env, txn->tw.dirtyroom + txn->tw.loose_count > 0);
 #endif /* MDBX_DEBUG_SPILLING == 2 */
 
+  int rc;
   mp->mp_txnid = txn->mt_front;
   if (unlikely(txn->tw.dirtyroom == 0)) {
-    mdbx_error("Dirtyroom is depleted, DPL length %u",
-               txn->tw.dirtylist->length);
-    if (!(txn->mt_flags & MDBX_WRITEMAP))
-      mdbx_dpage_free(txn->mt_env, mp, npages);
-    return MDBX_TXN_FULL;
+    if (txn->tw.loose_count) {
+      MDBX_page *loose = txn->tw.loose_pages;
+      mdbx_debug("purge-and-reclaim loose page %" PRIaPGNO, loose->mp_pgno);
+      rc = mdbx_pnl_insert_range(&txn->tw.reclaimed_pglist, loose->mp_pgno, 1);
+      if (unlikely(rc != MDBX_SUCCESS))
+        goto bailout;
+      unsigned di = mdbx_dpl_search(txn, loose->mp_pgno);
+      mdbx_tassert(txn, txn->tw.dirtylist->items[di].ptr == loose);
+      mdbx_dpl_remove(txn, di);
+      txn->tw.loose_pages = loose->mp_next;
+      txn->tw.loose_count--;
+      txn->tw.dirtyroom++;
+      if (!(txn->mt_flags & MDBX_WRITEMAP))
+        mdbx_dpage_free(txn->mt_env, loose, 1);
+    } else {
+      mdbx_error("Dirtyroom is depleted, DPL length %u",
+                 txn->tw.dirtylist->length);
+      if (!(txn->mt_flags & MDBX_WRITEMAP))
+        mdbx_dpage_free(txn->mt_env, mp, npages);
+      return MDBX_TXN_FULL;
+    }
   }
-  const int rc = mdbx_dpl_append(txn, mp->mp_pgno, mp, npages);
+
+  rc = mdbx_dpl_append(txn, mp->mp_pgno, mp, npages);
   if (unlikely(rc != MDBX_SUCCESS)) {
+  bailout:
     txn->mt_flags |= MDBX_TXN_ERROR;
     return rc;
   }
@@ -27898,9 +27937,9 @@ __dll_export
         0,
         9,
         3,
-        168,
-        {"2021-04-28T13:14:16+03:00", "620840ca429957dd112458867454b05dbf35093a", "990f527c95055df4319a451301587b95e3dfda3a",
-         "v0.9.3-168-g990f527c"},
+        170,
+        {"2021-04-28T16:39:11+03:00", "bb41a9b2b4b462fedfd030c0b98cbc0667be09f0", "935f50ac7530091e7df360b8bc7c09e5f7c0058d",
+         "v0.9.3-170-g935f50ac"},
         sourcery};
 
 __dll_export
