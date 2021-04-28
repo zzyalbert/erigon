@@ -2,6 +2,8 @@
 *.dylib
 *.o
 config.h
+./mdbx.c
+./mdbx.h
 config_darwin.h
 config_linux.h
 config_win.h

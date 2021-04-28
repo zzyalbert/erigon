@@ -133,8 +133,11 @@ details about dealing with such situations.
 package mdbx
 
 /*
-#cgo CFLAGS: -Wno-deprecated-declarations -pthread -W -Wall -Werror -Wextra -Wpedantic -fPIC -fvisibility=hidden -std=gnu11 -pthread -Wno-error=attributes -Wno-implicit-fallthrough -Wno-unused-function -Wno-unused-parameter -Wno-format-extra-args -Wbad-function-cast -Wno-missing-field-initializers -O0 -g
-#cgo LDFLAGS: ${SRCDIR}/dist/mdbx-static.o
+#cgo CFLAGS: -DMDBX_BUILD_FLAGS_CONFIG="config.h" -Wno-deprecated-declarations -pthread -W -Wall -Wextra -fPIC -fvisibility=hidden -std=gnu11 -pthread -Wno-error=attributes -Wno-implicit-fallthrough -Wno-unused-function -Wno-unused-parameter -Wno-format-extra-args -Wbad-function-cast -Wno-missing-field-initializers -O0 -g
+
+#include "config.h"
+//#include "mdbx.h"
+//#include "mdbxgo.h"
 */
 import "C"
 
