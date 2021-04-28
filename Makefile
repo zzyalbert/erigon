@@ -110,8 +110,8 @@ mdbx-dbg:
 		&& make clean && make config.h \
 		&& echo '#define MDBX_DEBUG 1' >> config.h \
 		&& echo '#define MDBX_FORCE_ASSERTIONS 1' >> config.h \
-		&& cp config.h ./../ && cp mdbx.h ./../ && cp mdbx.c ./../ \
-        && CFLAGS_EXTRA="-Wno-deprecated-declarations" CFLAGS='-O0 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -std=gnu11 -pthread -Wno-error=attributes' make mdbx-static.o
+		&& cp config.h ./../ && cp mdbx.h ./../ && cp mdbx.c ./../
+#        && CFLAGS_EXTRA="-Wno-deprecated-declarations" CFLAGS='-O0 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -std=gnu11 -pthread -Wno-error=attributes' make mdbx-static.o
 
 test: mdbx
 	TEST_DB=mdbx $(GOTEST) --timeout 15m
