@@ -33,7 +33,7 @@ docker:
 docker-compose:
 	docker-compose up
 
-dbg: mdbx
+dbg: mdbx-dbg
 	$(GO_DBG_BUILD) -o $(GOBIN)/tg ./cmd/tg
 	$(GO_DBG_BUILD) -o $(GOBIN)/integration ./cmd/integration
 
@@ -103,11 +103,21 @@ mdbx:
 		&& make clean && make config.h \
 		&& echo '#define MDBX_DEBUG 0' >> config.h \
 		&& echo '#define MDBX_FORCE_ASSERTIONS 0' >> config.h \
-		&& echo '#define MDBX_ENABLE_MADVISE 1' >> config.h \
         && echo '#define MDBX_TXN_CHECKOWNER 1' >> config.h \
         && echo '#define MDBX_ENV_CHECKPID 1' >> config.h \
         && echo '#define MDBX_DISABLE_PAGECHECKS 0' >> config.h \
         && CFLAGS_EXTRA="-Wno-deprecated-declarations" make mdbx-static.o
+
+mdbx-dbg:
+	@echo "Building mdbx"
+	@cd ethdb/mdbx/dist/ \
+		&& make clean && make config.h \
+		&& echo '#define MDBX_DEBUG 1' >> config.h \
+		&& echo '#define MDBX_FORCE_ASSERTIONS 1' >> config.h \
+        && echo '#define MDBX_TXN_CHECKOWNER 1' >> config.h \
+        && echo '#define MDBX_ENV_CHECKPID 1' >> config.h \
+        && echo '#define MDBX_DISABLE_PAGECHECKS 0' >> config.h \
+        && CFLAGS_EXTRA="-Wno-deprecated-declarations" CFLAGS='-O0 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -std=gnu11 -pthread -Wno-error=attributes' make mdbx-static.o
 
 test: mdbx
 	TEST_DB=mdbx $(GOTEST) --timeout 15m
