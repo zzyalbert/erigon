@@ -4,7 +4,7 @@ GOTEST = go test ./... -p 1 --tags 'mdbx'
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD)
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 GOBUILD = env GO111MODULE=on go build -trimpath -tags "mdbx" -ldflags "-X main.gitCommit=${GIT_COMMIT} -X main.gitBranch=${GIT_BRANCH}"
-GO_DBG_BUILD = env CGO_CFLAGS='-O0 -g' go build -trimpath -tags "mdbx" -ldflags "-X main.gitCommit=${GIT_COMMIT} -X main.gitBranch=${GIT_BRANCH}" -gcflags="all=-N -l"  # see delve docs
+GO_DBG_BUILD = env CGO_CFLAGS='-O0 -g -DMDBX_BUILD_FLAGS_CONFIG="config.h"' go build -trimpath -tags "mdbx" -ldflags "-X main.gitCommit=${GIT_COMMIT} -X main.gitBranch=${GIT_BRANCH}" -gcflags="all=-N -l"  # see delve docs
 
 GO_MAJOR_VERSION = $(shell go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
 GO_MINOR_VERSION = $(shell go version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
@@ -102,8 +102,7 @@ mdbx:
 		&& make clean && make config.h \
 		&& echo '#define MDBX_DEBUG 0' >> config.h \
 		&& echo '#define MDBX_FORCE_ASSERTIONS 0' >> config.h \
-		&& cp config.h ./../ && cp mdbx.h ./../
-		#&& cp mdbx.c ./../
+		&& cp config.h ./../ && cp mdbx.h ./../ && cp mdbx.c ./../
 #        && CFLAGS_EXTRA="-Wno-deprecated-declarations" make mdbx-static.o
 
 mdbx-dbg:
@@ -112,8 +111,7 @@ mdbx-dbg:
 		&& make clean && make config.h \
 		&& echo '#define MDBX_DEBUG 1' >> config.h \
 		&& echo '#define MDBX_FORCE_ASSERTIONS 1' >> config.h \
-		&& cp config.h ./../ && cp mdbx.h ./../
-		#&& cp mdbx.c ./../
+		&& cp config.h ./../ && cp mdbx.h ./../ && cp mdbx.c ./../
 #        && CFLAGS_EXTRA="-Wno-deprecated-declarations" CFLAGS='-O0 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -std=gnu11 -pthread -Wno-error=attributes' make mdbx-static.o
 
 test: mdbx
