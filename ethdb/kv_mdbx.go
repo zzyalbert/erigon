@@ -606,13 +606,13 @@ func (tx *MdbxTx) Commit() error {
 	}()
 	tx.closeCursors()
 
-	slowTx := 500 * time.Millisecond
+	slowTx := 10 * time.Second
 	if debug.SlowCommit() > 0 {
 		slowTx = debug.SlowCommit()
 	}
 
-	commitTimer := time.Now()
-	defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
+	//commitTimer := time.Now()
+	//defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
 
 	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
 		tx.PrintDebugInfo()
@@ -664,7 +664,7 @@ func (tx *MdbxTx) ItsTimeToCommit() bool {
 		panic(err)
 	}
 
-	return tx.db.opts.dirtyListMaxPages*4096*4 < txInfo.SpaceDirty
+	return tx.db.opts.dirtyListMaxPages*4096 < 2*txInfo.SpaceDirty
 }
 
 func (tx *MdbxTx) PrintDebugInfo() {
