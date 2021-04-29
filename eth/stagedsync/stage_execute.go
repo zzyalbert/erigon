@@ -231,17 +231,17 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 			if hasTx, ok := tx.(ethdb.HasTx); ok {
 				hasTx.Tx().CollectMetrics()
 			}
-			if hasTx, ok := tx.(ethdb.HasTx); ok {
-				tt := hasTx.Tx()
-				if p, canPrint := tt.(*ethdb.MdbxTx); canPrint {
-					p.PrintDebugInfo()
-				} else {
-					if hasTx2, ok := tt.(ethdb.HasTx); ok {
-						tt = hasTx2.Tx()
-						tt.(*ethdb.MdbxTx).PrintDebugInfo()
-					}
-				}
-			}
+			//if hasTx, ok := tx.(ethdb.HasTx); ok {
+			//	tt := hasTx.Tx()
+			//	if p, canPrint := tt.(*ethdb.MdbxTx); canPrint {
+			//		p.PrintDebugInfo()
+			//	} else {
+			//		if hasTx2, ok := tt.(ethdb.HasTx); ok {
+			//			tt = hasTx2.Tx()
+			//			tt.(*ethdb.MdbxTx).PrintDebugInfo()
+			//		}
+			//	}
+			//}
 			logBlock, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, nil)
 		}
 
