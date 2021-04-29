@@ -168,7 +168,7 @@ func SpawnExecuteBlocksStage(s *StageState, stateDB ethdb.Database, toBlock uint
 
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
-	commitEvery := time.NewTicker(5 * time.Minute)
+	commitEvery := time.NewTicker(10 * time.Minute)
 	defer commitEvery.Stop()
 	stageProgress := s.BlockNumber
 	logBlock := stageProgress
