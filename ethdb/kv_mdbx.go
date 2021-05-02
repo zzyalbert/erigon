@@ -39,7 +39,7 @@ func NewMDBX() MdbxOpts {
 	return MdbxOpts{
 		bucketsCfg:        DefaultBucketConfigs,
 		flags:             mdbx.NoReadahead | mdbx.Coalesce | mdbx.Durable, // | mdbx.LifoReclaim,
-		dirtyListMaxPages: 64 * 1024,
+		dirtyListMaxPages: 32 * 1024,
 	}
 }
 
