@@ -122,7 +122,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 			opts.mapSize = LMDBDefaultMapSize
 		}
 	}
-	const pageSize = 4 * 1024
+	const pageSize = 8 * 1024
 	if opts.flags&mdbx.Accede == 0 {
 		if opts.inMem {
 			if err = env.SetGeometry(-1, -1, int(opts.mapSize), int(2*datasize.MB), 0, 4*1024); err != nil {
