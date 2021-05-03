@@ -25,21 +25,19 @@ import (
 var _ DbCopier = &MdbxKV{}
 
 type MdbxOpts struct {
-	inMem             bool
-	exclusive         bool
-	flags             uint
-	path              string
-	bucketsCfg        BucketConfigsFunc
-	mapSize           datasize.ByteSize
-	dirtyListMaxPages uint64
-	verbosity         DBVerbosityLvl
+	inMem      bool
+	exclusive  bool
+	flags      uint
+	path       string
+	bucketsCfg BucketConfigsFunc
+	mapSize    datasize.ByteSize
+	verbosity  DBVerbosityLvl
 }
 
 func NewMDBX() MdbxOpts {
 	return MdbxOpts{
-		bucketsCfg:        DefaultBucketConfigs,
-		flags:             mdbx.NoReadahead | mdbx.Coalesce | mdbx.Durable, // | mdbx.LifoReclaim,
-		dirtyListMaxPages: 512 * 1024,
+		bucketsCfg: DefaultBucketConfigs,
+		flags:      mdbx.NoReadahead | mdbx.Coalesce | mdbx.Durable, // | mdbx.LifoReclaim,
 	}
 }
 
@@ -124,14 +122,14 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 			opts.mapSize = LMDBDefaultMapSize
 		}
 	}
-
+	const pageSize = 4 * 1024
 	if opts.flags&mdbx.Accede == 0 {
 		if opts.inMem {
 			if err = env.SetGeometry(-1, -1, int(opts.mapSize), int(2*datasize.MB), 0, 4*1024); err != nil {
 				return nil, err
 			}
 		} else {
-			if err = env.SetGeometry(-1, -1, int(opts.mapSize), int(2*datasize.GB), -1, 4*1024); err != nil {
+			if err = env.SetGeometry(-1, -1, int(opts.mapSize), int(2*datasize.GB), -1, pageSize); err != nil {
 				return nil, err
 			}
 		}
@@ -152,24 +150,32 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		// 1/8 is good for transactions with a lot of modifications - to reduce invalidation size.
 		// But TG app now using Batch and etl.Collectors to avoid writing to DB frequently changing data.
 		// It means most of our writes are: APPEND or "single UPSERT per key during transaction"
-		if err = env.SetOption(mdbx.OptTxnDpInitial, 32*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpInitial, 16*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptDpReverseLimit, 32*1024); err != nil {
+		if err = env.SetOption(mdbx.OptDpReverseLimit, 16*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, opts.dirtyListMaxPages); err != nil {
-			return nil, err
-		}
+		//if err = env.SetOption(mdbx.OptTxnDpLimit, 128*1024); err != nil {
+		//	return nil, err
+		//}
+	}
+
+	dirtyPagesLimit, err := env.GetOption(mdbx.OptTxnDpLimit)
+	if err != nil {
+		return nil, err
 	}
 
 	db := &MdbxKV{
-		opts:    opts,
-		env:     env,
-		log:     logger,
-		wg:      &sync.WaitGroup{},
-		buckets: dbutils.BucketsCfg{},
+		opts:     opts,
+		env:      env,
+		log:      logger,
+		wg:       &sync.WaitGroup{},
+		buckets:  dbutils.BucketsCfg{},
+		pageSize: pageSize,
+		txSize:   dirtyPagesLimit * pageSize,
 	}
+
 	customBuckets := opts.bucketsCfg(dbutils.BucketsConfigs)
 	for name, cfg := range customBuckets { // copy map to avoid changing global variable
 		db.buckets[name] = cfg
@@ -260,11 +266,13 @@ func (opts MdbxOpts) MustOpen() RwKV {
 }
 
 type MdbxKV struct {
-	opts    MdbxOpts
-	env     *mdbx.Env
-	log     log.Logger
-	buckets dbutils.BucketsCfg
-	wg      *sync.WaitGroup
+	opts     MdbxOpts
+	txSize   uint64
+	pageSize uint64
+	env      *mdbx.Env
+	log      log.Logger
+	buckets  dbutils.BucketsCfg
+	wg       *sync.WaitGroup
 }
 
 func (db *MdbxKV) NewDbWithTheSameParameters() *ObjectDatabase {
@@ -663,7 +671,7 @@ func (tx *MdbxTx) ItsTimeToCommit() bool {
 		panic(err)
 	}
 
-	return tx.db.opts.dirtyListMaxPages*4096 < 2*txInfo.SpaceDirty
+	return tx.db.txSize < 2*txInfo.SpaceDirty
 }
 
 func (tx *MdbxTx) PrintDebugInfo() {
