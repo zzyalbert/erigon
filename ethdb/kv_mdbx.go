@@ -39,7 +39,7 @@ func NewMDBX() MdbxOpts {
 	return MdbxOpts{
 		bucketsCfg:        DefaultBucketConfigs,
 		flags:             mdbx.NoReadahead | mdbx.Coalesce | mdbx.Durable, // | mdbx.LifoReclaim,
-		dirtyListMaxPages: 128 * 1024,
+		dirtyListMaxPages: 32 * 1024,
 	}
 }
 
@@ -135,7 +135,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 				return nil, err
 			}
 		}
-		if err = env.SetOption(mdbx.OptRpAugmentLimit, 32*1024*1024); err != nil {
+		if err = env.SetOption(mdbx.OptRpAugmentLimit, 8*1024*1024); err != nil {
 			return nil, err
 		}
 		if err = os.MkdirAll(opts.path, 0744); err != nil {
@@ -152,10 +152,10 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		// 1/8 is good for transactions with a lot of modifications - to reduce invalidation size.
 		// But TG app now using Batch and etl.Collectors to avoid writing to DB frequently changing data.
 		// It means most of our writes are: APPEND or "single UPSERT per key during transaction"
-		if err = env.SetOption(mdbx.OptTxnDpInitial, 32*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpInitial, 8*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptDpReverseLimit, 32*1024); err != nil {
+		if err = env.SetOption(mdbx.OptDpReverseLimit, 8*1024); err != nil {
 			return nil, err
 		}
 		if err = env.SetOption(mdbx.OptTxnDpLimit, opts.dirtyListMaxPages); err != nil {
