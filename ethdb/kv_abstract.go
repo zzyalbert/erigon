@@ -15,10 +15,13 @@ var (
 	ErrAttemptToDeleteNonDeprecatedBucket = errors.New("only buckets from dbutils.DeprecatedBuckets can be deleted")
 	ErrUnknownBucket                      = errors.New("unknown bucket. add it to dbutils.Buckets")
 
-	dbSize    = metrics.GetOrRegisterGauge("db/size", metrics.DefaultRegistry)    //nolint
-	txSpill   = metrics.GetOrRegisterGauge("tx/spill", metrics.DefaultRegistry)   //nolint
-	txUnspill = metrics.GetOrRegisterGauge("tx/unspill", metrics.DefaultRegistry) //nolint
-	txDirty   = metrics.GetOrRegisterGauge("tx/dirty", metrics.DefaultRegistry)   //nolint
+	dbSize           = metrics.GetOrRegisterGauge("db/size", metrics.DefaultRegistry)        //nolint
+	txSpill          = metrics.GetOrRegisterGauge("tx/spill", metrics.DefaultRegistry)       //nolint
+	txUnspill        = metrics.GetOrRegisterGauge("tx/unspill", metrics.DefaultRegistry)     //nolint
+	txDirty          = metrics.GetOrRegisterGauge("tx/dirty", metrics.DefaultRegistry)       //nolint
+	gcLeafMetric     = metrics.GetOrRegisterGauge("db/gc/leaf", metrics.DefaultRegistry)     //nolint
+	gcOverflowMetric = metrics.GetOrRegisterGauge("db/gc/overflow", metrics.DefaultRegistry) //nolint
+	gcPagesMetric    = metrics.GetOrRegisterGauge("db/gc/pages", metrics.DefaultRegistry)    //nolint
 )
 
 type DBVerbosityLvl int8
