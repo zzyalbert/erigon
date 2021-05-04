@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define xMDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY 0659b7ae19886b603a921e5a81c5edc173158d36faf7380a3da71a37d2a0ca10_v0_9_3_187_g65919abd
+#define MDBX_BUILD_SOURCERY 63a3919e7fbf25fc1973ac8af06b1ab02a76f88aa07b799a9817ab2e3545e93b_v0_9_3_188_gca66d29a
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -20041,16 +20041,12 @@ static int mdbx_rebalance(MDBX_cursor *mc) {
   STATIC_ASSERT(P_BRANCH == 1);
   const unsigned minkeys = (pagetype & P_BRANCH) + 1;
 
-  /* The threshold of minimum page fill factor, in form of a negative binary
-   * exponent, i.e. X = 2 means 1/(2**X) == 1/(2**2) == 1/4 == 25%.
+  /* The threshold of minimum page fill, as a number of free bytes on a page.
    * Pages emptier than this are candidates for merging. */
-  const unsigned threshold_fill_exp2 = 2;
-
-  /* The threshold of minimum page fill factor, as a number of free bytes on a
-   * page. Pages emptier than this are candidates for merging. */
-  unsigned room_threshold =
-      page_space(mc->mc_txn->mt_env) -
-      (page_space(mc->mc_txn->mt_env) >> threshold_fill_exp2);
+  unsigned room_threshold = (mc->mc_dbi == FREE_DBI)
+                                ? page_space(mc->mc_txn->mt_env) * 2u / 3u
+                                : page_space(mc->mc_txn->mt_env) / 2u;
+  mdbx_cassert(mc, room_threshold * 2 >= page_space(mc->mc_txn->mt_env));
 
   const MDBX_page *const tp = mc->mc_pg[mc->mc_top];
   const unsigned numkeys = page_numkeys(tp);
@@ -28060,9 +28056,9 @@ __dll_export
         0,
         9,
         3,
-        187,
-        {"2021-05-03T01:16:37+03:00", "966a28beb1b36eda22dca0a9a528cf08130743f9", "65919abd9af495a4ce0d785c2834f2c5e9c60066",
-         "v0.9.3-187-g65919abd"},
+        188,
+        {"2021-05-03T01:36:38+03:00", "a1d03921fd2e5fc46849e6522b6c6929ed4ec773", "ca66d29a0f8b49f467f589fa11aeb2777dbbf5a1",
+         "v0.9.3-188-gca66d29a"},
         sourcery};
 
 __dll_export
