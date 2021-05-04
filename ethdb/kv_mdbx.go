@@ -156,7 +156,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptDpReverseLimit, 16*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, 64*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpLimit, 128*1024); err != nil {
 			return nil, err
 		}
 	}
@@ -671,7 +671,7 @@ func (tx *MdbxTx) ItsTimeToCommit() bool {
 		panic(err)
 	}
 
-	return tx.db.txSize < 2*txInfo.SpaceDirty
+	return tx.db.txSize < 4*txInfo.SpaceDirty
 }
 
 func (tx *MdbxTx) PrintDebugInfo() {
