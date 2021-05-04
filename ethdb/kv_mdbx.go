@@ -156,9 +156,9 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptDpReverseLimit, 16*1024); err != nil {
 			return nil, err
 		}
-		//if err = env.SetOption(mdbx.OptTxnDpLimit, 128*1024); err != nil {
-		//	return nil, err
-		//}
+		if err = env.SetOption(mdbx.OptTxnDpLimit, 32*1024); err != nil {
+			return nil, err
+		}
 	}
 
 	dirtyPagesLimit, err := env.GetOption(mdbx.OptTxnDpLimit)
