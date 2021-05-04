@@ -398,12 +398,20 @@ func (db *MdbxKV) AllBuckets() dbutils.BucketsCfg {
 func (tx *MdbxTx) CollectMetrics() {
 	txInfo, err := tx.tx.Info(true)
 	if err != nil {
-		panic(err)
+		return
 	}
 
 	txDirty.Update(int64(txInfo.SpaceDirty))
 	txSpill.Update(int64(txInfo.Spill))
 	txUnspill.Update(int64(txInfo.Unspill))
+
+	gc, err := tx.BucketStat("gc")
+	if err != nil {
+		return
+	}
+	gcLeafMetric.Update(int64(gc.LeafPages))
+	gcOverflowMetric.Update(int64(gc.OverflowPages))
+	gcPagesMetric.Update(int64((gc.LeafPages + gc.OverflowPages) * tx.db.pageSize / 8))
 }
 
 func (tx *MdbxTx) Comparator(bucket string) dbutils.CmpFunc {
