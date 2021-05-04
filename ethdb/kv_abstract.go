@@ -15,10 +15,20 @@ var (
 	ErrAttemptToDeleteNonDeprecatedBucket = errors.New("only buckets from dbutils.DeprecatedBuckets can be deleted")
 	ErrUnknownBucket                      = errors.New("unknown bucket. add it to dbutils.Buckets")
 
-	dbSize           = metrics.GetOrRegisterGauge("db/size", metrics.DefaultRegistry)        //nolint
-	txSpill          = metrics.GetOrRegisterGauge("tx/spill", metrics.DefaultRegistry)       //nolint
-	txUnspill        = metrics.GetOrRegisterGauge("tx/unspill", metrics.DefaultRegistry)     //nolint
-	txDirty          = metrics.GetOrRegisterGauge("tx/dirty", metrics.DefaultRegistry)       //nolint
+	dbSize    = metrics.GetOrRegisterGauge("db/size", metrics.DefaultRegistry)    //nolint
+	txSpill   = metrics.GetOrRegisterGauge("tx/spill", metrics.DefaultRegistry)   //nolint
+	txUnspill = metrics.GetOrRegisterGauge("tx/unspill", metrics.DefaultRegistry) //nolint
+	txDirty   = metrics.GetOrRegisterGauge("tx/dirty", metrics.DefaultRegistry)   //nolint
+
+	dbPgopsNewly   = metrics.GetOrRegisterGauge("db/pgops/newly", metrics.DefaultRegistry)   //nolint
+	dbPgopsCow     = metrics.GetOrRegisterGauge("db/pgops/cow", metrics.DefaultRegistry)     //nolint
+	dbPgopsClone   = metrics.GetOrRegisterGauge("db/pgops/clone", metrics.DefaultRegistry)   //nolint
+	dbPgopsSplit   = metrics.GetOrRegisterGauge("db/pgops/split", metrics.DefaultRegistry)   //nolint
+	dbPgopsMerge   = metrics.GetOrRegisterGauge("db/pgops/merge", metrics.DefaultRegistry)   //nolint
+	dbPgopsSpill   = metrics.GetOrRegisterGauge("db/pgops/spill", metrics.DefaultRegistry)   //nolint
+	dbPgopsUnspill = metrics.GetOrRegisterGauge("db/pgops/unspill", metrics.DefaultRegistry) //nolint
+	dbPgopsWops    = metrics.GetOrRegisterGauge("db/pgops/wops", metrics.DefaultRegistry)    //nolint
+
 	gcLeafMetric     = metrics.GetOrRegisterGauge("db/gc/leaf", metrics.DefaultRegistry)     //nolint
 	gcOverflowMetric = metrics.GetOrRegisterGauge("db/gc/overflow", metrics.DefaultRegistry) //nolint
 	gcPagesMetric    = metrics.GetOrRegisterGauge("db/gc/pages", metrics.DefaultRegistry)    //nolint
