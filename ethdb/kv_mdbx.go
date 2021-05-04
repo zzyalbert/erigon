@@ -690,7 +690,7 @@ func (tx *MdbxTx) ItsTimeToCommit() bool {
 		panic(err)
 	}
 
-	return tx.db.txSize < 4*txInfo.SpaceDirty
+	return tx.db.txSize < 2*txInfo.SpaceDirty
 }
 
 func (tx *MdbxTx) PrintDebugInfo() {
