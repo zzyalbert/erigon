@@ -635,6 +635,13 @@ func (tx *MdbxTx) Commit() error {
 		return err
 	}
 
+	dbCommitPreparation.Update(latency.Preparation)
+	dbCommitGc.Update(latency.GC)
+	dbCommitAudit.Update(latency.Audit)
+	dbCommitWrite.Update(latency.Write)
+	dbCommitSync.Update(latency.Sync)
+	dbCommitEnding.Update(latency.Ending)
+
 	if latency.Whole > slowTx {
 		log.Info("Commit",
 			"preparation", latency.Preparation,
