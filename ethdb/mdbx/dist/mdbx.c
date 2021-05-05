@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define xMDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY d9fada977675dfdeb5dd8798d862f799f213a6dbd42ed6b3ade3392735ca8b6a_v0_9_3_192_g009e3d6c
+#define MDBX_BUILD_SOURCERY 63a3919e7fbf25fc1973ac8af06b1ab02a76f88aa07b799a9817ab2e3545e93b_v0_9_3_188_gca66d29a
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -1570,21 +1570,24 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
 /** Controls online database auto-compactification during write-transactions. */
 #ifndef MDBX_ENABLE_REFUND
 #define MDBX_ENABLE_REFUND 1
-#elif !(MDBX_ENABLE_REFUND == 0 || MDBX_ENABLE_REFUND == 1)
+#endif
+#if !(MDBX_ENABLE_REFUND == 0 || MDBX_ENABLE_REFUND == 1)
 #error MDBX_ENABLE_REFUND must be defined as 0 or 1
 #endif /* MDBX_ENABLE_REFUND */
 
 /** Controls gathering statistics for page operations. */
 #ifndef MDBX_ENABLE_PGOP_STAT
 #define MDBX_ENABLE_PGOP_STAT 1
-#elif !(MDBX_ENABLE_PGOP_STAT == 0 || MDBX_ENABLE_PGOP_STAT == 1)
+#endif
+#if !(MDBX_ENABLE_PGOP_STAT == 0 || MDBX_ENABLE_PGOP_STAT == 1)
 #error MDBX_ENABLE_PGOP_STAT must be defined as 0 or 1
 #endif /* MDBX_ENABLE_PGOP_STAT */
 
 /** Controls use of POSIX madvise() hints and friends. */
 #ifndef MDBX_ENABLE_MADVISE
 #define MDBX_ENABLE_MADVISE 1
-#elif !(MDBX_ENABLE_MADVISE == 0 || MDBX_ENABLE_MADVISE == 1)
+#endif
+#if !(MDBX_ENABLE_MADVISE == 0 || MDBX_ENABLE_MADVISE == 1)
 #error MDBX_ENABLE_MADVISE must be defined as 0 or 1
 #endif /* MDBX_ENABLE_MADVISE */
 
@@ -1592,21 +1595,24 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
  * database corruption to a values closer to the LMDB. */
 #ifndef MDBX_DISABLE_PAGECHECKS
 #define MDBX_DISABLE_PAGECHECKS 0
-#elif !(MDBX_DISABLE_PAGECHECKS == 0 || MDBX_DISABLE_PAGECHECKS == 1)
+#endif
+#if !(MDBX_DISABLE_PAGECHECKS == 0 || MDBX_DISABLE_PAGECHECKS == 1)
 #error MDBX_DISABLE_PAGECHECKS must be defined as 0 or 1
 #endif /* MDBX_DISABLE_PAGECHECKS */
 
 #ifndef MDBX_PNL_PREALLOC_FOR_RADIXSORT
 #define MDBX_PNL_PREALLOC_FOR_RADIXSORT 1
-#elif !(MDBX_PNL_PREALLOC_FOR_RADIXSORT == 0 ||                                \
-        MDBX_PNL_PREALLOC_FOR_RADIXSORT == 1)
+#endif
+#if !(MDBX_PNL_PREALLOC_FOR_RADIXSORT == 0 ||                                  \
+      MDBX_PNL_PREALLOC_FOR_RADIXSORT == 1)
 #error MDBX_PNL_PREALLOC_FOR_RADIXSORT must be defined as 0 or 1
 #endif /* MDBX_PNL_PREALLOC_FOR_RADIXSORT */
 
 #ifndef MDBX_DPL_PREALLOC_FOR_RADIXSORT
 #define MDBX_DPL_PREALLOC_FOR_RADIXSORT 1
-#elif !(MDBX_DPL_PREALLOC_FOR_RADIXSORT == 0 ||                                \
-        MDBX_DPL_PREALLOC_FOR_RADIXSORT == 1)
+#endif
+#if !(MDBX_DPL_PREALLOC_FOR_RADIXSORT == 0 ||                                  \
+      MDBX_DPL_PREALLOC_FOR_RADIXSORT == 1)
 #error MDBX_DPL_PREALLOC_FOR_RADIXSORT must be defined as 0 or 1
 #endif /* MDBX_DPL_PREALLOC_FOR_RADIXSORT */
 
@@ -1624,7 +1630,8 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
 #else
 #define MDBX_FAKE_SPILL_WRITEMAP 0
 #endif
-#elif !(MDBX_FAKE_SPILL_WRITEMAP == 0 || MDBX_FAKE_SPILL_WRITEMAP == 1)
+#endif
+#if !(MDBX_FAKE_SPILL_WRITEMAP == 0 || MDBX_FAKE_SPILL_WRITEMAP == 1)
 #error MDBX_FAKE_SPILL_WRITEMAP must be defined as 0 or 1
 #endif /* MDBX_FAKE_SPILL_WRITEMAP */
 
@@ -1634,21 +1641,24 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
  * different option value are incompatible. */
 #ifndef MDBX_PNL_ASCENDING
 #define MDBX_PNL_ASCENDING 0
-#elif !(MDBX_PNL_ASCENDING == 0 || MDBX_PNL_ASCENDING == 1)
+#endif
+#if !(MDBX_PNL_ASCENDING == 0 || MDBX_PNL_ASCENDING == 1)
 #error MDBX_PNL_ASCENDING must be defined as 0 or 1
 #endif /* MDBX_PNL_ASCENDING */
 
 /** Avoid dependence from MSVC CRT and use ntdll.dll instead. */
 #ifndef MDBX_WITHOUT_MSVC_CRT
 #define MDBX_WITHOUT_MSVC_CRT 1
-#elif !(MDBX_WITHOUT_MSVC_CRT == 0 || MDBX_WITHOUT_MSVC_CRT == 1)
+#endif
+#if !(MDBX_WITHOUT_MSVC_CRT == 0 || MDBX_WITHOUT_MSVC_CRT == 1)
 #error MDBX_WITHOUT_MSVC_CRT must be defined as 0 or 1
 #endif /* MDBX_WITHOUT_MSVC_CRT */
 
 /** Size of buffer used during copying a environment/database file. */
 #ifndef MDBX_ENVCOPY_WRITEBUF
 #define MDBX_ENVCOPY_WRITEBUF 1048576u
-#elif MDBX_ENVCOPY_WRITEBUF < 65536u || MDBX_ENVCOPY_WRITEBUF > 1073741824u || \
+#endif
+#if MDBX_ENVCOPY_WRITEBUF < 65536u || MDBX_ENVCOPY_WRITEBUF > 1073741824u ||   \
     MDBX_ENVCOPY_WRITEBUF % 65536u
 #error MDBX_ENVCOPY_WRITEBUF must be defined in range 65536..1073741824 and be multiple of 65536
 #endif /* MDBX_ENVCOPY_WRITEBUF */
@@ -1656,18 +1666,15 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
 /** Forces assertion checking */
 #ifndef MDBX_FORCE_ASSERTIONS
 #define MDBX_FORCE_ASSERTIONS 1
-#elif !(MDBX_FORCE_ASSERTIONS == 0 || MDBX_FORCE_ASSERTIONS == 1)
+#endif
+#if !(MDBX_FORCE_ASSERTIONS == 0 || MDBX_FORCE_ASSERTIONS == 1)
 #error MDBX_FORCE_ASSERTIONS must be defined as 0 or 1
 #endif /* MDBX_FORCE_ASSERTIONS */
 
 /** Presumed malloc size overhead for each allocation
  * to adjust allocations to be more aligned. */
 #ifndef MDBX_ASSUME_MALLOC_OVERHEAD
-#ifdef __SIZEOF_POINTER__
-#define MDBX_ASSUME_MALLOC_OVERHEAD (__SIZEOF_POINTER__ * 2u)
-#else
 #define MDBX_ASSUME_MALLOC_OVERHEAD (sizeof(void *) * 2u)
-#endif
 #elif MDBX_ASSUME_MALLOC_OVERHEAD < 0 || MDBX_ASSUME_MALLOC_OVERHEAD > 64 ||   \
     MDBX_ASSUME_MALLOC_OVERHEAD % 4
 #error MDBX_ASSUME_MALLOC_OVERHEAD must be defined in range 0..64 and be multiple of 4
@@ -1861,8 +1868,8 @@ extern LIBMDBX_API const char *const mdbx_sourcery_anchor;
 #define MDBX_64BIT_CAS_CONFIG STRINGIFY(MDBX_64BIT_CAS)
 #endif /* MDBX_64BIT_CAS */
 
-#ifndef MDBX_UNALIGNED_OK
-#ifdef _MSC_VER
+#if !defined(MDBX_UNALIGNED_OK)
+#if defined(_MSC_VER)
 #define MDBX_UNALIGNED_OK 1 /* avoid MSVC misoptimization */
 #elif __CLANG_PREREQ(5, 0) || __GNUC_PREREQ(5, 0)
 #define MDBX_UNALIGNED_OK 0 /* expecting optimization is well done */
@@ -20034,16 +20041,12 @@ static int mdbx_rebalance(MDBX_cursor *mc) {
   STATIC_ASSERT(P_BRANCH == 1);
   const unsigned minkeys = (pagetype & P_BRANCH) + 1;
 
-  /* The threshold of minimum page fill factor, in form of a negative binary
-   * exponent, i.e. X = 2 means 1/(2**X) == 1/(2**2) == 1/4 == 25%.
+  /* The threshold of minimum page fill, as a number of free bytes on a page.
    * Pages emptier than this are candidates for merging. */
-  const unsigned threshold_fill_exp2 = 2;
-
-  /* The threshold of minimum page fill factor, as a number of free bytes on a
-   * page. Pages emptier than this are candidates for merging. */
-  unsigned room_threshold =
-      page_space(mc->mc_txn->mt_env) -
-      (page_space(mc->mc_txn->mt_env) >> threshold_fill_exp2);
+  unsigned room_threshold = (mc->mc_dbi == FREE_DBI)
+                                ? page_space(mc->mc_txn->mt_env) * 2u / 3u
+                                : page_space(mc->mc_txn->mt_env) / 2u;
+  mdbx_cassert(mc, room_threshold * 2 >= page_space(mc->mc_txn->mt_env));
 
   const MDBX_page *const tp = mc->mc_pg[mc->mc_top];
   const unsigned numkeys = page_numkeys(tp);
@@ -25069,63 +25072,63 @@ __cold int mdbx_env_set_option(MDBX_env *env, const MDBX_option_t option,
 }
 
 __cold int mdbx_env_get_option(const MDBX_env *env, const MDBX_option_t option,
-                               uint64_t *pvalue) {
+                               uint64_t *value) {
   int err = check_env(env, false);
   if (unlikely(err != MDBX_SUCCESS))
     return err;
-  if (unlikely(!pvalue))
+  if (unlikely(!value))
     return MDBX_EINVAL;
 
   switch (option) {
   case MDBX_opt_sync_bytes:
     if (unlikely(!(env->me_flags & MDBX_ENV_ACTIVE)))
       return MDBX_EPERM;
-    *pvalue = pgno2bytes(
+    *value = pgno2bytes(
         env, atomic_load32(&env->me_lck->mti_autosync_threshold, mo_Relaxed));
     break;
 
   case MDBX_opt_sync_period:
     if (unlikely(!(env->me_flags & MDBX_ENV_ACTIVE)))
       return MDBX_EPERM;
-    *pvalue = mdbx_osal_monotime_to_16dot16(
+    *value = mdbx_osal_monotime_to_16dot16(
         atomic_load64(&env->me_lck->mti_autosync_period, mo_Relaxed));
     break;
 
   case MDBX_opt_max_db:
-    *pvalue = env->me_maxdbs - CORE_DBS;
+    *value = env->me_maxdbs - CORE_DBS;
     break;
 
   case MDBX_opt_max_readers:
-    *pvalue = env->me_maxreaders;
+    *value = env->me_maxreaders;
     break;
 
   case MDBX_opt_dp_reserve_limit:
-    *pvalue = env->me_options.dp_reserve_limit;
+    *value = env->me_options.dp_reserve_limit;
     break;
 
   case MDBX_opt_rp_augment_limit:
-    *pvalue = env->me_options.rp_augment_limit;
+    *value = env->me_options.rp_augment_limit;
     break;
 
   case MDBX_opt_txn_dp_limit:
-    *pvalue = env->me_options.dp_limit;
+    *value = env->me_options.dp_limit;
     break;
   case MDBX_opt_txn_dp_initial:
-    *pvalue = env->me_options.dp_initial;
+    *value = env->me_options.dp_initial;
     break;
 
   case MDBX_opt_spill_max_denominator:
-    *pvalue = env->me_options.spill_max_denominator;
+    *value = env->me_options.spill_max_denominator;
     break;
   case MDBX_opt_spill_min_denominator:
-    *pvalue = env->me_options.spill_min_denominator;
+    *value = env->me_options.spill_min_denominator;
     break;
   case MDBX_opt_spill_parent4child_denominator:
-    *pvalue = env->me_options.spill_parent4child_denominator;
+    *value = env->me_options.spill_parent4child_denominator;
     break;
 
   case MDBX_opt_loose_limit:
-    *pvalue = env->me_options.dp_loose_limit;
+    *value = env->me_options.dp_loose_limit;
     break;
 
   default:
@@ -28053,9 +28056,9 @@ __dll_export
         0,
         9,
         3,
-        192,
-        {"2021-05-05T01:36:21+03:00", "c835d874894e9469bda25ff0ed908fe18e428837", "009e3d6c0f0c09656ff59ae16b890c027e864bf9",
-         "v0.9.3-192-g009e3d6c"},
+        188,
+        {"2021-05-03T01:36:38+03:00", "a1d03921fd2e5fc46849e6522b6c6929ed4ec773", "ca66d29a0f8b49f467f589fa11aeb2777dbbf5a1",
+         "v0.9.3-188-gca66d29a"},
         sourcery};
 
 __dll_export
