@@ -237,7 +237,7 @@ func (m *mutation) doCommit(tx RwTx) error {
 	var c RwCursor
 	var innerErr error
 	var isEndOfBucket bool
-	logEvery := time.NewTicker(30 * time.Second)
+	logEvery := time.NewTicker(20 * time.Second)
 	defer logEvery.Stop()
 	count := 0
 	total := float64(m.puts.Len())
@@ -288,6 +288,7 @@ func (m *mutation) doCommit(tx RwTx) error {
 		case <-logEvery.C:
 			progress := fmt.Sprintf("%.1fM/%.1fM", float64(count)/1_000_000, total/1_000_000)
 			log.Info("Write to db", "progress", progress, "current table", mi.table)
+			tx.CollectMetrics()
 		}
 		return true
 	})
