@@ -292,6 +292,7 @@ func (m *mutation) doCommit(tx RwTx) error {
 		}
 		return true
 	})
+	tx.CollectMetrics()
 	return innerErr
 }
 
