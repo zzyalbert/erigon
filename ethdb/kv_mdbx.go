@@ -160,7 +160,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptDpReverseLimit, 16*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, 1024*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpLimit, 2048*1024); err != nil {
 			return nil, err
 		}
 		// must be in the range from 12.5% (almost empty) to 50% (half empty)
