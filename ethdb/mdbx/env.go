@@ -99,6 +99,7 @@ const (
 	OptSpillMaxDenominator          = C.MDBX_opt_spill_max_denominator
 	OptSpillMinDenominator          = C.MDBX_opt_spill_min_denominator
 	OptSpillParent4ChildDenominator = C.MDBX_opt_spill_parent4child_denominator
+	OptMergeThreshold16dot16Percent = C.MDBX_opt_merge_threshold_16dot16_percent
 )
 
 var (
@@ -465,6 +466,12 @@ func (env *Env) Path() (string, error) {
 func (env *Env) SetOption(option uint, value uint64) error {
 	ret := C.mdbx_env_set_option(env._env, C.MDBX_option_t(option), C.uint64_t(value))
 	return operrno("mdbx_env_set_option", ret)
+}
+
+func (env *Env) GetOption(option uint) (uint64, error) {
+	var res C.uint64_t
+	ret := C.mdbx_env_get_option(env._env, C.MDBX_option_t(option), &res)
+	return uint64(res), operrno("mdbx_env_get_option", ret)
 }
 
 func (env *Env) SetGeometry(sizeLower int, sizeNow int, sizeUpper int, growthStep int, shrinkThreshold int, pageSize int) error {
