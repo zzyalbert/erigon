@@ -36,7 +36,7 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>. */
 
-#define MDBX_BUILD_SOURCERY d9fada977675dfdeb5dd8798d862f799f213a6dbd42ed6b3ade3392735ca8b6a_v0_9_3_192_g009e3d6c
+#define MDBX_BUILD_SOURCERY f3d117bd0bc35fdd62fe980d8c0004ea83fd2e6ceddcfa57d7bd96b28ec0bdb3_v0_9_3_193_g1275bdb6
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -2894,7 +2894,10 @@ struct MDBX_env {
   unsigned me_leaf_nodemax; /* max size of a leaf-node */
   uint8_t me_psize2log;     /* log2 of DB page size */
   int8_t me_stuck_meta; /* recovery-only: target meta page or less that zero */
-  unsigned me_os_psize; /* OS page size, from mdbx_syspagesize() */
+  uint16_t me_merge_threshold,
+      me_merge_threshold_gc;  /* pages emptier than this are candidates for
+                                 merging */
+  unsigned me_os_psize;       /* OS page size, from mdbx_syspagesize() */
   unsigned me_maxreaders;     /* size of the reader table */
   MDBX_dbi me_maxdbs;         /* size of the DB table */
   uint32_t me_pid;            /* process ID of this env */
@@ -2921,6 +2924,7 @@ struct MDBX_env {
     uint8_t spill_max_denominator;
     uint8_t spill_min_denominator;
     uint8_t spill_parent4child_denominator;
+    unsigned merge_threshold_16dot16_percent;
     union {
       unsigned all;
       /* tracks options with non-auto values but tuned by user */

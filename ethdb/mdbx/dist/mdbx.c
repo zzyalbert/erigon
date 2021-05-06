@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define xMDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY d9fada977675dfdeb5dd8798d862f799f213a6dbd42ed6b3ade3392735ca8b6a_v0_9_3_192_g009e3d6c
+#define MDBX_BUILD_SOURCERY f3d117bd0bc35fdd62fe980d8c0004ea83fd2e6ceddcfa57d7bd96b28ec0bdb3_v0_9_3_193_g1275bdb6
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -2870,7 +2870,10 @@ struct MDBX_env {
   unsigned me_leaf_nodemax; /* max size of a leaf-node */
   uint8_t me_psize2log;     /* log2 of DB page size */
   int8_t me_stuck_meta; /* recovery-only: target meta page or less that zero */
-  unsigned me_os_psize; /* OS page size, from mdbx_syspagesize() */
+  uint16_t me_merge_threshold,
+      me_merge_threshold_gc;  /* pages emptier than this are candidates for
+                                 merging */
+  unsigned me_os_psize;       /* OS page size, from mdbx_syspagesize() */
   unsigned me_maxreaders;     /* size of the reader table */
   MDBX_dbi me_maxdbs;         /* size of the DB table */
   uint32_t me_pid;            /* process ID of this env */
@@ -2897,6 +2900,7 @@ struct MDBX_env {
     uint8_t spill_max_denominator;
     uint8_t spill_min_denominator;
     uint8_t spill_parent4child_denominator;
+    unsigned merge_threshold_16dot16_percent;
     union {
       unsigned all;
       /* tracks options with non-auto values but tuned by user */
@@ -14157,6 +14161,16 @@ fail:
   return rc;
 }
 
+static void recalculate_merge_threshold(MDBX_env *env) {
+  const unsigned bytes = page_space(env);
+  env->me_merge_threshold = (uint16_t)(
+      bytes - (bytes * env->me_options.merge_threshold_16dot16_percent >> 16));
+  env->me_merge_threshold_gc = (uint16_t)(
+      bytes - ((env->me_options.merge_threshold_16dot16_percent > 19005)
+                   ? bytes / 3 /* 33 % */
+                   : bytes / 4 /* 25 % */));
+}
+
 static void __cold mdbx_setup_pagesize(MDBX_env *env, const size_t pagesize) {
   STATIC_ASSERT(PTRDIFF_MAX > MAX_MAPSIZE);
   STATIC_ASSERT(MIN_PAGESIZE > sizeof(MDBX_page) + sizeof(MDBX_meta));
@@ -14189,6 +14203,7 @@ static void __cold mdbx_setup_pagesize(MDBX_env *env, const size_t pagesize) {
   env->me_psize2log = (uint8_t)log2n_powerof2(pagesize);
   mdbx_assert(env, pgno2bytes(env, 1) == pagesize);
   mdbx_assert(env, bytes2pgno(env, pagesize + pagesize) == 2);
+  recalculate_merge_threshold(env);
 
   const pgno_t max_pgno = bytes2pgno(env, MAX_MAPSIZE);
   if (!env->me_options.flags.non_auto.dp_limit) {
@@ -14244,6 +14259,7 @@ __cold int mdbx_env_create(MDBX_env **penv) {
   env->me_options.spill_min_denominator = 8;
   env->me_options.spill_parent4child_denominator = 0;
   env->me_options.dp_loose_limit = 64;
+  env->me_options.merge_threshold_16dot16_percent = 65536 / 4 /* 25% */;
 
   int rc;
   const size_t os_psize = mdbx_syspagesize();
@@ -20034,16 +20050,10 @@ static int mdbx_rebalance(MDBX_cursor *mc) {
   STATIC_ASSERT(P_BRANCH == 1);
   const unsigned minkeys = (pagetype & P_BRANCH) + 1;
 
-  /* The threshold of minimum page fill factor, in form of a negative binary
-   * exponent, i.e. X = 2 means 1/(2**X) == 1/(2**2) == 1/4 == 25%.
-   * Pages emptier than this are candidates for merging. */
-  const unsigned threshold_fill_exp2 = 2;
-
-  /* The threshold of minimum page fill factor, as a number of free bytes on a
-   * page. Pages emptier than this are candidates for merging. */
-  unsigned room_threshold =
-      page_space(mc->mc_txn->mt_env) -
-      (page_space(mc->mc_txn->mt_env) >> threshold_fill_exp2);
+  /* Pages emptier than this are candidates for merging. */
+  unsigned room_threshold = likely(mc->mc_dbi != FREE_DBI)
+                                ? mc->mc_txn->mt_env->me_merge_threshold
+                                : mc->mc_txn->mt_env->me_merge_threshold_gc;
 
   const MDBX_page *const tp = mc->mc_pg[mc->mc_top];
   const unsigned numkeys = page_numkeys(tp);
@@ -25059,6 +25069,13 @@ __cold int mdbx_env_set_option(MDBX_env *env, const MDBX_option_t option,
     env->me_options.dp_loose_limit = (uint8_t)value;
     break;
 
+  case MDBX_opt_merge_threshold_16dot16_percent:
+    if (unlikely(value < 8192 || value > 32768))
+      return MDBX_EINVAL;
+    env->me_options.merge_threshold_16dot16_percent = (unsigned)value;
+    recalculate_merge_threshold(env);
+    break;
+
   default:
     return MDBX_EINVAL;
   }
@@ -25126,6 +25143,10 @@ __cold int mdbx_env_get_option(const MDBX_env *env, const MDBX_option_t option,
 
   case MDBX_opt_loose_limit:
     *pvalue = env->me_options.dp_loose_limit;
+    break;
+
+  case MDBX_opt_merge_threshold_16dot16_percent:
+    *pvalue = env->me_options.merge_threshold_16dot16_percent;
     break;
 
   default:
@@ -28053,9 +28074,9 @@ __dll_export
         0,
         9,
         3,
-        192,
-        {"2021-05-05T01:36:21+03:00", "c835d874894e9469bda25ff0ed908fe18e428837", "009e3d6c0f0c09656ff59ae16b890c027e864bf9",
-         "v0.9.3-192-g009e3d6c"},
+        193,
+        {"2021-05-06T02:05:33+03:00", "b0c05720dac4eabc77a664b84ad463110480901d", "1275bdb6234ebaf6317c3e4d0961961b95d595e2",
+         "v0.9.3-193-g1275bdb6"},
         sourcery};
 
 __dll_export
