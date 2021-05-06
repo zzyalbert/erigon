@@ -706,6 +706,16 @@ func (tx *MdbxTx) Rollback() {
 }
 
 //nolint
+func (tx *MdbxTx) ItsTimeToCommit() bool {
+	txInfo, err := tx.tx.Info(true)
+	if err != nil {
+		panic(err)
+	}
+
+	return tx.db.txSize < 2*txInfo.SpaceDirty
+}
+
+//nolint
 func (tx *MdbxTx) SpaceDirty() (uint64, uint64, error) {
 	txInfo, err := tx.tx.Info(true)
 	if err != nil {
