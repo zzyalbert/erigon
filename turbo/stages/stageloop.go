@@ -67,6 +67,10 @@ func StageLoop(
 		if err1 != nil {
 			return err1
 		}
+		finishProgressBefore, err1 := stages.GetStageProgress(db, stages.Finish) // TODO: shift this when more stages are added
+		if err1 != nil {
+			return err1
+		}
 
 		canRunCycleInOneTransaction := !initialCycle && height-origin < 1024 && height-hashStateStageProgress < 1024
 
@@ -104,6 +108,22 @@ func StageLoop(
 			}
 			log.Info("Commit cycle", "in", time.Since(commitStart))
 		}
+
+		unwindTo, err := st.GetUnwindTo(db)
+		if err != nil {
+			return err
+		}
+
+		err = st.Run(db, writeDB)
+		if err != nil {
+			return err
+		}
+
+		err = stagedsync.NotifyNewHeaders2(finishProgressBefore, unwindTo, sync.Notifier, db)
+		if err != nil {
+			return err
+		}
+
 		initialCycle = false
 		select {
 		case <-ctx.Done():
