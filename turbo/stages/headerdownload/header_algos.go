@@ -588,7 +588,7 @@ func (hd *HeaderDownload) InsertHeaders(hf func(header *types.Header, blockHeigh
 	}
 	if len(linksInFuture) > 0 {
 		hd.insertList = append(hd.insertList, linksInFuture...)
-		linksInFuture = nil
+		linksInFuture = nil //nolint
 	}
 	return nil
 }
