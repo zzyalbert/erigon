@@ -8,7 +8,6 @@ package mdbx
 import "C"
 import (
 	"errors"
-	"fmt"
 	"os"
 	"runtime"
 	"sync"
@@ -444,9 +443,8 @@ func (env *Env) Flags() (uint, error) {
 }
 
 func (env *Env) SetDebug(logLvl LogLvl, dbg int, logger *C.MDBX_debug_func) error {
-	ret := C.mdbx_setup_debug(C.MDBX_log_level_t(logLvl), C.MDBX_debug_flags_t(dbg), logger)
-	fmt.Printf("SetDebug: %d, %d\n", logLvl, ret)
-	return operrno("mdbx_setup_debug", ret)
+	_ = C.mdbx_setup_debug(C.MDBX_log_level_t(logLvl), C.MDBX_debug_flags_t(dbg), logger)
+	return nil
 }
 
 // Path returns the path argument passed to Open.  Path returns a non-nil error
