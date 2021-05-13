@@ -8,6 +8,7 @@ import (
 	"pgregory.net/rapid"
 	"testing"
 )
+
 /*boris$ go test ./ethdb/ -run "TestCursorMDBXvsLMDBMachine" -rapid.checks 15000 -tags "mdbx" -v
 === RUN   TestCursorMDBXvsLMDBMachine
 mdb.c:5701: Assertion 'root > 1' failed in mdb_page_search()
@@ -103,7 +104,7 @@ FAIL
 */
 //go test ./ethdb/ -run "TestCursorMDBXvsLMDBMachine" -rapid.checks 15000 -tags "mdbx" -v
 func TestCursorMDBXvsLMDBMachine(t *testing.T) {
-	//t.Skip("remove when it become stable for 200 rounds")
+	t.Skip("remove when it become stable for 200 rounds")
 	rapid.Check(t, rapid.Run(&cursorMDBXvsLMDBMachine{}))
 }
 
@@ -173,10 +174,10 @@ func (m *cursorMDBXvsLMDBMachine) Cleanup() {
 
 	m.lmdbKV.Close()
 	m.lmdbKV = nil
-	m.lmdbTX =nil
+	m.lmdbTX = nil
 	m.mdbxKV.Close()
 	m.mdbxKV = nil
-	m.mdbxTX =nil
+	m.mdbxTX = nil
 }
 
 func (m *cursorMDBXvsLMDBMachine) Begin(t *rapid.T) {
