@@ -101,6 +101,7 @@ gs     0x0
 FAIL    github.com/ledgerwatch/turbo-geth/ethdb 16.318s
 FAIL
 */
+//go test ./ethdb/ -run "TestCursorMDBXvsLMDBMachine" -rapid.checks 15000 -tags "mdbx" -v
 func TestCursorMDBXvsLMDBMachine(t *testing.T) {
 	//t.Skip("remove when it become stable for 200 rounds")
 	rapid.Check(t, rapid.Run(&cursorMDBXvsLMDBMachine{}))
