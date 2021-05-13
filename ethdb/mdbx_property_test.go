@@ -304,3 +304,155 @@ func (m *cursorMDBXvsLMDBMachine) Next(t *rapid.T) {
 	require.Equal(t, v1, v2)
 	require.Equal(t, err1, err2)
 }
+
+//go test ./ethdb/ -run "TestMdxbGetAndPut" -rapid.checks 150 -tags "mdbx" -v
+func TestMdxbGetAndPut(t *testing.T) {
+	//t.Skip("remove when it become stable for 200 rounds")
+	rapid.Check(t, rapid.Run(&getPutkvMachine{}))
+}
+
+type getPutkvMachine struct {
+	bucket       string
+	lmdbKV       RwKV
+	mdbxKV       RwKV
+	snapshotKeys [][20]byte
+	newKeys      [][20]byte
+	allKeys      [][20]byte
+
+	snTX    RwTx
+	modelTX RwTx
+}
+
+func (m *getPutkvMachine) Init(t *rapid.T) {
+	m.bucket = dbutils.PlainStateBucket
+	m.lmdbKV = NewLMDB().InMem().MustOpen()
+	m.mdbxKV = NewMDBX().InMem().MustOpen()
+	m.snapshotKeys = rapid.SliceOf(rapid.ArrayOf(20, rapid.Byte())).Filter(func(_v [][20]byte) bool {
+		return len(_v) > 0
+	}).Draw(t, "generate keys").([][20]byte)
+	m.newKeys = rapid.SliceOf(rapid.ArrayOf(20, rapid.Byte())).Filter(func(_v [][20]byte) bool {
+		return len(_v) > 0
+	}).Draw(t, "generate new keys").([][20]byte)
+	notExistingKeys := rapid.SliceOf(rapid.ArrayOf(20, rapid.Byte())).Filter(func(_v [][20]byte) bool {
+		return len(_v) > 0
+	}).Draw(t, "generate not excisting keys").([][20]byte)
+	m.allKeys = append(m.snapshotKeys, notExistingKeys...)
+
+	lmdbTX, err := m.lmdbKV.BeginRw(context.Background())
+	require.NoError(t, err)
+
+	mdbxTX, err := m.mdbxKV.BeginRw(context.Background())
+	require.NoError(t, err)
+	defer mdbxTX.Rollback()
+	for _, key := range m.snapshotKeys {
+		innerErr := lmdbTX.Put(m.bucket, key[:], []byte("sn_"+common.Bytes2Hex(key[:])))
+		require.NoError(t, innerErr)
+		innerErr = mdbxTX.Put(m.bucket, key[:], []byte("sn_"+common.Bytes2Hex(key[:])))
+		require.NoError(t, innerErr)
+	}
+
+	//save snapshot and wrap new write db
+	err = lmdbTX.Commit()
+	require.NoError(t, err)
+	err = mdbxTX.Commit()
+	require.NoError(t, err)
+}
+
+func (m *getPutkvMachine) Cleanup() {
+	if m.snTX != nil {
+		m.snTX.Rollback()
+	}
+	if m.modelTX != nil {
+		m.modelTX.Rollback()
+	}
+	m.lmdbKV.Close()
+	m.mdbxKV.Close()
+}
+
+func (m *getPutkvMachine) Check(t *rapid.T) {
+}
+
+func (m *getPutkvMachine) Get(t *rapid.T) {
+	if m.snTX == nil && m.modelTX == nil {
+		return
+	}
+	key := rapid.SampledFrom(m.allKeys).Draw(t, "get a key").([20]byte)
+	var (
+		v1, v2     []byte
+		err1, err2 error
+	)
+
+	v1, err1 = m.snTX.GetOne(m.bucket, key[:])
+	v2, err2 = m.modelTX.GetOne(m.bucket, key[:])
+
+	require.Equal(t, err1, err2)
+	require.Equal(t, v1, v2)
+}
+
+func (m *getPutkvMachine) Put(t *rapid.T) {
+	if len(m.newKeys) == 0 {
+		return
+	}
+	if m.snTX == nil && m.modelTX == nil {
+		return
+	}
+	key := rapid.SampledFrom(m.newKeys).Draw(t, "put a key").([20]byte)
+	m.allKeys = append(m.allKeys, key)
+	for i, v := range m.newKeys {
+		if v == key {
+			m.newKeys = append(m.newKeys[:i], m.newKeys[i+1:]...)
+		}
+	}
+	err := m.snTX.Put(m.bucket, key[:], []byte("put"+common.Bytes2Hex(key[:])))
+	require.NoError(t, err)
+
+	err = m.modelTX.Put(m.bucket, key[:], []byte("put"+common.Bytes2Hex(key[:])))
+	require.NoError(t, err)
+}
+
+func (m *getPutkvMachine) Delete(t *rapid.T) {
+	if m.snTX == nil && m.modelTX == nil {
+		return
+	}
+	key := rapid.SampledFrom(m.allKeys).Draw(t, "delete a key").([20]byte)
+
+	err := m.snTX.Delete(m.bucket, key[:], nil)
+	require.NoError(t, err)
+
+	err = m.modelTX.Put(m.bucket, key[:], nil)
+	require.NoError(t, err)
+}
+
+func (m *getPutkvMachine) Begin(t *rapid.T) {
+	if m.modelTX != nil && m.snTX != nil {
+		return
+	}
+	mtx, err := m.mdbxKV.BeginRw(context.Background())
+	require.NoError(t, err)
+	sntx, err := m.lmdbKV.BeginRw(context.Background())
+	require.NoError(t, err)
+	m.modelTX = mtx
+	m.snTX = sntx
+}
+
+func (m *getPutkvMachine) Rollback(t *rapid.T) {
+	if m.modelTX == nil && m.snTX == nil {
+		return
+	}
+	m.snTX.Rollback()
+	m.modelTX.Rollback()
+	m.snTX = nil
+	m.modelTX = nil
+}
+
+func (m *getPutkvMachine) Commit(t *rapid.T) {
+	if m.modelTX == nil && m.snTX == nil {
+		return
+	}
+	err := m.modelTX.Commit()
+	require.NoError(t, err)
+	err = m.snTX.Commit()
+	require.NoError(t, err)
+	m.snTX = nil
+	m.modelTX = nil
+}
