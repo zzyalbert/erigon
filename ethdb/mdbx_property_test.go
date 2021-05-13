@@ -5,6 +5,8 @@ import (
 	"github.com/ledgerwatch/turbo-geth/common"
 	"github.com/ledgerwatch/turbo-geth/common/dbutils"
 	require "github.com/stretchr/testify/require"
+	"io/ioutil"
+	"os"
 	"pgregory.net/rapid"
 	"testing"
 )
@@ -122,11 +124,14 @@ type cursorMDBXvsLMDBMachine struct {
 	snapshotKeys [][20]byte
 	newKeys      [][20]byte
 	allKeys      [][20]byte
+	lmdbPath string
 }
 
 func (m *cursorMDBXvsLMDBMachine) Init(t *rapid.T) {
 	m.bucket = dbutils.PlainStateBucket
-	m.lmdbKV = NewLMDB().InMem().MustOpen()
+	var err error
+	m.lmdbPath,err = ioutil.TempDir(os.TempDir(), "lmdb*")
+	m.lmdbKV = NewLMDB().Path(m.lmdbPath).MustOpen()
 	m.mdbxKV = NewMDBX().InMem().MustOpen()
 	m.snapshotKeys = rapid.SliceOf(rapid.ArrayOf(20, rapid.Byte())).Filter(func(_v [][20]byte) bool {
 		return len(_v) > 0
@@ -178,6 +183,7 @@ func (m *cursorMDBXvsLMDBMachine) Cleanup() {
 	m.mdbxKV.Close()
 	m.mdbxKV = nil
 	m.mdbxTX = nil
+	os.RemoveAll(m.lmdbPath)
 }
 
 func (m *cursorMDBXvsLMDBMachine) Begin(t *rapid.T) {
