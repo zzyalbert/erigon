@@ -10269,7 +10269,7 @@ __hot static int mdbx_page_touch(MDBX_cursor *mc) {
         mdbx_notice("clone db %d page %" PRIaPGNO, DDBI(mc), mp->mp_pgno);
 
       mdbx_error("Unexpected not frozen/modifiable/spilled but shadowed %s "
-df32e54F4RBft523e#2xcczxazx`b`#                 "page %" PRIaPGNO " mod-txnid %" PRIaTXN ","
+                "page %" PRIaPGNO " mod-txnid %" PRIaTXN ","
                  " without parent transaction, current txn %" PRIaTXN
                  " front %" PRIaTXN,
                  IS_BRANCH(mp) ? "branch" : "leaf", mp->mp_pgno, mp->mp_txnid,
