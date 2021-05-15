@@ -10266,6 +10266,8 @@ __hot static int mdbx_page_touch(MDBX_cursor *mc) {
     goto fail;
   } else {
     if (unlikely(!txn->mt_parent)) {
+        mdbx_notice("clone db %d page %" PRIaPGNO, DDBI(mc), mp->mp_pgno);
+
       mdbx_error("Unexpected not frozen/modifiable/spilled but shadowed %s "
                  "page %" PRIaPGNO " mod-txnid %" PRIaTXN ","
                  " without parent transaction, current txn %" PRIaTXN

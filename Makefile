@@ -126,8 +126,8 @@ mdbx:
 	@echo "Building mdbx"
 	@cd ethdb/mdbx/dist/ \
 		&& make clean && make config.h \
-		&& echo '#define MDBX_DEBUG 0' >> config.h \
-		&& echo '#define MDBX_FORCE_ASSERTIONS 0' >> config.h \
+		&& echo '#define MDBX_DEBUG 7' >> config.h \
+		&& echo '#define MDBX_FORCE_ASSERTIONS 1' >> config.h \
         && CFLAGS_EXTRA="-Wno-deprecated-declarations" make mdbx-static.o
 
 mdbx-dbg:
