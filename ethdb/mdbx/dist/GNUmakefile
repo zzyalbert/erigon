@@ -30,7 +30,7 @@ CC      ?= gcc
 CFLAGS_EXTRA ?=
 LD      ?= ld
 MDBX_BUILD_OPTIONS ?= -DNDEBUG=1
-CFLAGS  ?= -std=gnu11 -O2 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -pthread -Wno-error=attributes $(CFLAGS_EXTRA)
+CFLAGS  ?= -std=gnu11 -O0 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -pthread -Wno-error=attributes $(CFLAGS_EXTRA)
 # -Wno-tautological-compare
 CXX     ?= g++
 # Choosing C++ standard with deferred simple variable expansion trick
