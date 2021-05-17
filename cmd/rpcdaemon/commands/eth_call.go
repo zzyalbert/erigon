@@ -113,9 +113,9 @@ func (api *APIImpl) EstimateGas(ctx context.Context, args ethapi.CallArgs, block
 		hi = uint64(*args.Gas)
 	} else {
 		// Retrieve the block to act as the gas ceiling
-		h, err := HeaderByNumberOrHash(ctx, dbtx, bNrOrHash)
-		if err != nil {
-			return 0, err
+		h, innerErr := HeaderByNumberOrHash(ctx, dbtx, bNrOrHash)
+		if innerErr != nil {
+			return 0, innerErr
 		}
 		hi = h.GasLimit
 	}

@@ -232,7 +232,7 @@ func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
 	switch kind {
 	case rlp.List:
 		// It's a legacy receipt.
-		if err := r.decodePayload(s); err != nil {
+		if err = r.decodePayload(s); err != nil {
 			return err
 		}
 		r.Type = LegacyTxType
@@ -249,7 +249,7 @@ func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
 		r.Type = b[0]
 		switch r.Type {
 		case AccessListTxType, DynamicFeeTxType:
-			if err := r.decodePayload(s); err != nil {
+			if err = r.decodePayload(s); err != nil {
 				return err
 			}
 		default:

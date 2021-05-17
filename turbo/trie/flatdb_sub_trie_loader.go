@@ -611,7 +611,7 @@ func (fstl *FlatDbSubTrieLoader) LoadSubTries() (SubTries, error) {
 
 		if fstl.rl.Retain(k) {
 			if fstl.hc != nil {
-				if err := fstl.hc(k, nil); err != nil {
+				if err = fstl.hc(k, nil); err != nil {
 					return false, err
 				}
 			}

@@ -37,9 +37,9 @@ func TCPPipe() (net.Conn, net.Conn, error) {
 	var aconn net.Conn
 	aerr := make(chan error, 1)
 	go func() {
-		var err error
-		aconn, err = l.Accept()
-		aerr <- err
+		var innerErr error
+		aconn, innerErr = l.Accept()
+		aerr <- innerErr
 	}()
 
 	dconn, err := net.Dial("tcp", l.Addr().String())

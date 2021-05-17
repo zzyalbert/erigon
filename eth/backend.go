@@ -137,9 +137,9 @@ func New(stack *node.Node, config *ethconfig.Config, gitCommit string) (*Ethereu
 	var torrentClient *snapshotsync.Client
 	snapshotsDir := stack.Config().ResolvePath("snapshots")
 	if config.SnapshotLayout {
-		v, err := chainDb.Get(dbutils.BittorrentInfoBucket, []byte(dbutils.BittorrentPeerID))
-		if err != nil && !errors.Is(err, ethdb.ErrKeyNotFound) {
-			log.Error("Get bittorrent peer", "err", err)
+		v, innerErr := chainDb.Get(dbutils.BittorrentInfoBucket, []byte(dbutils.BittorrentPeerID))
+		if innerErr != nil && !errors.Is(innerErr, ethdb.ErrKeyNotFound) {
+			log.Error("Get bittorrent peer", "err", innerErr)
 		}
 		torrentClient, err = snapshotsync.New(snapshotsDir, config.SnapshotSeeding, string(v))
 		if err != nil {
@@ -234,7 +234,11 @@ func New(stack *node.Node, config *ethconfig.Config, gitCommit string) (*Ethereu
 	eth.events = remotedbserver.NewEvents()
 	var mg *snapshotsync.SnapshotMigrator
 	if config.SnapshotLayout {
-		currentSnapshotBlock, currentInfohash, err := snapshotsync.GetSnapshotInfo(chainDb)
+		var (
+			currentSnapshotBlock uint64
+			currentInfohash      []byte
+		)
+		currentSnapshotBlock, currentInfohash, err = snapshotsync.GetSnapshotInfo(chainDb)
 		if err != nil {
 			return nil, err
 		}
@@ -415,7 +419,7 @@ func New(stack *node.Node, config *ethconfig.Config, gitCommit string) (*Ethereu
 
 	go SendPendingTxsToRpcDaemon(eth.txPool, eth.events)
 
-	if err := eth.StartMining(mining, tmpdir); err != nil {
+	if err = eth.StartMining(mining, tmpdir); err != nil {
 		return nil, err
 	}
 

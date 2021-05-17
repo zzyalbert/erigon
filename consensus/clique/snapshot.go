@@ -267,23 +267,23 @@ func (s *Snapshot) apply(sigcache *lru.ARCCache, headers ...*types.Header) (*Sna
 					delete(snap.Recents, number-limit)
 				}
 				// Discard any previous votes the deauthorized signer cast
-				for i := 0; i < len(snap.Votes); i++ {
-					if snap.Votes[i].Signer == header.Coinbase {
+				for voteIdx := 0; voteIdx < len(snap.Votes); voteIdx++ {
+					if snap.Votes[voteIdx].Signer == header.Coinbase {
 						// Uncast the vote from the cached tally
-						snap.uncast(snap.Votes[i].Address, snap.Votes[i].Authorize)
+						snap.uncast(snap.Votes[voteIdx].Address, snap.Votes[voteIdx].Authorize)
 
 						// Uncast the vote from the chronological list
-						snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
+						snap.Votes = append(snap.Votes[:voteIdx], snap.Votes[voteIdx+1:]...)
 
-						i--
+						voteIdx--
 					}
 				}
 			}
 			// Discard any previous votes around the just changed account
-			for i := 0; i < len(snap.Votes); i++ {
-				if snap.Votes[i].Address == header.Coinbase {
-					snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
-					i--
+			for voteIdx := 0; voteIdx < len(snap.Votes); voteIdx++ {
+				if snap.Votes[voteIdx].Address == header.Coinbase {
+					snap.Votes = append(snap.Votes[:voteIdx], snap.Votes[voteIdx+1:]...)
+					voteIdx--
 				}
 			}
 			delete(snap.Tally, header.Coinbase)

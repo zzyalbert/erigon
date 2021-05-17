@@ -51,10 +51,10 @@ func TestDatadirCreation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create stack with creatable datadir: %v", err)
 	}
-	if err := node.Close(); err != nil {
+	if err = node.Close(); err != nil {
 		t.Fatalf("failed to close node: %v", err)
 	}
-	if _, err := os.Stat(dir); err != nil {
+	if _, err = os.Stat(dir); err != nil {
 		t.Fatalf("freshly created datadir not accessible: %v", err)
 	}
 	// Verify that an impossible datadir fails creation

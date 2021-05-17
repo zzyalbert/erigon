@@ -544,7 +544,7 @@ func TestHTTPNodeRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating node: %s", err)
 	}
-	if err := client.StartNode(node.ID); err != nil {
+	if err = client.StartNode(node.ID); err != nil {
 		t.Fatalf("error starting node: %s", err)
 	}
 

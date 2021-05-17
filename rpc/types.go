@@ -151,7 +151,7 @@ func (bnh *BlockNumberOrHash) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	var input string
-	if err := json.Unmarshal(data, &input); err != nil {
+	if err = json.Unmarshal(data, &input); err != nil {
 		return err
 	}
 	switch input {
@@ -170,7 +170,7 @@ func (bnh *BlockNumberOrHash) UnmarshalJSON(data []byte) error {
 	default:
 		if len(input) == 66 {
 			hash := common.Hash{}
-			err := hash.UnmarshalText([]byte(input))
+			err = hash.UnmarshalText([]byte(input))
 			if err != nil {
 				return err
 			}

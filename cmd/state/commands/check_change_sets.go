@@ -109,9 +109,9 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 			break
 		}
 
-		blockHash, err := rawdb.ReadCanonicalHash(rwtx, blockNum)
-		if err != nil {
-			return err
+		blockHash, err1 := rawdb.ReadCanonicalHash(rwtx, blockNum)
+		if err1 != nil {
+			return err1
 		}
 		block := rawdb.ReadBlock(rwtx, blockHash, blockNum)
 		if block == nil {

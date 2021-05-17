@@ -44,10 +44,10 @@ func TestMutation_DeleteTimestamp(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := blockWriter.WriteChangeSets(); err != nil {
+	if err = blockWriter.WriteChangeSets(); err != nil {
 		t.Fatal(err)
 	}
-	if err := blockWriter.WriteHistory(); err != nil {
+	if err = blockWriter.WriteHistory(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,9 +121,9 @@ func TestMutationCommitThinHistory(t *testing.T) {
 			t.Fatal("Accounts not equals")
 		}
 
-		index, err := bitmapdb.Get64(tx, dbutils.AccountsHistoryBucket, addr.Bytes(), 0, math.MaxUint32)
-		if err != nil {
-			t.Fatal(err)
+		index, innerErr := bitmapdb.Get64(tx, dbutils.AccountsHistoryBucket, addr.Bytes(), 0, math.MaxUint32)
+		if innerErr != nil {
+			t.Fatal(innerErr)
 		}
 
 		parsedIndex := index.ToArray()
@@ -161,7 +161,7 @@ func TestMutationCommitThinHistory(t *testing.T) {
 
 	changeSetInDB := changeset.NewAccountChangeSet()
 	err = changeset.Walk(tx, dbutils.AccountChangeSetBucket, dbutils.EncodeBlockNumber(2), 8*8, func(_ uint64, k, v []byte) (bool, error) {
-		if err := changeSetInDB.Add(k, v); err != nil {
+		if err = changeSetInDB.Add(k, v); err != nil {
 			return false, err
 		}
 		return true, nil

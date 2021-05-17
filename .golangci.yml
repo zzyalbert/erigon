@@ -17,10 +17,10 @@ linters:
 
 linters-settings:
   govet:
+    check-shadowing: true
     disable:
       - deepequalerrors
       - fieldalignment
-      - shadow
       - unsafeptr
   goconst:
     min-len: 2

@@ -1434,7 +1434,8 @@ func iterateOverCode(chaindata string) error {
 			return err
 		}
 		// This is a mapping of contractAddress + incarnation => CodeHash
-		for k, v, err := c.First(); k != nil; k, v, err = c.Next() {
+		var k, v []byte
+		for k, v, err = c.First(); k != nil; k, v, err = c.Next() {
 			if err != nil {
 				return err
 			}
@@ -1489,8 +1490,9 @@ func mint(chaindata string, block uint64) error {
 		return err
 	}
 
+	var k, v []byte
 	// This is a mapping of contractAddress + incarnation => CodeHash
-	for k, v, err := c.Seek(blockEncoded); k != nil; k, v, err = c.Next() {
+	for k, v, err = c.Seek(blockEncoded); k != nil; k, v, err = c.Next() {
 		if err != nil {
 			return err
 		}

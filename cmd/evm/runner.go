@@ -290,12 +290,12 @@ func runCmd(ctx *cli.Context) error {
 	}
 
 	if memProfilePath := ctx.GlobalString(MemProfileFlag.Name); memProfilePath != "" {
-		f, err := os.Create(memProfilePath)
-		if err != nil {
-			fmt.Println("could not create memory profile: ", err)
+		f, innerErr := os.Create(memProfilePath)
+		if innerErr != nil {
+			fmt.Println("could not create memory profile: ", innerErr)
 			os.Exit(1)
 		}
-		if err := pprof.WriteHeapProfile(f); err != nil {
+		if err = pprof.WriteHeapProfile(f); err != nil {
 			fmt.Println("could not write memory profile: ", err)
 			os.Exit(1)
 		}

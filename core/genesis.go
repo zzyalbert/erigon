@@ -288,7 +288,7 @@ func (g *Genesis) ToBlock() (*types.Block, *state.IntraBlockState, error) {
 			statedb.SetIncarnation(addr, 1)
 		}
 	}
-	if err := statedb.FinalizeTx(context.Background(), w); err != nil {
+	if err = statedb.FinalizeTx(context.Background(), w); err != nil {
 		return nil, nil, err
 	}
 	root, err := trie.CalcRoot("genesis", tx)

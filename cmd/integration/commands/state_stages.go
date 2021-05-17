@@ -154,15 +154,15 @@ func syncBySmallSteps(db ethdb.Database, miningConfig params.MiningConfig, ctx c
 	expectedAccountChanges := make(map[uint64]*changeset.ChangeSet)
 	expectedStorageChanges := make(map[uint64]*changeset.ChangeSet)
 	changeSetHook := func(blockNum uint64, csw *state.ChangeSetWriter) {
-		accountChanges, err := csw.GetAccountChanges()
-		if err != nil {
-			panic(err)
+		accountChanges, innerErr := csw.GetAccountChanges()
+		if innerErr != nil {
+			panic(innerErr)
 		}
 		expectedAccountChanges[blockNum] = accountChanges
 
-		storageChanges, err := csw.GetStorageChanges()
-		if err != nil {
-			panic(err)
+		storageChanges, innerErr := csw.GetStorageChanges()
+		if innerErr != nil {
+			panic(innerErr)
 		}
 		if storageChanges.Len() > 0 {
 			expectedStorageChanges[blockNum] = storageChanges
@@ -174,8 +174,8 @@ func syncBySmallSteps(db ethdb.Database, miningConfig params.MiningConfig, ctx c
 
 	execUntilFunc := func(execToBlock uint64) func(stageState *stagedsync.StageState, unwinder stagedsync.Unwinder) error {
 		return func(s *stagedsync.StageState, unwinder stagedsync.Unwinder) error {
-			if err := stagedsync.SpawnExecuteBlocksStage(s, tx, execToBlock, quit, execCfg); err != nil {
-				return fmt.Errorf("spawnExecuteBlocksStage: %w", err)
+			if innerErr := stagedsync.SpawnExecuteBlocksStage(s, tx, execToBlock, quit, execCfg); innerErr != nil {
+				return fmt.Errorf("spawnExecuteBlocksStage: %w", innerErr)
 			}
 			return nil
 		}

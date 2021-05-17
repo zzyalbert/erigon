@@ -112,9 +112,9 @@ func TestMatreshkaStream(t *testing.T) {
 	ttt := time.Now()
 	for currentBlock := blockNum; currentBlock < blockNum+limit; currentBlock++ {
 		stateReaderWriter.UpdateWriter(state.NewPlainStateWriter(db, tx, currentBlock))
-		block, err := rawdb.ReadBlockByNumber(tx, currentBlock)
+		block, innerErr := rawdb.ReadBlockByNumber(tx, currentBlock)
 		if err != nil {
-			t.Fatal(err, currentBlock)
+			t.Fatal(innerErr, currentBlock)
 		}
 
 		_, err = core.ExecuteBlockEphemerally(blockchain.Config(), blockchain.GetVMConfig(), getHeader, ethash.NewFaker(), block, stateReaderWriter, stateReaderWriter)

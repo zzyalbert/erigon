@@ -585,7 +585,7 @@ func ReadRawReceipts(db ethdb.Tx, hash common.Hash, number uint64) types.Receipt
 		return nil
 	}
 	var receipts types.Receipts
-	if err := cbor.Unmarshal(&receipts, bytes.NewReader(data)); err != nil {
+	if err = cbor.Unmarshal(&receipts, bytes.NewReader(data)); err != nil {
 		log.Error("receipt unmarshal failed", "hash", hash, "err", err)
 		return nil
 	}
@@ -768,7 +768,7 @@ func AppendReceipts(tx ethdb.RwTx, blockNumber uint64, receipts types.Receipts) 
 		}
 
 		buf.Reset()
-		err := cbor.Marshal(buf, r.Logs)
+		err = cbor.Marshal(buf, r.Logs)
 		if err != nil {
 			return fmt.Errorf("encode block receipts for block %d: %v", blockNumber, err)
 		}
@@ -825,9 +825,9 @@ func DeleteNewerReceipts(db ethdb.RwTx, number uint64) error {
 		return err
 	}
 	defer receiptsDel.Close()
-	if err := ethdb.Walk(receipts, dbutils.ReceiptsKey(number), 0, func(k, v []byte) (bool, error) {
-		if err := receiptsDel.Delete(k, nil); err != nil {
-			return false, err
+	if err = ethdb.Walk(receipts, dbutils.ReceiptsKey(number), 0, func(k, v []byte) (bool, error) {
+		if innerErr := receiptsDel.Delete(k, nil); innerErr != nil {
+			return false, innerErr
 		}
 		return true, nil
 	}); err != nil {
