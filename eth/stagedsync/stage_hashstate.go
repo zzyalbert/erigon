@@ -121,23 +121,23 @@ func unwindHashStateStageImpl(logPrefix string, u *UnwindState, s *StageState, t
 }
 
 func PromoteHashedStateCleanly(logPrefix string, db ethdb.RwTx, cfg HashStateCfg, quit <-chan struct{}) error {
-	err := etl.Transform(
-		logPrefix,
-		db,
-		dbutils.PlainStateBucket,
-		dbutils.HashedAccountsBucket,
-		cfg.tmpDir,
-		keyTransformExtractAcc(transformPlainStateKey),
-		etl.IdentityLoadFunc,
-		etl.TransformArgs{
-			Quit: quit,
-		},
-	)
-	if err != nil {
-		return err
-	}
+	//err := etl.Transform(
+	//	logPrefix,
+	//	db,
+	//	dbutils.PlainStateBucket,
+	//	dbutils.HashedAccountsBucket,
+	//	cfg.tmpDir,
+	//	keyTransformExtractAcc(transformPlainStateKey),
+	//	etl.IdentityLoadFunc,
+	//	etl.TransformArgs{
+	//		Quit: quit,
+	//	},
+	//)
+	//if err != nil {
+	//	return err
+	//}
 
-	err = etl.Transform(
+	err := etl.Transform(
 		logPrefix,
 		db,
 		dbutils.PlainStateBucket,
