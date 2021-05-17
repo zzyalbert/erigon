@@ -24,6 +24,15 @@ import (
 )
 
 var _ DbCopier = &MdbxKV{}
+var f *os.File
+
+func init() {
+	var err error
+	f, err = os.Create("/home/alex/data/keys.txt")
+	if err != nil {
+		panic(err)
+	}
+}
 
 type MdbxOpts struct {
 	inMem      bool
@@ -1462,6 +1471,9 @@ func (c *MdbxDupSortCursor) LastDup() ([]byte, error) {
 }
 
 func (c *MdbxDupSortCursor) Append(k []byte, v []byte) error {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{13}) > 0 {
+		fmt.Fprintf(f, "Append %x %x\n", k, v)
+	}
 	if err := c.c.Put(k, v, mdbx.Append|mdbx.AppendDup); err != nil {
 		return fmt.Errorf("in Append: bucket=%s, %w", c.bucketName, err)
 	}
@@ -1469,6 +1481,9 @@ func (c *MdbxDupSortCursor) Append(k []byte, v []byte) error {
 }
 
 func (c *MdbxDupSortCursor) AppendDup(k []byte, v []byte) error {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{13}) > 0 {
+		fmt.Fprintf(f, "AppendDup %x %x\n", k, v)
+	}
 	if err := c.appendDup(k, v); err != nil {
 		return fmt.Errorf("in AppendDup: bucket=%s, %w", c.bucketName, err)
 	}
