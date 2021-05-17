@@ -141,7 +141,7 @@ package mdbx
 //#include "mdbxgo.h"
 
 #cgo CFLAGS: -O0 -g -Wno-deprecated-declarations -pthread -W -Wall -Werror -Wextra -Wpedantic -fPIC -fvisibility=hidden -std=gnu11 -pthread -Wno-error=attributes -Wno-implicit-fallthrough -Wno-unused-function -Wno-unused-parameter -Wno-format-extra-args -Wbad-function-cast -Wno-missing-field-initializers
-#cgo LDFLAGS: ${SRCDIR}/dist/mdbx-static.o
+//#cgo LDFLAGS: ${SRCDIR}/dist/mdbx-static.o
 */
 import "C"
 

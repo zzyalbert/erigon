@@ -35,6 +35,8 @@ docker-compose:
 
 # debug build allows see C stack traces, run it with GOTRACEBACK=crash. You don't need debug build for C pit for profiling. To profile C code use SETCGOTRCKEBACK=1
 dbg: mdbx-dbg
+	cp ./ethdb/mdbx/dist/mdbx.h ./ethdb/mdbx/
+	cp ./ethdb/mdbx/dist/mdbx.c ./ethdb/mdbx/
 	$(GO_DBG_BUILD) -o $(GOBIN)/ ./cmd/...
 
 geth: mdbx
