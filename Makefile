@@ -137,7 +137,9 @@ mdbx-dbg:
 	@cd ethdb/mdbx/dist/ \
 		&& make clean && make config.h \
 		&& echo '#define MDBX_DEBUG 1' >> config.h \
-		&& echo '#define MDBX_FORCE_ASSERTIONS 0' >> config.h \
+		&& echo '#define MDBX_FORCE_ASSERTIONS 1' >> config.h \
+		&& echo '#define MALLOC_CHECK_=7' >> config.h \
+		&& echo '#define MALLOC_PERTURB_=42' >> config.h \
         && CFLAGS_EXTRA="-Wno-deprecated-declarations" CFLAGS='-O0 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -std=gnu11 -pthread -Wno-error=attributes' make mdbx-static.o
 
 test: mdbx
