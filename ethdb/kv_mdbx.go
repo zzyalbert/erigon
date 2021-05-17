@@ -1220,7 +1220,7 @@ func (c *MdbxCursor) Put(key []byte, value []byte) error {
 		return nil
 	}
 	if err := c.put(key, value); err != nil {
-		return err
+		return fmt.Errorf("c.put: %w", err)
 	}
 	return nil
 }
@@ -1259,11 +1259,14 @@ func (c *MdbxCursor) putDupSort(key []byte, value []byte) error {
 		}
 		err = c.delCurrent()
 		if err != nil {
-			return err
+			return fmt.Errorf("c.delCurrent: %w", err)
 		}
 	}
 
-	return c.put(key, value)
+	if err := c.put(key, value); err != nil {
+		return fmt.Errorf("c.put: %w", err)
+	}
+	return nil
 }
 
 func (c *MdbxCursor) SeekExact(key []byte) ([]byte, []byte, error) {
@@ -1315,13 +1318,13 @@ func (c *MdbxCursor) Append(k []byte, v []byte) error {
 
 	if b.Flags&mdbx.DupSort != 0 {
 		if err := c.appendDup(k, v); err != nil {
-			return fmt.Errorf("bucket: %s, %w", c.bucketName, err)
+			return fmt.Errorf("c.appendDup bucket: %s, %w", c.bucketName, err)
 		}
 		return nil
 	}
 
 	if err := c.append(k, v); err != nil {
-		return fmt.Errorf("bucket: %s, %w", c.bucketName, err)
+		return fmt.Errorf("c.append bucket: %s, %w", c.bucketName, err)
 	}
 	return nil
 }
