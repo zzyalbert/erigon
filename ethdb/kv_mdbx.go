@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -24,14 +25,15 @@ import (
 )
 
 var _ DbCopier = &MdbxKV{}
-var f *os.File
+var f io.Writer
 
 func init() {
-	var err error
-	f, err = os.OpenFile("/home/alex/data/keys1.txt", os.O_CREATE, 0755)
-	if err != nil {
-		panic(err)
-	}
+	//var err error
+	f = ioutil.Discard
+	//f, err = os.OpenFile("/home/alex/data/keys1.txt", os.O_CREATE, 0755)
+	//if err != nil {
+	//	panic(err)
+	//}
 }
 
 type MdbxOpts struct {
