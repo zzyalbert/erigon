@@ -126,6 +126,20 @@ var cmdFToMdbx = &cobra.Command{
 	},
 }
 
+var fToMdbx2Cmd = &cobra.Command{
+	Use:   "f_to_mdbx2",
+	Short: "copy data from '--chaindata' to '--chaindata.to'",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx, _ := utils.RootContext()
+		err := fToMdbx2(ctx, toChaindata)
+		if err != nil {
+			log.Error(err.Error())
+			return err
+		}
+		return nil
+	},
+}
+
 func init() {
 	withDatadir(cmdCompareBucket)
 	withReferenceChaindata(cmdCompareBucket)
@@ -162,6 +176,11 @@ func init() {
 	withBucket(cmdFToMdbx)
 
 	rootCmd.AddCommand(cmdFToMdbx)
+
+	withToChaindata(fToMdbx2Cmd)
+	withFile(fToMdbx2Cmd)
+
+	rootCmd.AddCommand(fToMdbx2Cmd)
 }
 
 func compareStates(ctx context.Context, chaindata string, referenceChaindata string) error {
@@ -394,6 +413,76 @@ MainLoop:
 		return err
 	}
 	err = dstTx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func fToMdbx2(ctx context.Context, to string) error {
+	file, err := os.Open(file)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	dst := ethdb.NewMDBX().Path(to).MustOpen()
+	defer dst.Close()
+	tx, err1 := dst.BeginRw(ctx)
+	if err1 != nil {
+		return err1
+	}
+	defer tx.Rollback()
+
+	logEvery := time.NewTicker(5 * time.Second)
+	defer logEvery.Stop()
+	fileScanner := bufio.NewScanner(file)
+	c, err := tx.RwCursorDupSort(dbutils.HashedStorageBucket)
+	if err != nil {
+		return err
+	}
+
+	for {
+		if !fileScanner.Scan() {
+			break
+		}
+		kk := fileScanner.Bytes()
+		parts := strings.Split(string(kk), " ")
+		op, k, v := parts[0], common.FromHex(parts[1]), common.FromHex(parts[2])
+		err = fileScanner.Err()
+		if err != nil {
+			panic(err)
+		}
+		if op == "Append" {
+			err = c.Append(k, v)
+			if err != nil {
+				panic(err)
+			}
+		} else if op == "AppendDup" {
+			err = c.AppendDup(k, v)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		select {
+		default:
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-logEvery.C:
+			log.Info("Progress", "key", fmt.Sprintf("%x", k))
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	tx, err = dst.BeginRw(ctx)
+	if err != nil {
+		return err
+	}
+	err = tx.Commit()
 	if err != nil {
 		return err
 	}
