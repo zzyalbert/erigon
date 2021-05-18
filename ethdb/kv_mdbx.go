@@ -4,6 +4,7 @@ package ethdb
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -28,12 +29,11 @@ var _ DbCopier = &MdbxKV{}
 var f io.Writer
 
 func init() {
-	//var err error
-	f = ioutil.Discard
-	//f, err = os.OpenFile("/home/alex/data/keys1.txt", os.O_CREATE, 0755)
-	//if err != nil {
-	//	panic(err)
-	//}
+	file, err := os.Create("/home/alex/data/keys.txt")
+	if err != nil {
+		panic(err)
+	}
+	f = gzip.NewWriter(file)
 }
 
 type MdbxOpts struct {
