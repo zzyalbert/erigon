@@ -421,11 +421,11 @@ MainLoop:
 }
 
 func fToMdbx2(ctx context.Context, to string) error {
-	file, err := os.Open(file)
+	f, err := os.Open(file)
 	if err != nil {
 		panic(err)
 	}
-	defer file.Close()
+	defer f.Close()
 	fmt.Printf("found: %s\n", file)
 
 	dst := ethdb.NewMDBX().Path(to).MustOpen()
@@ -439,7 +439,7 @@ func fToMdbx2(ctx context.Context, to string) error {
 
 	logEvery := time.NewTicker(5 * time.Second)
 	defer logEvery.Stop()
-	fileScanner := bufio.NewScanner(file)
+	fileScanner := bufio.NewScanner(f)
 	c, err := tx.RwCursorDupSort(dbutils.HashedStorageBucket)
 	if err != nil {
 		return err
