@@ -1326,7 +1326,7 @@ func (c *MdbxCursor) Append(k []byte, v []byte) error {
 	}
 
 	if b.Flags&mdbx.DupSort != 0 {
-		if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{13}) > 0 {
+		if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
 			if _, err := fmt.Fprintf(f, "AppendDup %x %x\n", k, v); err != nil {
 				panic(err)
 			}
