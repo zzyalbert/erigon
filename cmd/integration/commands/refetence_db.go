@@ -426,7 +426,7 @@ func fToMdbx2(ctx context.Context, to string) error {
 		panic(err)
 	}
 	defer file.Close()
-	fmt.Printf("found\n")
+	fmt.Printf("found: %s\n", file)
 
 	dst := ethdb.NewMDBX().Path(to).MustOpen()
 	defer dst.Close()
