@@ -426,6 +426,7 @@ func fToMdbx2(ctx context.Context, to string) error {
 		panic(err)
 	}
 	defer file.Close()
+	fmt.Printf("found\n")
 
 	dst := ethdb.NewMDBX().Path(to).MustOpen()
 	defer dst.Close()
@@ -434,6 +435,7 @@ func fToMdbx2(ctx context.Context, to string) error {
 		return err1
 	}
 	defer tx.Rollback()
+	fmt.Printf("Open: %s\n", to)
 
 	logEvery := time.NewTicker(5 * time.Second)
 	defer logEvery.Stop()
@@ -445,6 +447,7 @@ func fToMdbx2(ctx context.Context, to string) error {
 
 	for {
 		if !fileScanner.Scan() {
+			fmt.Printf("scaner break\n")
 			break
 		}
 		kk := fileScanner.Bytes()
@@ -486,6 +489,7 @@ func fToMdbx2(ctx context.Context, to string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("end\n")
 
 	return nil
 }
