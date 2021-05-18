@@ -186,7 +186,7 @@ func loadFilesIntoBucket(logPrefix string, db ethdb.RwTx, bucket string, provide
 			}
 
 			runtime.ReadMemStats(&m)
-			logArs = append(logArs, "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys), "numGC", int(m.NumGC))
+			logArs = append(logArs, "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys), "numGC", int(m.NumGC), "canUseAppend", canUseAppend, "isDupSort", isDupSort)
 			log.Info(fmt.Sprintf("[%s] ETL [2/2] Loading", logPrefix), logArs...)
 		}
 
