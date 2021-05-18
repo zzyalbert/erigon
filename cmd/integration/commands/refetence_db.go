@@ -3,6 +3,7 @@ package commands
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"os"
@@ -421,11 +422,15 @@ MainLoop:
 }
 
 func fToMdbx2(ctx context.Context, to string) error {
-	f, err := os.Open(file)
+	fileS, err := os.Open(file)
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
+	defer fileS.Close()
+	f, err := gzip.NewReader(fileS)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("found: %s\n", file)
 
 	dst := ethdb.NewMDBX().Path(to).MustOpen()
