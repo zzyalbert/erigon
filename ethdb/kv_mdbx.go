@@ -945,7 +945,7 @@ func (c *MdbxCursor) delCurrent() error {
 }
 func (c *MdbxCursor) delNoDupData() error { return c.c.Del(mdbx.NoDupData) }
 func (c *MdbxCursor) put(k, v []byte) error {
-	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 		if _, err := fmt.Fprintf(f, "Upsert %x %x\n", k, v); err != nil {
 			panic(err)
 		}
@@ -953,7 +953,7 @@ func (c *MdbxCursor) put(k, v []byte) error {
 	return c.c.Put(k, v, 0)
 }
 func (c *MdbxCursor) putCurrent(k, v []byte) error {
-	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 		if _, err := fmt.Fprintf(f, "PutCurrent %x %x\n", k, v); err != nil {
 			panic(err)
 		}
@@ -962,7 +962,7 @@ func (c *MdbxCursor) putCurrent(k, v []byte) error {
 	return c.c.Put(k, v, mdbx.Current)
 }
 func (c *MdbxCursor) putNoOverwrite(k, v []byte) error {
-	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 		if _, err := fmt.Fprintf(f, "NoOverwrite %x %x\n", k, v); err != nil {
 			panic(err)
 		}
@@ -970,7 +970,7 @@ func (c *MdbxCursor) putNoOverwrite(k, v []byte) error {
 	return c.c.Put(k, v, mdbx.NoOverwrite)
 }
 func (c *MdbxCursor) putNoDupData(k, v []byte) error {
-	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 		if _, err := fmt.Fprintf(f, "NoDupData %x %x\n", k, v); err != nil {
 			panic(err)
 		}
@@ -978,7 +978,7 @@ func (c *MdbxCursor) putNoDupData(k, v []byte) error {
 	return c.c.Put(k, v, mdbx.NoDupData)
 }
 func (c *MdbxCursor) append(k, v []byte) error {
-	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 		if _, err := fmt.Fprintf(f, "Append %x %x\n", k, v); err != nil {
 			panic(err)
 		}
@@ -986,7 +986,7 @@ func (c *MdbxCursor) append(k, v []byte) error {
 	return c.c.Put(k, v, mdbx.Append)
 }
 func (c *MdbxCursor) appendDup(k, v []byte) error {
-	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 		if _, err := fmt.Fprintf(f, "AppendDup %x %x\n", k, v); err != nil {
 			panic(err)
 		}
@@ -1190,7 +1190,7 @@ func (c *MdbxCursor) Delete(k, v []byte) error {
 	}
 
 	if c.bucketCfg.Flags&mdbx.DupSort != 0 {
-		if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+		if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 			if _, err := fmt.Fprintf(f, "getBoth %x %x\n", k, v); err != nil {
 				panic(err)
 			}
@@ -1203,7 +1203,7 @@ func (c *MdbxCursor) Delete(k, v []byte) error {
 			}
 			return err
 		}
-		if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+		if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 			if _, err := fmt.Fprintf(f, "delCurrent %x %x\n", k, v); err != nil {
 				panic(err)
 			}
@@ -1211,7 +1211,7 @@ func (c *MdbxCursor) Delete(k, v []byte) error {
 		return c.delCurrent()
 	}
 
-	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{208}) > 0 {
+	if c.bucketName == dbutils.HashedStorageBucket && bytes.Compare(k, []byte{60}) > 0 {
 		if _, err := fmt.Fprintf(f, "del %x \n", k); err != nil {
 			panic(err)
 		}
