@@ -12,7 +12,7 @@
  * <http://www.OpenLDAP.org/license.html>. */
 
 #define xMDBX_ALLOY 1
-#define MDBX_BUILD_SOURCERY 4cd104d866e6e237b90b2ba78aca6f4bf346e47f05dc08b41c1c0d9c9fdf2df8_v0_10_0_19_gc5268f1d
+#define MDBX_BUILD_SOURCERY d799fc9ef2b3cb262f9480c42db1214d94552f7e2696408b574291b2746d8822_v0_10_0_25_gff994feb
 #ifdef MDBX_CONFIG_H
 #include MDBX_CONFIG_H
 #endif
@@ -7512,6 +7512,23 @@ int mdbx_dcmp(const MDBX_txn *txn, MDBX_dbi dbi, const MDBX_val *a,
   return txn->mt_dbxs[dbi].md_dcmp(a, b);
 }
 
+MDBX_MAYBE_UNUSED static void ensure_page_unreferenced(const MDBX_txn *txn,
+                                                       const MDBX_page *mp) {
+  for (MDBX_dbi dbi = 0; dbi < txn->mt_numdbs; ++dbi) {
+    for (MDBX_cursor *mc = txn->tw.cursors[dbi]; mc; mc = mc->mc_next) {
+      if (mc->mc_flags & C_INITIALIZED) {
+        for (unsigned i = 0; i < mc->mc_snum; ++i)
+          mdbx_ensure(txn->mt_env, mc->mc_pg[i] != mp);
+        if (mc->mc_xcursor &&
+            (mc->mc_xcursor->mx_cursor.mc_flags & C_INITIALIZED)) {
+          for (unsigned i = 0; i < mc->mc_xcursor->mx_cursor.mc_snum; ++i)
+            mdbx_ensure(txn->mt_env, mc->mc_xcursor->mx_cursor.mc_pg[i] != mp);
+        }
+      }
+    }
+  }
+}
+
 /* Allocate memory for a page.
  * Re-use old malloc'ed pages first for singletons, otherwise just malloc.
  * Set MDBX_TXN_ERROR on failure. */
@@ -7536,6 +7553,7 @@ static MDBX_page *mdbx_page_malloc(MDBX_txn *txn, unsigned num) {
     VALGRIND_MEMPOOL_ALLOC(env, np, size);
   }
 
+  ensure_page_unreferenced(txn, np);
   if ((env->me_flags & MDBX_NOMEMINIT) == 0) {
     /* For a single page alloc, we init everything after the page header.
      * For multi-page, we init the final page; if the caller needed that
@@ -7556,6 +7574,8 @@ static MDBX_page *mdbx_page_malloc(MDBX_txn *txn, unsigned num) {
 
 /* Free a shadow dirty page */
 static void mdbx_dpage_free(MDBX_env *env, MDBX_page *dp, unsigned npages) {
+  if (env->me_txn)
+    ensure_page_unreferenced(env->me_txn, dp);
   VALGRIND_MAKE_MEM_UNDEFINED(dp, pgno2bytes(env, npages));
   ASAN_UNPOISON_MEMORY_REGION(dp, pgno2bytes(env, npages));
   if (MDBX_DEBUG || unlikely(env->me_flags & MDBX_PAGEPERTURB))
@@ -8135,6 +8155,7 @@ status_done:
                     pgno + txn->mt_env->me_options.dp_loose_limit ||
                 txn->mt_next_pgno <= txn->mt_env->me_options.dp_loose_limit))) {
       mdbx_debug("loosen dirty page %" PRIaPGNO, pgno);
+      ensure_page_unreferenced(txn, mp);
       mp->mp_flags = P_LOOSE;
       mp->mp_next = txn->tw.loose_pages;
       txn->tw.loose_pages = mp;
@@ -18517,8 +18538,8 @@ new_sub:;
        * make sure the cursor is marked valid. */
       mc->mc_flags |= C_INITIALIZED;
     }
-    if (flags & MDBX_MULTIPLE) {
-      if (!rc) {
+    if (unlikely(flags & MDBX_MULTIPLE)) {
+      if (likely(rc == MDBX_SUCCESS)) {
       continue_multiple:
         mcount++;
         /* let caller know how many succeeded, if any */
@@ -20012,8 +20033,7 @@ static int mdbx_page_merge(MDBX_cursor *csrc, MDBX_cursor *cdst) {
     }
   }
 
-  /* If not operating on GC, allow this page to be reused
-   * in this txn. Otherwise just add to free list. */
+  csrc->mc_pg[csrc->mc_top] = /* kill reference to the merged page */ nullptr;
   rc = mdbx_page_retire(csrc, (MDBX_page *)psrc);
   if (unlikely(rc))
     return rc;
@@ -22668,20 +22688,19 @@ __cold int mdbx_env_info_ex(const MDBX_env *env, const MDBX_txn *txn,
   if (likely(bytes > size_before_bootid)) {
     arg->mi_unsync_volume = pgno2bytes(env, unsynced_pages);
     const uint64_t monotime_now = mdbx_osal_monotime();
-    arg->mi_since_sync_seconds16dot16 = mdbx_osal_monotime_to_16dot16(
-        monotime_now - atomic_load64(&lck->mti_sync_timestamp, mo_Relaxed));
+    uint64_t ts = atomic_load64(&lck->mti_sync_timestamp, mo_Relaxed);
+    arg->mi_since_sync_seconds16dot16 =
+        ts ? mdbx_osal_monotime_to_16dot16(monotime_now - ts) : 0;
+    ts = atomic_load64(&lck->mti_reader_check_timestamp, mo_Relaxed);
     arg->mi_since_reader_check_seconds16dot16 =
-        lck ? mdbx_osal_monotime_to_16dot16(
-                  monotime_now -
-                  atomic_load64(&lck->mti_reader_check_timestamp, mo_Relaxed))
-            : 0;
+        ts ? mdbx_osal_monotime_to_16dot16(monotime_now - ts) : 0;
     arg->mi_autosync_threshold = pgno2bytes(
         env, atomic_load32(&lck->mti_autosync_threshold, mo_Relaxed));
     arg->mi_autosync_period_seconds16dot16 = mdbx_osal_monotime_to_16dot16(
         atomic_load64(&lck->mti_autosync_period, mo_Relaxed));
     arg->mi_bootid.current.x = bootid.x;
     arg->mi_bootid.current.y = bootid.y;
-    arg->mi_mode = lck ? lck->mti_envmode.weak : env->me_flags;
+    arg->mi_mode = env->me_lck_mmap.lck ? lck->mti_envmode.weak : env->me_flags;
   }
 
   if (likely(bytes > size_before_pgop_stat)) {
@@ -23199,6 +23218,7 @@ static int mdbx_drop_tree(MDBX_cursor *mc, const bool may_have_subDBs) {
         }
       }
     }
+    mc->mc_snum = mc->mc_top = 0;
     rc = mdbx_page_retire(mc, mc->mc_pg[0]);
   bailout:
     if (unlikely(rc != MDBX_SUCCESS))
@@ -23220,11 +23240,13 @@ int mdbx_drop(MDBX_txn *txn, MDBX_dbi dbi, bool del) {
   if (unlikely(rc != MDBX_SUCCESS))
     return rc;
 
-  rc = mdbx_drop_tree(mc, dbi == MAIN_DBI ||
-                              (mc->mc_db->md_flags & MDBX_DUPSORT) != 0);
   /* Invalidate the dropped DB's cursors */
   for (MDBX_cursor *m2 = txn->tw.cursors[dbi]; m2; m2 = m2->mc_next)
-    m2->mc_flags &= ~(C_INITIALIZED | C_EOF);
+    if (m2 != mc)
+      m2->mc_flags &= ~(C_INITIALIZED | C_EOF);
+  rc = mdbx_drop_tree(mc, dbi == MAIN_DBI ||
+                              (mc->mc_db->md_flags & MDBX_DUPSORT) != 0);
+  mc->mc_flags &= ~(C_INITIALIZED | C_EOF);
   if (unlikely(rc))
     goto bailout;
 
@@ -25576,7 +25598,7 @@ __dll_export
 #else
   #ifdef __INTEL_COMPILER
     "Intel C/C++ " STRINGIFY(__INTEL_COMPILER)
-  #elsif defined(__apple_build_version__)
+  #elif defined(__apple_build_version__)
     "Apple clang " STRINGIFY(__apple_build_version__)
   #elif defined(__ibmxl__)
     "IBM clang C " STRINGIFY(__ibmxl_version__) "." STRINGIFY(__ibmxl_release__)
@@ -27552,7 +27574,8 @@ mdbx_osal_16dot16_to_monotime(uint32_t seconds_16dot16) {
 #else
   const uint64_t ratio = UINT64_C(1000000000);
 #endif
-  return (ratio * seconds_16dot16 + 32768) >> 16;
+  const uint64_t ret = (ratio * seconds_16dot16 + 32768) >> 16;
+  return likely(ret || seconds_16dot16 == 0) ? ret : /* fix underflow */ 1;
 }
 
 MDBX_INTERNAL_FUNC uint32_t mdbx_osal_monotime_to_16dot16(uint64_t monotime) {
@@ -27564,13 +27587,15 @@ MDBX_INTERNAL_FUNC uint32_t mdbx_osal_monotime_to_16dot16(uint64_t monotime) {
     if (monotime > limit)
       return UINT32_MAX;
   }
+  const uint32_t ret =
 #if defined(_WIN32) || defined(_WIN64)
-  return (uint32_t)((monotime << 16) / performance_frequency.QuadPart);
+      (uint32_t)((monotime << 16) / performance_frequency.QuadPart);
 #elif defined(__APPLE__) || defined(__MACH__)
-  return (uint32_t)((monotime << 16) / ratio_16dot16_to_monotine);
+      (uint32_t)((monotime << 16) / ratio_16dot16_to_monotine);
 #else
-  return (uint32_t)(monotime * 128 / 1953125);
+      (uint32_t)(monotime * 128 / 1953125);
 #endif
+  return likely(ret || monotime == 0) ? ret : /* fix underflow */ 1;
 }
 
 MDBX_INTERNAL_FUNC uint64_t mdbx_osal_monotime(void) {
@@ -28189,9 +28214,9 @@ __dll_export
         0,
         10,
         0,
-        19,
-        {"2021-05-12T14:41:09+03:00", "d45476a9152289911ca9eb32f1d7dccdbf86e93e", "c5268f1da7ed20f9cacb0b3717f63e5bfa2c1c02",
-         "v0.10.0-19-gc5268f1d"},
+        25,
+        {"2021-05-19T19:40:40+03:00", "524dd888707a21c0926135c3a182a34b19ddfdd9", "ff994feb892c8fc8606b5be5c568b83771a1ef3d",
+         "v0.10.0-25-gff994feb"},
         sourcery};
 
 __dll_export

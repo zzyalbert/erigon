@@ -30,17 +30,17 @@ CC      ?= gcc
 CFLAGS_EXTRA ?=
 LD      ?= ld
 MDBX_BUILD_OPTIONS ?= -DNDEBUG=1
-CFLAGS  ?= -std=gnu11 -O0 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -pthread -Wno-error=attributes $(CFLAGS_EXTRA)
+CFLAGS  ?= -std=gnu11 -O2 -g -Wall -Werror -Wextra -Wpedantic -ffunction-sections -fPIC -fvisibility=hidden -pthread -Wno-error=attributes $(CFLAGS_EXTRA)
 # -Wno-tautological-compare
 CXX     ?= g++
 # Choosing C++ standard with deferred simple variable expansion trick
 CXXSTD  ?= $(eval CXXSTD := $$(shell PROBE=$$$$([ -f mdbx.c++ ] && echo mdbx.c++ || echo src/mdbx.c++); for std in gnu++20 c++20 gnu++2a c++2a gnu++17 c++17 gnu++14 c++14 gnu+11 c++11; do $(CXX) -std=$$$${std} -c $$$${PROBE} -o /dev/null 2>/dev/null >/dev/null && echo "-std=$$$${std}" && exit; done))$(CXXSTD)
 CXXFLAGS = $(CXXSTD) $(filter-out -std=gnu11,$(CFLAGS))
 
-# HINT: Try append '--no-as-needed,-lrt' for ability to built with modern glibc, but then run with the old.
+# TIP: Try append '--no-as-needed,-lrt' for ability to built with modern glibc, but then use with the old.
 LIBS    ?= $(shell uname | grep -qi SunOS && echo "-lkstat") $(shell uname | grep -qi -e Darwin -e OpenBSD || echo "-lrt") $(shell uname | grep -qi Windows && echo "-lntdll")
 
-LDFLAGS ?= $(shell $(LD) --help 2>/dev/null | grep -q -- --gc-sections && echo '-Wl,--gc-sections,-z,relro,-O0')$(shell $(LD) --help 2>/dev/null | grep -q -- -dead_strip && echo '-Wl,-dead_strip')
+LDFLAGS ?= $(shell $(LD) --help 2>/dev/null | grep -q -- --gc-sections && echo '-Wl,--gc-sections,-z,relro,-O1')$(shell $(LD) --help 2>/dev/null | grep -q -- -dead_strip && echo '-Wl,-dead_strip')
 EXE_LDFLAGS ?= -pthread
 
 ################################################################################
@@ -219,7 +219,8 @@ uninstall:
 IOARENA ?= $(shell \
   (test -x ../ioarena/@BUILD/src/ioarena && echo ../ioarena/@BUILD/src/ioarena) || \
   (test -x ../../@BUILD/src/ioarena && echo ../../@BUILD/src/ioarena) || \
-  (test -x ../../src/ioarena && echo ../../src/ioarena) || which ioarena)
+  (test -x ../../src/ioarena && echo ../../src/ioarena) || which ioarena 2>&- || \
+  echo '\#\# TIP: Clone and build the https://github.com/pmwkaa/ioarena.git within a neighbouring directory for availability of benchmarking.' >&2)
 NN	?= 25000000
 BENCH_CRUD_MODE ?= nosync
 
