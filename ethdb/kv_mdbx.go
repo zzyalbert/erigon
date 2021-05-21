@@ -143,6 +143,11 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		return nil, fmt.Errorf("%w, path: %s", err, opts.path)
 	}
 
+	dirtyPagesLimit, err := env.GetOption(mdbx.OptTxnDpLimit)
+	if err != nil {
+		return nil, err
+	}
+
 	if opts.flags&mdbx.Accede == 0 && opts.flags&mdbx.Readonly == 0 {
 		// 1/8 is good for transactions with a lot of modifications - to reduce invalidation size.
 		// But TG app now using Batch and etl.Collectors to avoid writing to DB frequently changing data.
@@ -156,7 +161,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptDpReverseLimit, 16*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, 32*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpLimit, dirtyPagesLimit*4); err != nil {
 			return nil, err
 		}
 		// must be in the range from 12.5% (almost empty) to 50% (half empty)
@@ -166,7 +171,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		}
 	}
 
-	dirtyPagesLimit, err := env.GetOption(mdbx.OptTxnDpLimit)
+	dirtyPagesLimit, err = env.GetOption(mdbx.OptTxnDpLimit)
 	if err != nil {
 		return nil, err
 	}
