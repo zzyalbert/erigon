@@ -230,13 +230,6 @@ func SpawnExecuteBlocksStage(s *StageState, tx ethdb.RwTx, toBlock uint64, quit 
 		panic("ChangeSetHook is not supported with Silkworm")
 	}
 
-	var batch ethdb.DbWithPendingMutations
-	useBatch := !useSilkworm
-	if useBatch {
-		batch = ethdb.NewBatch(tx)
-		defer batch.Rollback()
-	}
-
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
 	stageProgress := s.BlockNumber
@@ -262,20 +255,29 @@ func SpawnExecuteBlocksStage(s *StageState, tx ethdb.RwTx, toBlock uint64, quit 
 				log.Error(fmt.Sprintf("[%s] Empty block", logPrefix), "blocknum", blockNum)
 				break
 			}
-			if err = executeBlockWithGo(block, tx, batch, cfg, traceCursor); err != nil {
+			if err = executeBlockWithGo(block, tx, ethdb.WrapIntoTxDB(tx), cfg, traceCursor); err != nil {
 				return err
 			}
 		}
 
 		stageProgress = blockNum
 
-		updateProgress := !useBatch || batch.BatchSize() >= int(cfg.batchSize)
-		if updateProgress {
-			if useBatch {
-				if err = batch.Commit(); err != nil {
-					return err
+		var updateProgress bool
+		if hasTx, ok := tx.(ethdb.HasTx); ok {
+			tt := hasTx.Tx()
+			if p, found := tt.(*ethdb.MdbxTx); found {
+				dirty, maxDirty, _ := p.SpaceDirty()
+				updateProgress = dirty*2 > maxDirty
+			} else {
+				if hasTx2, ok := tt.(ethdb.HasTx); ok {
+					tt = hasTx2.Tx()
+					dirty, maxDirty, _ := tt.(*ethdb.MdbxTx).SpaceDirty()
+					updateProgress = dirty*2 > maxDirty
 				}
 			}
+		}
+
+		if updateProgress {
 			if !useExternalTx {
 				if err = s.Update(tx, stageProgress); err != nil {
 					return err
@@ -296,13 +298,12 @@ func SpawnExecuteBlocksStage(s *StageState, tx ethdb.RwTx, toBlock uint64, quit 
 					}
 				}
 			}
-			batch = ethdb.NewBatch(tx)
 		}
 
 		select {
 		default:
 		case <-logEvery.C:
-			logBlock, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, batch)
+			logBlock, logTime = logProgress(logPrefix, logBlock, logTime, blockNum)
 			if hasTx, ok := tx.(ethdb.HasTx); ok {
 				hasTx.Tx().CollectMetrics()
 			}
@@ -310,14 +311,6 @@ func SpawnExecuteBlocksStage(s *StageState, tx ethdb.RwTx, toBlock uint64, quit 
 		stageExecutionGauge.Update(int64(blockNum))
 	}
 
-	if useBatch {
-		if err := s.Update(batch, stageProgress); err != nil {
-			return err
-		}
-		if err := batch.Commit(); err != nil {
-			return fmt.Errorf("%s: failed to write batch commit: %v", logPrefix, err)
-		}
-	}
 	if !useExternalTx {
 		if traceCursor != nil {
 			traceCursor.Close()
@@ -332,7 +325,7 @@ func SpawnExecuteBlocksStage(s *StageState, tx ethdb.RwTx, toBlock uint64, quit 
 	return nil
 }
 
-func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, currentBlock uint64, batch ethdb.DbWithPendingMutations) (uint64, time.Time) {
+func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, currentBlock uint64) (uint64, time.Time) {
 	currentTime := time.Now()
 	interval := currentTime.Sub(prevTime)
 	speed := float64(currentBlock-prevBlock) / float64(interval/time.Second)
@@ -341,9 +334,6 @@ func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, current
 	var logpairs = []interface{}{
 		"number", currentBlock,
 		"blk/second", speed,
-	}
-	if batch != nil {
-		logpairs = append(logpairs, "batch", common.StorageSize(batch.BatchSize()))
 	}
 	logpairs = append(logpairs, "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys), "numGC", int(m.NumGC))
 	log.Info(fmt.Sprintf("[%s] Executed blocks", logPrefix), logpairs...)
