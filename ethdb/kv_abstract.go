@@ -203,6 +203,7 @@ type RwTx interface {
 
 	RwCursor(bucket string) (RwCursor, error)
 	RwCursorDupSort(bucket string) (RwCursorDupSort, error)
+	SpaceDirty() (dirty uint64, limit uint64, err error)
 }
 
 // BucketMigrator used for buckets migration, don't use it in usual app code
