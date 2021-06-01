@@ -226,7 +226,10 @@ func (s *snTX) RwCursor(bucket string) (RwCursor, error) {
 		dbCursor: dbCursor,
 		snCursor: snCursor2,
 	}, nil
+}
 
+func (s *snTX) SpaceDirty() (uint64, uint64, error) {
+	return s.dbTX.(RwTx).SpaceDirty()
 }
 
 func (s *snTX) DropBucket(bucket string) error {

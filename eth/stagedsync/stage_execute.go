@@ -104,7 +104,6 @@ func readBlock(blockNum uint64, tx ethdb.Tx) (*types.Block, error) {
 func executeBlockWithGo(
 	block *types.Block,
 	tx ethdb.RwTx,
-	batch ethdb.Database,
 	params ExecuteBlockCfg,
 	writeChangesets bool,
 	accumulator *shards.Accumulator,
@@ -112,7 +111,7 @@ func executeBlockWithGo(
 	checkTEVM func(hash common.Hash) (bool, error),
 ) error {
 	blockNum := block.NumberU64()
-	stateReader, stateWriter := newStateReaderWriter(params, batch, tx, blockNum, block.Hash(), writeChangesets, accumulator, readerWriterWrapper)
+	stateReader, stateWriter := newStateReaderWriter(params, ethdb.WrapIntoTxDB(tx), tx, blockNum, block.Hash(), writeChangesets, accumulator, readerWriterWrapper)
 
 	// where the magic happens
 	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(tx, hash, number) }
@@ -201,15 +200,15 @@ func newStateReaderWriter(
 	var stateReader state.StateReader
 	var stateWriter state.WriterWithChangeSets
 
-	stateReader = state.NewPlainStateReader(batch)
+	stateReader = state.NewPlainStateReader(ethdb.WrapIntoTxDB(tx))
 
 	if accumulator != nil {
 		accumulator.StartChange(blockNum, blockHash, false)
 	}
 	if writeChangesets {
-		stateWriter = state.NewPlainStateWriter(batch, tx, blockNum).SetAccumulator(accumulator)
+		stateWriter = state.NewPlainStateWriter(ethdb.WrapIntoTxDB(tx), tx, blockNum).SetAccumulator(accumulator)
 	} else {
-		stateWriter = state.NewPlainStateWriterNoHistory(batch).SetAccumulator(accumulator)
+		stateWriter = state.NewPlainStateWriterNoHistory(ethdb.WrapIntoTxDB(tx)).SetAccumulator(accumulator)
 	}
 
 	if readerWriterWrapper != nil {
@@ -249,9 +248,23 @@ func SpawnExecuteBlocksStage(s *StageState, u Unwinder, tx ethdb.RwTx, toBlock u
 		log.Info(fmt.Sprintf("[%s] Blocks execution", logPrefix), "from", s.BlockNumber, "to", to)
 	}
 
-	var batch ethdb.DbWithPendingMutations
-	batch = ethdb.NewBatch(tx)
-	defer batch.Rollback()
+	var traceCursor ethdb.RwCursorDupSort
+	if cfg.writeCallTraces {
+		var err error
+		if traceCursor, err = tx.RwCursorDupSort(dbutils.CallTraceSet); err != nil {
+			return fmt.Errorf("%s: failed to create cursor for call traces: %v", logPrefix, err)
+		}
+		defer traceCursor.Close()
+	}
+
+	var tevmStatusCursor ethdb.RwCursorDupSort
+	if cfg.writeTEVM {
+		var err error
+		if tevmStatusCursor, err = tx.RwCursorDupSort(dbutils.ContractTEVMCodeStatusBucket); err != nil {
+			return fmt.Errorf("%s: failed to create cursor for TEVM status: %v", logPrefix, err)
+		}
+		defer tevmStatusCursor.Close()
+	}
 
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
@@ -299,7 +312,7 @@ Loop:
 		}
 
 		stageProgress = blockNum
-		if err = executeBlockWithGo(block, tx, batch, cfg, writeChangesets, accumulator, readerWriterWrapper, checkTEVMCode); err != nil {
+		if err = executeBlockWithGo(block, tx, cfg, writeChangesets, accumulator, readerWriterWrapper, checkTEVMCode); err != nil {
 			log.Error(fmt.Sprintf("[%s] Execution failed", logPrefix), "number", blockNum, "hash", block.Hash().String(), "error", err)
 			if unwindErr := u.UnwindTo(blockNum-1, tx, block.Hash()); unwindErr != nil {
 				return unwindErr
@@ -336,12 +349,15 @@ Loop:
 			}
 		}
 
-		updateProgress := batch.BatchSize() >= int(cfg.batchSize)
-		if updateProgress {
-			if err = batch.Commit(); err != nil {
-				return err
+		stageProgress = blockNum
+		if blockNum%100 == 0 {
+			txDirty, txLimit, err := tx.SpaceDirty()
+			if err != nil {
+				panic(err)
 			}
-			if !useExternalTx {
+
+			updateProgress := txDirty*2 > txLimit && !useExternalTx
+			if updateProgress {
 				if err = s.Update(tx, stageProgress); err != nil {
 					return err
 				}
@@ -355,15 +371,12 @@ Loop:
 				// TODO: This creates stacked up deferrals
 				defer tx.Rollback()
 			}
-			batch = ethdb.NewBatch(tx)
-			// TODO: This creates stacked up deferrals
-			defer batch.Rollback()
 		}
 
 		select {
 		default:
 		case <-logEvery.C:
-			logBlock, logTx, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, logTx, lastLogTx, batch)
+			logBlock, logTx, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, logTx, lastLogTx, nil, tx)
 			if hasTx, ok := tx.(ethdb.HasTx); ok {
 				hasTx.Tx().CollectMetrics()
 			}
@@ -371,11 +384,8 @@ Loop:
 		stageExecutionGauge.Update(int64(blockNum))
 	}
 
-	if err := s.Update(batch, stageProgress); err != nil {
+	if err := s.Update(tx, stageProgress); err != nil {
 		return err
-	}
-	if err := batch.Commit(); err != nil {
-		return fmt.Errorf("%s: failed to write batch commit: %v", logPrefix, err)
 	}
 	// Prune changesets if needed
 	if cfg.pruningDistance > 0 {
@@ -443,7 +453,7 @@ func pruneChangeSets(tx ethdb.RwTx, logPrefix string, name string, tableName str
 	return nil
 }
 
-func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, currentBlock uint64, prevTx, currentTx uint64, batch ethdb.DbWithPendingMutations) (uint64, uint64, time.Time) {
+func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, currentBlock uint64, prevTx, currentTx uint64, batch ethdb.DbWithPendingMutations, tx ethdb.RwTx) (uint64, uint64, time.Time) {
 	currentTime := time.Now()
 	interval := currentTime.Sub(prevTime)
 	speed := float64(currentBlock-prevBlock) / float64(interval/time.Second)
@@ -457,6 +467,10 @@ func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, current
 	}
 	if batch != nil {
 		logpairs = append(logpairs, "batch", common.StorageSize(batch.BatchSize()))
+	}
+	if tx != nil {
+		dirty, _, _ := tx.SpaceDirty()
+		logpairs = append(logpairs, "tx", common.StorageSize(dirty))
 	}
 	logpairs = append(logpairs, "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys), "numGC", int(m.NumGC))
 	log.Info(fmt.Sprintf("[%s] Executed blocks", logPrefix), logpairs...)
