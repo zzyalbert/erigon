@@ -411,6 +411,11 @@ func (tx *lmdbTx) Comparator(bucket string) dbutils.CmpFunc {
 	return chooseComparator(tx.tx, lmdb.DBI(b.DBI), b)
 }
 
+//nolint
+func (tx *lmdbTx) SpaceDirty() (uint64, uint64, error) {
+	panic("don't call me")
+}
+
 func (tx *lmdbTx) ForEach(bucket string, fromPrefix []byte, walker func(k, v []byte) error) error {
 	c, err := tx.Cursor(bucket)
 	if err != nil {

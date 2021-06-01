@@ -244,6 +244,7 @@ func (db *RemoteKV) Update(ctx context.Context, f func(tx RwTx) error) (err erro
 func (tx *remoteTx) Comparator(bucket string) dbutils.CmpFunc { panic("not implemented yet") }
 func (tx *remoteTx) CollectMetrics()                          {}
 func (tx *remoteTx) CHandle() unsafe.Pointer                  { panic("not implemented yet") }
+func (tx *remoteTx) SpaceDirty() (uint64, uint64, error)      { panic("don't call me") }
 
 func (tx *remoteTx) IncrementSequence(bucket string, amount uint64) (uint64, error) {
 	panic("not implemented yet")
