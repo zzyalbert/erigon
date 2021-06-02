@@ -792,11 +792,11 @@ func (cs *ControlServerImpl) getReceipts65(ctx context.Context, inreq *proto_sen
 	if err != nil {
 		return err
 	}
-	tx.Rollback()
 	b, err := rlp.EncodeToBytes(eth.ReceiptsRLPPacket(receipts))
 	if err != nil {
 		return fmt.Errorf("encode header response: %v", err)
 	}
+	tx.Rollback()
 	outreq := proto_sentry.SendMessageByIdRequest{
 		PeerId: inreq.PeerId,
 		Data: &proto_sentry.OutboundMessageData{
