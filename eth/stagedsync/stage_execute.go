@@ -353,7 +353,7 @@ func SpawnExecuteBlocksStage(s *StageState, tx ethdb.RwTx, toBlock uint64, quit 
 			if err != nil {
 				panic(err)
 			}
-
+			fmt.Printf("al: %d,%d\n", txDirty/1024, txLimit/1024)
 			updateProgress := txDirty*2 > txLimit && !useExternalTx
 			if updateProgress {
 				if err = s.Update(tx, stageProgress); err != nil {
