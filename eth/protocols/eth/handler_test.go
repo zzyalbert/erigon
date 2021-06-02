@@ -139,8 +139,7 @@ func TestGetBlockHeaders65(t *testing.T) { testGetBlockHeaders(t, 65) }
 func testGetBlockHeaders(t *testing.T, protocol uint) {
 	backend := newTestBackend(t, maxHeadersServe+15)
 
-	peer, _ := newTestPeer("peer", protocol, backend)
-	defer peer.close()
+	peer, _ := newTestPeer(t, "peer", protocol, backend)
 
 	// Create a "random" unknown hash for testing
 	var unknown common.Hash
@@ -310,8 +309,7 @@ func TestGetBlockBodies65(t *testing.T) { testGetBlockBodies(t, 65) }
 func testGetBlockBodies(t *testing.T, protocol uint) {
 	backend := newTestBackend(t, maxBodiesServe+15)
 
-	peer, _ := newTestPeer("peer", protocol, backend)
-	defer peer.close()
+	peer, _ := newTestPeer(t, "peer", protocol, backend)
 
 	block1 := rawdb.ReadHeaderByNumber(backend.db, 1)
 	block10 := rawdb.ReadHeaderByNumber(backend.db, 10)
@@ -427,8 +425,7 @@ func testGetBlockReceipts(t *testing.T, protocol uint) {
 	// Assemble the test environment
 	backend := newTestBackendWithGenerator(t, 4, generator)
 
-	peer, _ := newTestPeer("peer", protocol, backend)
-	defer peer.close()
+	peer, _ := newTestPeer(t, "peer", protocol, backend)
 
 	// Collect the hashes to request, and the response to expect
 	var (
