@@ -968,7 +968,7 @@ func (tx *MdbxTx) stdCursor(bucket string) (RwCursor, error) {
 	b := tx.db.buckets[bucket]
 	c := &MdbxCursor{bucketName: bucket, tx: tx, bucketCfg: b, dbi: mdbx.DBI(tx.db.buckets[bucket].DBI), id: tx.cursorID}
 	tx.cursorID++
-
+	fmt.Printf("open: %s\n", debug.Callers(7))
 	var err error
 	c.c, err = tx.tx.OpenCursor(c.dbi)
 	if err != nil {
