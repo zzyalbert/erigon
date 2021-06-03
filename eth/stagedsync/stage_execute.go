@@ -111,7 +111,7 @@ func executeBlock(
 	checkTEVM func(hash common.Hash) (bool, error),
 ) error {
 	blockNum := block.NumberU64()
-	stateReader, stateWriter := newStateReaderWriter(params, ethdb.WrapIntoTxDB(tx), tx, blockNum, block.Hash(), writeChangesets, accumulator, readerWriterWrapper)
+	stateReader, stateWriter := newStateReaderWriter(params, nil, tx, blockNum, block.Hash(), writeChangesets, accumulator, readerWriterWrapper)
 
 	// where the magic happens
 	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(tx, hash, number) }
@@ -200,13 +200,13 @@ func newStateReaderWriter(
 	var stateReader state.StateReader
 	var stateWriter state.WriterWithChangeSets
 
-	stateReader = state.NewPlainStateReader(ethdb.WrapIntoTxDB(tx))
+	stateReader = state.NewPlainStateReader(tx)
 
 	if accumulator != nil {
 		accumulator.StartChange(blockNum, blockHash, false)
 	}
 	if writeChangesets {
-		stateWriter = state.NewPlainStateWriter(ethdb.WrapIntoTxDB(tx), tx, blockNum).SetAccumulator(accumulator)
+		stateWriter = state.NewPlainStateWriter(tx, tx, blockNum).SetAccumulator(accumulator)
 	} else {
 		stateWriter = state.NewPlainStateWriterNoHistory(tx).SetAccumulator(accumulator)
 	}
