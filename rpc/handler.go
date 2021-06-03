@@ -120,8 +120,19 @@ func (h *handler) handleBatch(msgs []*jsonrpcMessage, stream *jsoniter.Stream) {
 	// Process calls on a goroutine because they may block indefinitely:
 	h.startCallProc(func(cp *callProc) {
 		answers := make([]*jsonrpcMessage, 0, len(msgs))
-		for _, msg := range calls {
-			if answer := h.handleCallMsg(cp, msg, stream); answer != nil {
+		answersCh := make(chan *jsonrpcMessage, len(msgs))
+		wg := sync.WaitGroup{}
+		wg.Add(len(msgs))
+		for i := range calls {
+			go func(i int) {
+				defer wg.Done()
+				answersCh <- h.handleCallMsg(cp, calls[i], stream)
+			}(i)
+		}
+		wg.Wait()
+		close(answersCh)
+		for answer := range answersCh {
+			if answer != nil {
 				answers = append(answers, answer)
 			}
 		}
