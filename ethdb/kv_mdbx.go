@@ -806,10 +806,10 @@ func (tx *MdbxTx) Rollback() {
 //nolint
 func (tx *MdbxTx) SpaceDirty() (uint64, uint64, error) {
 	txInfo, err := tx.tx.Info(true)
-	fmt.Printf("sd: %#v, %s\n", txInfo, err)
 	if err != nil {
 		return 0, 0, err
 	}
+	fmt.Printf("sd: %d, %d\n", txInfo.SpaceDirty/1024/1024, tx.db.txSize/1024/1024)
 
 	return txInfo.SpaceDirty, tx.db.txSize, nil
 }
