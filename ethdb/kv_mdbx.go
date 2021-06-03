@@ -809,7 +809,6 @@ func (tx *MdbxTx) SpaceDirty() (uint64, uint64, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	fmt.Printf("sd: %d, %d\n", txInfo.SpaceDirty/1024/1024, tx.db.txSize/1024/1024)
 
 	return txInfo.SpaceDirty, tx.db.txSize, nil
 }
