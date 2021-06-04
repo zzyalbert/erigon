@@ -119,20 +119,39 @@ func (h *handler) handleBatch(msgs []*jsonrpcMessage, stream *jsoniter.Stream) {
 	}
 	// Process calls on a goroutine because they may block indefinitely:
 	h.startCallProc(func(cp *callProc) {
-		answers := make([]*jsonrpcMessage, len(msgs))
-		wg := sync.WaitGroup{}
-		wg.Add(len(msgs))
+		allMethodsAreThreadSafe := true // only if all methods in batch are pass next criteria
 		for i := range calls {
-			go func(i int) {
-				defer wg.Done()
-				answers[i] = h.handleCallMsg(cp, calls[i], stream)
-			}(i)
+			if calls[i].isSubscribe() || calls[i].isUnsubscribe() ||
+				h.reg.callback(calls[i].Method).streamable {
+				allMethodsAreThreadSafe = false
+				break
+			}
 		}
-		answersWithoutNil := make([]*jsonrpcMessage, 0, len(msgs))
-		wg.Wait()
-		for _, answer := range answers {
-			if answer != nil {
-				answersWithoutNil = append(answersWithoutNil, answer)
+		var answers []*jsonrpcMessage
+		if allMethodsAreThreadSafe {
+			answers = make([]*jsonrpcMessage, len(msgs))
+			wg := sync.WaitGroup{}
+			wg.Add(len(msgs))
+
+			for i := range calls {
+				go func(i int) {
+					defer wg.Done()
+					answers[i] = h.handleCallMsg(cp, calls[i], stream)
+				}(i)
+			}
+			answersWithoutNil := make([]*jsonrpcMessage, 0, len(msgs))
+			wg.Wait()
+			for _, answer := range answers {
+				if answer != nil {
+					answersWithoutNil = append(answersWithoutNil, answer)
+				}
+			}
+		} else {
+			answers = make([]*jsonrpcMessage, 0, len(msgs))
+			for _, msg := range calls {
+				if answer := h.handleCallMsg(cp, msg, stream); answer != nil {
+					answers = append(answers, answer)
+				}
 			}
 		}
 		h.addSubscriptions(cp.notifiers)
