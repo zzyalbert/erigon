@@ -28,6 +28,7 @@ const expectMdbxVersionMinor = 10
 type MdbxOpts struct {
 	inMem      bool
 	exclusive  bool
+	label      Label // marker to distinct db instances - one process may open many databases. for example to collect metrics of only 1 database
 	flags      uint
 	path       string
 	bucketsCfg BucketConfigsFunc
@@ -40,6 +41,11 @@ func NewMDBX() MdbxOpts {
 		bucketsCfg: DefaultBucketConfigs,
 		flags:      mdbx.NoReadahead | mdbx.Coalesce | mdbx.Durable,
 	}
+}
+
+func (opts MdbxOpts) Label(label Label) MdbxOpts {
+	opts.label = label
+	return opts
 }
 
 func (opts MdbxOpts) Path(path string) MdbxOpts {
@@ -318,6 +324,9 @@ func (db *MdbxKV) CollectMetrics() {
 	if !metrics.Enabled {
 		return
 	}
+	if db.opts.label != Chain {
+		return
+	}
 	info, err := db.env.Info()
 	if err != nil {
 		return // ignore error for metrics collection
@@ -454,6 +463,9 @@ func (tx *MdbxTx) ForPrefix(bucket string, prefix []byte, walker func(k, v []byt
 
 func (tx *MdbxTx) CollectMetrics() {
 	if !metrics.Enabled {
+		return
+	}
+	if tx.db.opts.label != Chain {
 		return
 	}
 	txInfo, err := tx.tx.Info(true)
@@ -720,9 +732,6 @@ func (tx *MdbxTx) Commit() error {
 		slowTx = debug.SlowCommit()
 	}
 
-	//commitTimer := time.Now()
-	//defer dbCommitBigBatchTimer.UpdateSince(commitTimer)
-
 	if debug.BigRoTxKb() > 0 || debug.BigRwTxKb() > 0 {
 		tx.PrintDebugInfo()
 	}
@@ -732,12 +741,15 @@ func (tx *MdbxTx) Commit() error {
 		return err
 	}
 
-	dbCommitPreparation.Update(latency.Preparation)
-	dbCommitGc.Update(latency.GC)
-	dbCommitAudit.Update(latency.Audit)
-	dbCommitWrite.Update(latency.Write)
-	dbCommitSync.Update(latency.Sync)
-	dbCommitEnding.Update(latency.Ending)
+	if tx.db.opts.label == Chain {
+		dbCommitPreparation.Update(latency.Preparation)
+		dbCommitGc.Update(latency.GC)
+		dbCommitAudit.Update(latency.Audit)
+		dbCommitWrite.Update(latency.Write)
+		dbCommitSync.Update(latency.Sync)
+		dbCommitEnding.Update(latency.Ending)
+		dbCommitBigBatchTimer.Update(latency.Whole)
+	}
 
 	if latency.Whole > slowTx {
 		log.Info("Commit",
