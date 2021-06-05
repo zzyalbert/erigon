@@ -285,7 +285,7 @@ func (g *Genesis) ToBlock() (*types.Block, *state.IntraBlockState, error) {
 		statedb.SetNonce(addr, account.Nonce)
 		for key, value := range account.Storage {
 			key := key
-			val := uint256.NewInt().SetBytes(value.Bytes())
+			val := uint256.NewInt(0).SetBytes(value.Bytes())
 			statedb.SetState(addr, &key, *val)
 		}
 
@@ -347,7 +347,7 @@ func (g *Genesis) WriteGenesisState(tx ethdb.RwTx, history bool) (*types.Block, 
 		return nil, statedb, fmt.Errorf("can't commit genesis block with number > 0")
 	}
 
-	blockWriter := state.NewPlainStateWriter(ethdb.WrapIntoTxDB(tx), tx, 0)
+	blockWriter := state.NewPlainStateWriter(tx, tx, 0)
 
 	if err := statedb.CommitBlock(context.Background(), blockWriter); err != nil {
 		return nil, statedb, fmt.Errorf("cannot write state: %v", err)
