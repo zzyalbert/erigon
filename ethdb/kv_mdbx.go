@@ -171,7 +171,7 @@ func (opts MdbxOpts) Open() (RwKV, error) {
 		if err = env.SetOption(mdbx.OptDpReverseLimit, 16*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, defaultDirtyPagesLimit*4); err != nil { // default is RAM/42
+		if err = env.SetOption(mdbx.OptTxnDpLimit, defaultDirtyPagesLimit*8); err != nil { // default is RAM/42
 			return nil, err
 		}
 		// must be in the range from 12.5% (almost empty) to 50% (half empty)
