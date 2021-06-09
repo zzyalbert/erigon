@@ -25,9 +25,12 @@ import (
 )
 
 var (
-	historyfile   string
-	nocheck       bool
-	writeReceipts bool
+	historyfile       string
+	nocheck           bool
+	writeReceipts     bool
+	readsetDir        string // Directory where read set files will be written
+	readsetSize       string // Maximum size of readset files
+	readsetFilterSize string // Size of the readset filter
 )
 
 func init() {
@@ -36,6 +39,10 @@ func init() {
 	checkChangeSetsCmd.Flags().StringVar(&historyfile, "historyfile", "", "path to the file where the changesets and history are expected to be. If omitted, the same as <datadir>/erion/chaindata")
 	checkChangeSetsCmd.Flags().BoolVar(&nocheck, "nocheck", false, "set to turn off the changeset checking and only execute transaction (for performance testing)")
 	checkChangeSetsCmd.Flags().BoolVar(&writeReceipts, "writeReceipts", false, "set to turn on writing receipts as the execution ongoing")
+	checkChangeSetsCmd.Flags().StringVar(&readsetDir, "readset.dir", "", "directly where read set files need to be written")
+	must(checkChangeSetsCmd.MarkFlagDirname("readset.dir"))
+	checkChangeSetsCmd.Flags().StringVar(&readsetSize, "readset.filesize", "", "maximum size of each readset file")
+	checkChangeSetsCmd.Flags().StringVar(&readsetSize, "readset.filtersize", "", "size of the readset filter size")
 	rootCmd.AddCommand(checkChangeSetsCmd)
 }
 
