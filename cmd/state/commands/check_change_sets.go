@@ -225,7 +225,9 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 		}
 
 		if readset != nil {
-			readset.FinishBlock(blockNum, false)
+			if err = readset.FinishBlock(blockNum, false); err != nil {
+				return err
+			}
 		}
 		blockNum++
 		if blockNum%1000 == 0 {
@@ -259,7 +261,9 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 		}
 	}
 	if readset != nil {
-		readset.FinishBlock(blockNum, true)
+		if err = readset.FinishBlock(blockNum, true); err != nil {
+			return err
+		}
 	}
 	if writeReceipts {
 		log.Info("Committing final receipts", "batch size")

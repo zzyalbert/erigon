@@ -68,8 +68,10 @@ func (rs *Readset) FinishBlock(block uint64, forceWrite bool) error {
 		if _, err = w.Write(varintBuf[:valLen]); err != nil {
 			return err
 		}
-		if _, err = w.Write(val); err != nil {
-			return err
+		if len(val) > 0 {
+			if _, err = w.Write(val); err != nil {
+				return err
+			}
 		}
 	}
 	if err = w.Flush(); err != nil {
@@ -87,6 +89,7 @@ func (rs *Readset) FinishBlock(block uint64, forceWrite bool) error {
 	rs.writes = make(map[string]int)
 	rs.readSize = 0
 	rs.writeSize = 0
+	rs.startingBlock = block + 1
 	return nil
 }
 
