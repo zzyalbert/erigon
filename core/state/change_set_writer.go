@@ -22,6 +22,7 @@ type ChangeSetWriter struct {
 	storageChanged map[common.Address]bool
 	storageChanges map[string][]byte
 	blockNumber    uint64
+	readset        *Readset
 }
 
 func NewChangeSetWriter() *ChangeSetWriter {
@@ -39,6 +40,11 @@ func NewChangeSetWriterPlain(db ethdb.RwTx, blockNumber uint64) *ChangeSetWriter
 		storageChanges: make(map[string][]byte),
 		blockNumber:    blockNumber,
 	}
+}
+
+func (w *ChangeSetWriter) SetReadset(rs *Readset) *ChangeSetWriter {
+	w.readset = rs
+	return w
 }
 
 func (w *ChangeSetWriter) GetAccountChanges() (*changeset.ChangeSet, error) {
@@ -87,16 +93,25 @@ func accountsEqual(a1, a2 *accounts.Account) bool {
 
 func (w *ChangeSetWriter) UpdateAccountData(ctx context.Context, address common.Address, original, account *accounts.Account) error {
 	if !accountsEqual(original, account) || w.storageChanged[address] {
+		if w.readset != nil {
+			w.readset.Write(address[:], int(account.EncodingLengthForStorage()))
+		}
 		w.accountChanges[address] = originalAccountData(original, true /*omitHashes*/)
 	}
 	return nil
 }
 
 func (w *ChangeSetWriter) UpdateAccountCode(address common.Address, incarnation uint64, codeHash common.Hash, code []byte) error {
+	if w.readset != nil {
+		w.readset.Write(append([]byte("C"), address[:]...), len(code))
+	}
 	return nil
 }
 
 func (w *ChangeSetWriter) DeleteAccount(ctx context.Context, address common.Address, original *accounts.Account) error {
+	if w.readset != nil {
+		w.readset.Write(address[:], 0)
+	}
 	w.accountChanges[address] = originalAccountData(original, false)
 	return nil
 }
@@ -107,6 +122,9 @@ func (w *ChangeSetWriter) WriteAccountStorage(ctx context.Context, address commo
 	}
 
 	compositeKey := dbutils.PlainGenerateCompositeStorageKey(address.Bytes(), incarnation, key.Bytes())
+	if w.readset != nil {
+		w.readset.Write(compositeKey, len(value.Bytes()))
+	}
 
 	w.storageChanges[string(compositeKey)] = original.Bytes()
 	w.storageChanged[address] = true

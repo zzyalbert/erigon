@@ -52,7 +52,7 @@ func bytesToUint64(buf []byte) (x uint64) {
 	return
 }
 
-func (a *Account) EncodingLengthForStorage() uint {
+func (a Account) EncodingLengthForStorage() uint {
 	var structLength uint = 1 // 1 byte for fieldset
 
 	if !a.Balance.IsZero() {
@@ -74,7 +74,7 @@ func (a *Account) EncodingLengthForStorage() uint {
 	return structLength
 }
 
-func (a *Account) EncodingLengthForHashing() uint {
+func (a Account) EncodingLengthForHashing() uint {
 	var structLength uint
 
 	balanceBytes := 0
@@ -102,7 +102,7 @@ func (a *Account) EncodingLengthForHashing() uint {
 	return uint(1+lengthBytes) + structLength
 }
 
-func (a *Account) EncodeForStorage(buffer []byte) {
+func (a Account) EncodeForStorage(buffer []byte) {
 	var fieldSet = 0 // start with first bit set to 0
 	var pos = 1
 	if a.Nonce > 0 {

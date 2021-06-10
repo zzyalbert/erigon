@@ -105,6 +105,13 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 		return err1
 	}
 
+	var readset *state.Readset
+	if readsetSize != "" {
+		if readset, err = state.NewReadset(readsetDir, readsetSize, blockNum); err != nil {
+			return fmt.Errorf("creating readset: %v", err)
+		}
+	}
+
 	commitEvery := time.NewTicker(30 * time.Second)
 	defer commitEvery.Stop()
 	for !interrupt {
@@ -131,8 +138,8 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 			break
 		}
 
-		intraBlockState := state.New(state.NewPlainKvState(historyTx, block.NumberU64()-1))
-		csw := state.NewChangeSetWriterPlain(nil /* db */, block.NumberU64()-1)
+		intraBlockState := state.New(state.NewPlainKvState(historyTx, block.NumberU64()-1).SetReadset(readset))
+		csw := state.NewChangeSetWriterPlain(nil /* db */, block.NumberU64()-1).SetReadset(readset)
 		var blockWriter state.StateWriter
 		if nocheck {
 			blockWriter = noOpWriter

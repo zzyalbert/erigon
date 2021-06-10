@@ -306,6 +306,7 @@ type PlainKVState struct {
 	tx      ethdb.Tx
 	blockNr uint64
 	storage map[common.Address]*llrb.LLRB
+	readset *Readset
 }
 
 func NewPlainKvState(tx ethdb.Tx, blockNr uint64) *PlainKVState {
@@ -314,6 +315,11 @@ func NewPlainKvState(tx ethdb.Tx, blockNr uint64) *PlainKVState {
 		blockNr: blockNr,
 		storage: make(map[common.Address]*llrb.LLRB),
 	}
+}
+
+func (s *PlainKVState) SetReadset(rs *Readset) *PlainKVState {
+	s.readset = rs
+	return s
 }
 
 func (s *PlainKVState) SetBlockNr(blockNr uint64) {
@@ -404,6 +410,9 @@ func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Accoun
 	if err != nil {
 		return nil, err
 	}
+	if s.readset != nil {
+		s.readset.Read(address[:], enc)
+	}
 	if len(enc) == 0 {
 		return nil, nil
 	}
@@ -430,6 +439,9 @@ func (s *PlainKVState) ReadAccountStorage(address common.Address, incarnation ui
 	if err != nil {
 		return nil, err
 	}
+	if s.readset != nil {
+		s.readset.Read(compositeKey, enc)
+	}
 	if len(enc) == 0 {
 		return nil, nil
 	}
@@ -441,6 +453,9 @@ func (s *PlainKVState) ReadAccountCode(address common.Address, incarnation uint6
 		return nil, nil
 	}
 	code, err := s.tx.GetOne(dbutils.CodeBucket, codeHash[:])
+	if s.readset != nil {
+		s.readset.Read(append([]byte("C"), address[:]...), code)
+	}
 	if len(code) == 0 {
 		return nil, nil
 	}
@@ -449,15 +464,24 @@ func (s *PlainKVState) ReadAccountCode(address common.Address, incarnation uint6
 
 func (s *PlainKVState) ReadAccountCodeSize(address common.Address, incarnation uint64, codeHash common.Hash) (int, error) {
 	code, err := s.ReadAccountCode(address, incarnation, codeHash)
+	if s.readset != nil {
+		var codeLen [4]byte
+		binary.BigEndian.PutUint32(codeLen[:], uint32(len(code)))
+		s.readset.Read(append([]byte("S"), address[:]...), codeLen[:])
+	}
 	return len(code), err
 }
 
 func (s *PlainKVState) ReadAccountIncarnation(address common.Address) (uint64, error) {
 	enc, err := GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+2)
+	var inc [8]byte
 	if err != nil {
 		return 0, err
 	}
 	if len(enc) == 0 {
+		if s.readset != nil {
+			s.readset.Read(append([]byte("I"), address[:]...), inc[:])
+		}
 		return 0, nil
 	}
 	var acc accounts.Account
@@ -465,7 +489,14 @@ func (s *PlainKVState) ReadAccountIncarnation(address common.Address) (uint64, e
 		return 0, err
 	}
 	if acc.Incarnation == 0 {
+		if s.readset != nil {
+			s.readset.Read(append([]byte("I"), address[:]...), inc[:])
+		}
 		return 0, nil
+	}
+	if s.readset != nil {
+		binary.BigEndian.PutUint64(inc[:], acc.Incarnation-1)
+		s.readset.Read(append([]byte("I"), address[:]...), inc[:])
 	}
 	return acc.Incarnation - 1, nil
 }

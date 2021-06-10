@@ -1,4 +1,4 @@
-package commands
+package state
 
 import (
 	"bufio"
@@ -8,6 +8,8 @@ import (
 	"path"
 
 	"github.com/c2h5oh/datasize"
+	"github.com/ledgerwatch/erigon/common"
+	"github.com/ledgerwatch/erigon/log"
 )
 
 // Readset is encapsulation of read set being written into files through the filter,
@@ -47,7 +49,8 @@ func (rs *Readset) FinishBlock(block uint64, forceWrite bool) error {
 	if !forceWrite && (rs.readSize+rs.writeSize) < int(rs.memSize) {
 		return nil
 	}
-	file, err := os.Create(path.Join(rs.dir, fmt.Sprintf("%d-%d", rs.startingBlock, block)))
+	filename := path.Join(rs.dir, fmt.Sprintf("%d-%d", rs.startingBlock, block))
+	file, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
@@ -75,6 +78,11 @@ func (rs *Readset) FinishBlock(block uint64, forceWrite bool) error {
 	if err = file.Close(); err != nil {
 		return err
 	}
+	var stat os.FileInfo
+	if stat, err = file.Stat(); err != nil {
+		return err
+	}
+	log.Info("Readset flushed", "file", filename, "size", common.StorageSize(stat.Size()))
 	rs.reads = make(map[string][]byte)
 	rs.writes = make(map[string]int)
 	rs.readSize = 0
