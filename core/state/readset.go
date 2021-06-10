@@ -108,3 +108,7 @@ func (rs *Readset) Write(key []byte, valLen int) {
 	}
 	rs.writes[string(key)] = valLen
 }
+
+func (rs Readset) Report() {
+	log.Info("Readset", "readSize", common.StorageSize(rs.readSize), "writeSize", common.StorageSize(rs.writeSize))
+}

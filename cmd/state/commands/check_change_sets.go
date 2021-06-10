@@ -224,9 +224,15 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 			}
 		}
 
+		if readset != nil {
+			readset.FinishBlock(blockNum, false)
+		}
 		blockNum++
 		if blockNum%1000 == 0 {
 			log.Info("Checked", "blocks", blockNum)
+			if readset != nil {
+				readset.Report()
+			}
 		}
 
 		// Check for interrupts
@@ -251,6 +257,9 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 			}
 		default:
 		}
+	}
+	if readset != nil {
+		readset.FinishBlock(blockNum, true)
 	}
 	if writeReceipts {
 		log.Info("Committing final receipts", "batch size")
