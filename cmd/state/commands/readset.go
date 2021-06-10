@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"hash"
-	"hash/fnv"
 	"os"
 	"path"
 
@@ -15,93 +13,90 @@ import (
 // Readset is encapsulation of read set being written into files through the filter,
 // rolling the files as they reach predefined size
 type Readset struct {
-	dir            string
-	varintBuf      [10]byte    // Buffer for varint number
-	hasherBuf      [4]byte     // Hasher buffer
-	hasher         hash.Hash32 // Hash for the filter
-	filter         []uint64
-	filesize       datasize.ByteSize
-	currentFile    *os.File
-	currentWriter  *bufio.Writer
-	currentWritten int    // Number of bytes written into the current file so far
-	startingBlock  uint64 // Starting block of the current readset
+	dir           string
+	reads         map[string][]byte
+	writes        map[string]int
+	readSize      int
+	writeSize     int
+	memSize       datasize.ByteSize
+	startingBlock uint64 // Starting block of the current readset
 }
 
 // NewReadset parses input arguments and creates a new readset if they are correct
-func NewReadset(dir string, filesizeStr string, filtersizeStr string, startingBlock uint64) (*Readset, error) {
-	if filesizeStr == "" {
-		return nil, fmt.Errorf("filesize is not specified")
+func NewReadset(dir string, memsizeStr string, startingBlock uint64) (*Readset, error) {
+	if memsizeStr == "" {
+		return nil, fmt.Errorf("readset.size is not specified")
 	}
 	var rs Readset
-	if err := rs.filesize.UnmarshalText([]byte(filesizeStr)); err != nil {
-		return nil, fmt.Errorf("filesize [%s] could not parsed: %v", filesizeStr, err)
-	}
-	if filtersizeStr == "" {
-		return nil, fmt.Errorf("filtersize is not specified")
-	}
-	var filtersize datasize.ByteSize
-	if err := filtersize.UnmarshalText([]byte(filtersizeStr)); err != nil {
-		return nil, fmt.Errorf("filtersize [%s] could not parsed: %v", filtersizeStr, err)
+	if err := rs.memSize.UnmarshalText([]byte(memsizeStr)); err != nil {
+		return nil, fmt.Errorf("readset.size [%s] could not parsed: %v", memsizeStr, err)
 	}
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return nil, fmt.Errorf("could not create directory [%s]: %v", dir, err)
 	}
 	rs.startingBlock = startingBlock
-	rs.filter = make([]uint64, (int(filtersize)+7)/8)
 	rs.dir = dir
-	rs.hasher = fnv.New32a()
+	rs.reads = make(map[string][]byte)
+	rs.writes = make(map[string]int)
 	return &rs, nil
-}
-
-// ensureFile is an internal function that creates a new current file if required
-func (rs *Readset) ensureFile() error {
-	if rs.currentFile != nil {
-		return nil
-	}
-	var err error
-	if rs.currentFile, err = os.Create(path.Join(rs.dir, "current")); err != nil {
-		return fmt.Errorf("could not create current file: %v", err)
-	}
-	rs.currentWriter = bufio.NewWriter(rs.currentFile)
-	return nil
 }
 
 // FinishBlock is called when a block finished processing
 // forceWrite is used before closing down the process to make sure the last portion is written
 func (rs *Readset) FinishBlock(block uint64, forceWrite bool) error {
-	if !forceWrite && rs.currentWritten < int(rs.filesize) {
+	if !forceWrite && (rs.readSize+rs.writeSize) < int(rs.memSize) {
 		return nil
 	}
-	if rs.currentFile == nil {
-		// No data was written since last time
-		return nil
-	}
-	if err := rs.currentWriter.Flush(); err != nil {
+	file, err := os.Create(path.Join(rs.dir, fmt.Sprintf("%d-%d", rs.startingBlock, block)))
+	if err != nil {
 		return err
 	}
-	if err := rs.currentFile.Close(); err != nil {
+	w := bufio.NewWriter(file)
+	var varintBuf [10]byte // Buffer for varint number
+	for key, val := range rs.reads {
+		keyLen := binary.PutUvarint(varintBuf[:], uint64(len(key)))
+		if _, err = w.Write(varintBuf[:keyLen]); err != nil {
+			return err
+		}
+		if _, err = w.Write([]byte(key)); err != nil {
+			return err
+		}
+		valLen := binary.PutUvarint(varintBuf[:], uint64(len(val)))
+		if _, err = w.Write(varintBuf[:valLen]); err != nil {
+			return err
+		}
+		if _, err = w.Write(val); err != nil {
+			return err
+		}
+	}
+	if err = w.Flush(); err != nil {
 		return err
 	}
-	os.Rename(path.Join(rs.dir, "current"), path.Join(rs.dir, fmt.Sprintf("%d-%d", rs.startingBlock, block)))
-	rs.currentFile = nil
-	rs.startingBlock = block + 1
-	// Clean the filter
-	for i := 0; i < len(rs.filter); i++ {
-		rs.filter[i] = 0
+	if err = file.Close(); err != nil {
+		return err
 	}
+	rs.reads = make(map[string][]byte)
+	rs.writes = make(map[string]int)
+	rs.readSize = 0
+	rs.writeSize = 0
 	return nil
 }
 
-func (rs *Readset) Write(key, value []byte) error {
-	if err := rs.ensureFile(); err != nil {
-		return err
+func (rs *Readset) Read(key, val []byte) {
+	if _, ok := rs.reads[string(key)]; ok {
+		return
 	}
-	rs.hasher.Write(key)
-	rs.hasher.Sum(rs.hasherBuf[:])
-	idxUint32 := binary.BigEndian.Uint32(rs.hasherBuf[:])
-	idx := idxUint32 % uint32(8*len(rs.filter))
-	hit := rs.filter[idx/64] & (uint64(1) << (idx & 63))
-	if 
-	keyLen := binary.PutUvarint(rs.varintBuf[:], uint64(len(key)))
-	return nil
+	rs.reads[string(key)] = val
+	rs.readSize += len(key) + len(val)
+}
+
+func (rs *Readset) Write(key []byte, valLen int) {
+	if oldValLen, ok := rs.writes[string(key)]; ok {
+		rs.writeSize += valLen - oldValLen
+	} else if val, ok := rs.reads[string(key)]; ok {
+		rs.writeSize += valLen - len(val)
+	} else {
+		rs.writeSize += len(key) + valLen
+	}
+	rs.writes[string(key)] = valLen
 }
