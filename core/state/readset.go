@@ -77,11 +77,11 @@ func (rs *Readset) FinishBlock(block uint64, forceWrite bool) error {
 	if err = w.Flush(); err != nil {
 		return err
 	}
-	if err = file.Close(); err != nil {
-		return err
-	}
 	var stat os.FileInfo
 	if stat, err = file.Stat(); err != nil {
+		return err
+	}
+	if err = file.Close(); err != nil {
 		return err
 	}
 	log.Info("Readset flushed", "file", filename, "size", common.StorageSize(stat.Size()))
