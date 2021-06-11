@@ -65,3 +65,11 @@ func (r *Replayset) Read(key []byte) ([]byte, error) {
 func (r *Replayset) Write(key, val []byte) {
 	r.cache[string(key)] = val
 }
+
+func (r *Replayset) StartBlock() uint64 {
+	return r.startBlock
+}
+
+func (r *Replayset) EndBlock() uint64 {
+	return r.endBlock
+}

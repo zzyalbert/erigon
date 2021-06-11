@@ -118,6 +118,7 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 		if replayset, err = state.NewReplayset(readsetFile); err != nil {
 			return fmt.Errorf("opening readset: %v", err)
 		}
+		blockNum = replayset.StartBlock()
 	}
 
 	commitEvery := time.NewTicker(30 * time.Second)
@@ -235,6 +236,11 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 		if readset != nil {
 			if err = readset.FinishBlock(blockNum, false); err != nil {
 				return err
+			}
+		}
+		if replayset != nil {
+			if blockNum == replayset.EndBlock() {
+				break
 			}
 		}
 		blockNum++
