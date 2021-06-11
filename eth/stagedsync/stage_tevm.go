@@ -208,6 +208,11 @@ func transpileBatch(logPrefix string, s *StageState, fromBlock uint64, toBlock u
 					return fmt.Errorf("cannot begin the batch transaction on %q: %w", codeHash, err)
 				}
 
+				k, hash = common.CopyBytes(k), common.CopyBytes(hash)
+				_, err = c.SeekBothRange(k, hash)
+				if err != nil {
+					return err
+				}
 				// TODO: This creates stacked up deferrals
 				defer tx.Rollback()
 			}
