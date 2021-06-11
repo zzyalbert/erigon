@@ -320,9 +320,7 @@ Loop:
 		default:
 		case <-logEvery.C:
 			logBlock, logTx, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, logTx, lastLogTx, batch)
-			if hasTx, ok := tx.(ethdb.HasTx); ok {
-				hasTx.Tx().CollectMetrics()
-			}
+			tx.CollectMetrics()
 		}
 		stageExecutionGauge.Update(int64(blockNum))
 	}
