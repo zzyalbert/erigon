@@ -303,10 +303,11 @@ func (dbs *PlainDBState) CreateContract(address common.Address) error {
 }
 
 type PlainKVState struct {
-	tx      ethdb.Tx
-	blockNr uint64
-	storage map[common.Address]*llrb.LLRB
-	readset *Readset
+	tx        ethdb.Tx
+	blockNr   uint64
+	storage   map[common.Address]*llrb.LLRB
+	readset   *Readset
+	replayset *Replayset
 }
 
 func NewPlainKvState(tx ethdb.Tx, blockNr uint64) *PlainKVState {
@@ -319,6 +320,11 @@ func NewPlainKvState(tx ethdb.Tx, blockNr uint64) *PlainKVState {
 
 func (s *PlainKVState) SetReadset(rs *Readset) *PlainKVState {
 	s.readset = rs
+	return s
+}
+
+func (s *PlainKVState) SetReplayset(r *Replayset) *PlainKVState {
+	s.replayset = r
 	return s
 }
 
@@ -406,7 +412,13 @@ func (s *PlainKVState) ForEachStorage(addr common.Address, startLocation common.
 }
 
 func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Account, error) {
-	enc, err := GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+1)
+	var enc []byte
+	var err error
+	if s.replayset != nil {
+		enc, err = s.replayset.Read(address[:])
+	} else {
+		enc, err = GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+1)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -422,12 +434,21 @@ func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Accoun
 	}
 	//restore codehash
 	if a.Incarnation > 0 && a.IsEmptyCodeHash() {
-		if codeHash, err1 := s.tx.GetOne(dbutils.PlainContractCodeBucket, dbutils.PlainGenerateStoragePrefix(address[:], a.Incarnation)); err1 == nil {
-			if len(codeHash) > 0 {
-				a.CodeHash = common.BytesToHash(codeHash)
-			}
+		key := dbutils.PlainGenerateStoragePrefix(address[:], a.Incarnation)
+		var codeHash []byte
+		if s.replayset != nil {
+			codeHash, err = s.replayset.Read(key)
 		} else {
-			return nil, err1
+			codeHash, err = s.tx.GetOne(dbutils.PlainContractCodeBucket, key)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if s.readset != nil {
+			s.readset.Read(key, codeHash)
+		}
+		if len(codeHash) > 0 {
+			a.CodeHash = common.BytesToHash(codeHash)
 		}
 	}
 	return &a, nil
@@ -435,7 +456,13 @@ func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Accoun
 
 func (s *PlainKVState) ReadAccountStorage(address common.Address, incarnation uint64, key *common.Hash) ([]byte, error) {
 	compositeKey := dbutils.PlainGenerateCompositeStorageKey(address.Bytes(), incarnation, key.Bytes())
-	enc, err := GetAsOf(s.tx, true /* storage */, compositeKey, s.blockNr+1)
+	var enc []byte
+	var err error
+	if s.replayset != nil {
+		enc, err = s.replayset.Read(compositeKey)
+	} else {
+		enc, err = GetAsOf(s.tx, true /* storage */, compositeKey, s.blockNr+1)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +479,13 @@ func (s *PlainKVState) ReadAccountCode(address common.Address, incarnation uint6
 	if bytes.Equal(codeHash[:], emptyCodeHash) {
 		return nil, nil
 	}
-	code, err := s.tx.GetOne(dbutils.CodeBucket, codeHash[:])
+	var code []byte
+	var err error
+	if s.replayset != nil {
+		code, err = s.replayset.Read(append([]byte("C"), address[:]...))
+	} else {
+		code, err = s.tx.GetOne(dbutils.CodeBucket, codeHash[:])
+	}
 	if s.readset != nil {
 		s.readset.Read(append([]byte("C"), address[:]...), code)
 	}
@@ -463,7 +496,19 @@ func (s *PlainKVState) ReadAccountCode(address common.Address, incarnation uint6
 }
 
 func (s *PlainKVState) ReadAccountCodeSize(address common.Address, incarnation uint64, codeHash common.Hash) (int, error) {
-	code, err := s.ReadAccountCode(address, incarnation, codeHash)
+	var code, codeLen []byte
+	var err error
+	if s.replayset != nil {
+		codeLen, err = s.replayset.Read(append([]byte("S"), address[:]...))
+		if err != nil {
+			code, err = s.replayset.Read(append([]byte("C"), address[:]...))
+		}
+	} else {
+		code, err = s.ReadAccountCode(address, incarnation, codeHash)
+	}
+	if codeLen != nil {
+		return int(binary.BigEndian.Uint32(codeLen[:])), nil
+	}
 	if s.readset != nil {
 		var codeLen [4]byte
 		binary.BigEndian.PutUint32(codeLen[:], uint32(len(code)))
@@ -473,11 +518,17 @@ func (s *PlainKVState) ReadAccountCodeSize(address common.Address, incarnation u
 }
 
 func (s *PlainKVState) ReadAccountIncarnation(address common.Address) (uint64, error) {
-	enc, err := GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+2)
-	var inc [8]byte
+	var enc []byte
+	var err error
+	if s.replayset != nil {
+		enc, err = s.replayset.Read(append([]byte("I"), address[:]...))
+	} else {
+		enc, err = GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+2)
+	}
 	if err != nil {
 		return 0, err
 	}
+	var inc [8]byte
 	if len(enc) == 0 {
 		if s.readset != nil {
 			s.readset.Read(append([]byte("I"), address[:]...), inc[:])

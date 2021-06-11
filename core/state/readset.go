@@ -54,6 +54,7 @@ func (rs *Readset) FinishBlock(block uint64, forceWrite bool) error {
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 	w := bufio.NewWriter(file)
 	var varintBuf [10]byte // Buffer for varint number
 	for key, val := range rs.reads {
@@ -79,9 +80,6 @@ func (rs *Readset) FinishBlock(block uint64, forceWrite bool) error {
 	}
 	var stat os.FileInfo
 	if stat, err = file.Stat(); err != nil {
-		return err
-	}
-	if err = file.Close(); err != nil {
 		return err
 	}
 	log.Info("Readset flushed", "file", filename, "size", common.StorageSize(stat.Size()))

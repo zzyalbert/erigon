@@ -30,6 +30,7 @@ var (
 	writeReceipts bool
 	readsetDir    string // Directory where read set files will be written
 	readsetSize   string // Size of combined read set and write set
+	readsetFile   string // File to run the checks from
 )
 
 func init() {
@@ -41,6 +42,7 @@ func init() {
 	checkChangeSetsCmd.Flags().StringVar(&readsetDir, "readset.dir", "", "directly where read set files need to be written")
 	must(checkChangeSetsCmd.MarkFlagDirname("readset.dir"))
 	checkChangeSetsCmd.Flags().StringVar(&readsetSize, "readset.size", "", "size of combined read set and write set")
+	checkChangeSetsCmd.Flags().StringVar(&readsetFile, "readset.file", "", "file to read state from for execution")
 	rootCmd.AddCommand(checkChangeSetsCmd)
 }
 
@@ -111,6 +113,12 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 			return fmt.Errorf("creating readset: %v", err)
 		}
 	}
+	var replayset *state.Replayset
+	if readsetFile != "" {
+		if replayset, err = state.NewReplayset(readsetFile); err != nil {
+			return fmt.Errorf("opening readset: %v", err)
+		}
+	}
 
 	commitEvery := time.NewTicker(30 * time.Second)
 	defer commitEvery.Stop()
@@ -138,8 +146,8 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 			break
 		}
 
-		intraBlockState := state.New(state.NewPlainKvState(historyTx, block.NumberU64()-1).SetReadset(readset))
-		csw := state.NewChangeSetWriterPlain(nil /* db */, block.NumberU64()-1).SetReadset(readset)
+		intraBlockState := state.New(state.NewPlainKvState(historyTx, block.NumberU64()-1).SetReadset(readset).SetReplayset(replayset))
+		csw := state.NewChangeSetWriterPlain(nil /* db */, block.NumberU64()-1).SetReadset(readset).SetReplayset(replayset)
 		var blockWriter state.StateWriter
 		if nocheck {
 			blockWriter = noOpWriter

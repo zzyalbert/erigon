@@ -23,6 +23,7 @@ type ChangeSetWriter struct {
 	storageChanges map[string][]byte
 	blockNumber    uint64
 	readset        *Readset
+	replayset      *Replayset
 }
 
 func NewChangeSetWriter() *ChangeSetWriter {
@@ -44,6 +45,11 @@ func NewChangeSetWriterPlain(db ethdb.RwTx, blockNumber uint64) *ChangeSetWriter
 
 func (w *ChangeSetWriter) SetReadset(rs *Readset) *ChangeSetWriter {
 	w.readset = rs
+	return w
+}
+
+func (w *ChangeSetWriter) SetReplayset(r *Replayset) *ChangeSetWriter {
+	w.replayset = r
 	return w
 }
 
@@ -96,6 +102,11 @@ func (w *ChangeSetWriter) UpdateAccountData(ctx context.Context, address common.
 		if w.readset != nil {
 			w.readset.Write(address[:], int(account.EncodingLengthForStorage()))
 		}
+		if w.replayset != nil {
+			enc := make([]byte, int(account.EncodingLengthForStorage()))
+			account.EncodeForStorage(enc)
+			w.replayset.Write(address[:], enc)
+		}
 		w.accountChanges[address] = originalAccountData(original, true /*omitHashes*/)
 	}
 	return nil
@@ -105,12 +116,18 @@ func (w *ChangeSetWriter) UpdateAccountCode(address common.Address, incarnation 
 	if w.readset != nil {
 		w.readset.Write(append([]byte("C"), address[:]...), len(code))
 	}
+	if w.replayset != nil {
+		w.replayset.Write(append([]byte("C"), address[:]...), code)
+	}
 	return nil
 }
 
 func (w *ChangeSetWriter) DeleteAccount(ctx context.Context, address common.Address, original *accounts.Account) error {
 	if w.readset != nil {
 		w.readset.Write(address[:], 0)
+	}
+	if w.replayset != nil {
+		w.replayset.Write(address[:], []byte{})
 	}
 	w.accountChanges[address] = originalAccountData(original, false)
 	return nil
@@ -124,6 +141,9 @@ func (w *ChangeSetWriter) WriteAccountStorage(ctx context.Context, address commo
 	compositeKey := dbutils.PlainGenerateCompositeStorageKey(address.Bytes(), incarnation, key.Bytes())
 	if w.readset != nil {
 		w.readset.Write(compositeKey, len(value.Bytes()))
+	}
+	if w.replayset != nil {
+		w.replayset.Write(compositeKey, value.Bytes())
 	}
 
 	w.storageChanges[string(compositeKey)] = original.Bytes()
