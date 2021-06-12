@@ -564,10 +564,27 @@ func (s *PlainKVState) ReadAccountIncarnation(address common.Address) (uint64, e
 		return 0, err
 	}
 	if s.replayset != nil {
-		enc, err = s.replayset.Read(append([]byte("I"), address[:]...))
-		if !bytes.Equal(encDb, enc) {
-			fmt.Printf("ReadAccountIncarnation diff %x: %x vs %x\n", address, enc, encDb)
+		var inc []byte
+		inc, err = s.replayset.Read(append([]byte("I"), address[:]...))
+		if err != nil {
+			fmt.Printf("ReadAccountIncarnation %x %v\n", address, err)
+			return 0, err
 		}
+		i := binary.BigEndian.Uint64(inc)
+		var acc accounts.Account
+		if len(encDb) > 0 {
+			errDb = acc.DecodeForStorage(encDb)
+			if errDb != nil {
+				fmt.Printf("ReadAccountIncarnation/decode (db) %x %v\n", address, errDb)
+			}
+			if acc.Incarnation == 0 && i != 0 {
+				fmt.Printf("ReadAccountIncarnation diff %x: %d vs %d\n", address, acc.Incarnation, i)
+			}
+			if acc.Incarnation > 0 && acc.Incarnation-1 != i {
+				fmt.Printf("ReadAccountIncarnation diff %x: %d vs %d\n", address, acc.Incarnation, i)
+			}
+		}
+		return i, nil
 	}
 	if err != nil {
 		fmt.Printf("ReadAccountIncarnation %x %v\n", address, err)
