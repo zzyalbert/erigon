@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/holiman/uint256"
 	"github.com/ledgerwatch/erigon/common"
@@ -420,6 +421,7 @@ func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Accoun
 		enc, err = GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+1)
 	}
 	if err != nil {
+		fmt.Printf("ReadAccountData %x %v\n", address, err)
 		return nil, err
 	}
 	if s.readset != nil {
@@ -442,6 +444,7 @@ func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Accoun
 			codeHash, err = s.tx.GetOne(dbutils.PlainContractCodeBucket, key)
 		}
 		if err != nil {
+			fmt.Printf("ReadAccountData/CodeHash %x %v\n", key, err)
 			return nil, err
 		}
 		if s.readset != nil {
@@ -464,6 +467,7 @@ func (s *PlainKVState) ReadAccountStorage(address common.Address, incarnation ui
 		enc, err = GetAsOf(s.tx, true /* storage */, compositeKey, s.blockNr+1)
 	}
 	if err != nil {
+		fmt.Printf("ReadAccountStorage %x %d %x %v\n", address, incarnation, *key, err)
 		return nil, err
 	}
 	if s.readset != nil {
@@ -486,6 +490,9 @@ func (s *PlainKVState) ReadAccountCode(address common.Address, incarnation uint6
 	} else {
 		code, err = s.tx.GetOne(dbutils.CodeBucket, codeHash[:])
 	}
+	if err != nil {
+		fmt.Printf("ReadAccountCode %x %x %v\n", address, codeHash, err)
+	}
 	if s.readset != nil {
 		s.readset.Read(append([]byte("C"), address[:]...), code)
 	}
@@ -505,6 +512,9 @@ func (s *PlainKVState) ReadAccountCodeSize(address common.Address, incarnation u
 		}
 	} else {
 		code, err = s.ReadAccountCode(address, incarnation, codeHash)
+	}
+	if err != nil {
+		fmt.Printf("ReadAccountCodeSize %x %v\n", address, err)
 	}
 	if codeLen != nil {
 		return int(binary.BigEndian.Uint32(codeLen[:])), nil
@@ -526,6 +536,7 @@ func (s *PlainKVState) ReadAccountIncarnation(address common.Address) (uint64, e
 		enc, err = GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+2)
 	}
 	if err != nil {
+		fmt.Printf("ReadAccountIncarnation %x %v\n", address, err)
 		return 0, err
 	}
 	var inc [8]byte

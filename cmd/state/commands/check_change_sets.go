@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"sort"
 	"syscall"
 	"time"
@@ -245,7 +246,12 @@ func CheckChangeSets(genesis *core.Genesis, blockNum uint64, chaindata string, h
 		}
 		blockNum++
 		if blockNum%1000 == 0 {
-			log.Info("Checked", "blocks", blockNum)
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			log.Info("Checked", "blocks", blockNum,
+				"alloc", common.StorageSize(m.Alloc),
+				"sys", common.StorageSize(m.Sys),
+				"numGC", int(m.NumGC))
 			if readset != nil {
 				readset.Report()
 			}
