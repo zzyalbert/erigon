@@ -413,12 +413,17 @@ func (s *PlainKVState) ForEachStorage(addr common.Address, startLocation common.
 }
 
 func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Account, error) {
-	var enc []byte
-	var err error
+	var enc, encDb []byte
+	var err, errDb error
+	encDb, errDb = GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+1)
+	if errDb != nil {
+		fmt.Printf("ReadAccountData(db) %x %v\n", address, errDb)
+	}
 	if s.replayset != nil {
 		enc, err = s.replayset.Read(address[:])
-	} else {
-		enc, err = GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+1)
+		if !bytes.Equal(encDb, enc) {
+			fmt.Printf("ReadAccountData diff %x: %x vs %x\n", address[:], enc, encDb)
+		}
 	}
 	if err != nil {
 		fmt.Printf("ReadAccountData %x %v\n", address, err)
@@ -437,11 +442,16 @@ func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Accoun
 	//restore codehash
 	if a.Incarnation > 0 && a.IsEmptyCodeHash() {
 		key := dbutils.PlainGenerateStoragePrefix(address[:], a.Incarnation)
-		var codeHash []byte
+		var codeHash, codeHashDb []byte
+		codeHashDb, errDb = s.tx.GetOne(dbutils.PlainContractCodeBucket, key)
+		if errDb != nil {
+			fmt.Printf("ReadAccountData/CodeHash (db) %x %v\n", key, errDb)
+		}
 		if s.replayset != nil {
 			codeHash, err = s.replayset.Read(key)
-		} else {
-			codeHash, err = s.tx.GetOne(dbutils.PlainContractCodeBucket, key)
+			if !bytes.Equal(encDb, enc) {
+				fmt.Printf("ReadAccountData/CodeHash diff %x: %x vs %x\n", address[:], codeHash, codeHashDb)
+			}
 		}
 		if err != nil {
 			fmt.Printf("ReadAccountData/CodeHash %x %v\n", key, err)
@@ -459,12 +469,17 @@ func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Accoun
 
 func (s *PlainKVState) ReadAccountStorage(address common.Address, incarnation uint64, key *common.Hash) ([]byte, error) {
 	compositeKey := dbutils.PlainGenerateCompositeStorageKey(address.Bytes(), incarnation, key.Bytes())
-	var enc []byte
-	var err error
+	var enc, encDb []byte
+	var err, errDb error
+	encDb, errDb = GetAsOf(s.tx, true /* storage */, compositeKey, s.blockNr+1)
+	if errDb != nil {
+		fmt.Printf("ReadAccountStorage (db) %x %d %x %v\n", compositeKey, incarnation, *key, errDb)
+	}
 	if s.replayset != nil {
 		enc, err = s.replayset.Read(compositeKey)
-	} else {
-		enc, err = GetAsOf(s.tx, true /* storage */, compositeKey, s.blockNr+1)
+		if !bytes.Equal(encDb, enc) {
+			fmt.Printf("ReadAccountStorage diff %x: %x vs %x\n", compositeKey, enc, encDb)
+		}
 	}
 	if err != nil {
 		fmt.Printf("ReadAccountStorage %x %d %x %v\n", address, incarnation, *key, err)
@@ -483,12 +498,17 @@ func (s *PlainKVState) ReadAccountCode(address common.Address, incarnation uint6
 	if bytes.Equal(codeHash[:], emptyCodeHash) {
 		return nil, nil
 	}
-	var code []byte
-	var err error
+	var code, codeDb []byte
+	var err, errDb error
+	codeDb, errDb = s.tx.GetOne(dbutils.CodeBucket, codeHash[:])
+	if errDb != nil {
+		fmt.Printf("ReadAccountCode (db) %x %x %v\n", address, codeHash, errDb)
+	}
 	if s.replayset != nil {
 		code, err = s.replayset.Read(append([]byte("C"), address[:]...))
-	} else {
-		code, err = s.tx.GetOne(dbutils.CodeBucket, codeHash[:])
+		if !bytes.Equal(codeDb, code) {
+			fmt.Printf("ReadAccountCode diff %x %x: %x vs %x\n", address, codeHash, code, codeDb)
+		}
 	}
 	if err != nil {
 		fmt.Printf("ReadAccountCode %x %x %v\n", address, codeHash, err)
@@ -503,15 +523,23 @@ func (s *PlainKVState) ReadAccountCode(address common.Address, incarnation uint6
 }
 
 func (s *PlainKVState) ReadAccountCodeSize(address common.Address, incarnation uint64, codeHash common.Hash) (int, error) {
-	var code, codeLen []byte
-	var err error
+	var code, codeDb, codeLen []byte
+	var err, errDb error
+	codeDb, errDb = s.ReadAccountCode(address, incarnation, codeHash)
+	if errDb != nil {
+		fmt.Printf("ReadAccountCodeSize (db) %x %v\n", address, errDb)
+	}
 	if s.replayset != nil {
 		codeLen, err = s.replayset.Read(append([]byte("S"), address[:]...))
 		if err != nil {
 			code, err = s.replayset.Read(append([]byte("C"), address[:]...))
+			if !bytes.Equal(codeDb, code) {
+				fmt.Printf("ReadAccountCodeSize diff %x %x: %x vs %x\n", address, codeHash, code, codeDb)
+			}
 		}
-	} else {
-		code, err = s.ReadAccountCode(address, incarnation, codeHash)
+		if len(codeDb) != int(binary.BigEndian.Uint32(codeLen)) {
+			fmt.Printf("ReadAccountCodeSize diff %x %x: %x vs %x\n", address, codeHash, binary.BigEndian.Uint32(codeLen), len(codeDb))
+		}
 	}
 	if err != nil {
 		fmt.Printf("ReadAccountCodeSize %x %v\n", address, err)
@@ -528,12 +556,18 @@ func (s *PlainKVState) ReadAccountCodeSize(address common.Address, incarnation u
 }
 
 func (s *PlainKVState) ReadAccountIncarnation(address common.Address) (uint64, error) {
-	var enc []byte
-	var err error
+	var enc, encDb []byte
+	var err, errDb error
+	encDb, errDb = GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+2)
+	if errDb != nil {
+		fmt.Printf("ReadAccountIncarnation (db) %x %v\n", address, errDb)
+		return 0, err
+	}
 	if s.replayset != nil {
 		enc, err = s.replayset.Read(append([]byte("I"), address[:]...))
-	} else {
-		enc, err = GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+2)
+		if !bytes.Equal(encDb, enc) {
+			fmt.Printf("ReadAccountIncarnation diff %x: %x vs %x\n", address, enc, encDb)
+		}
 	}
 	if err != nil {
 		fmt.Printf("ReadAccountIncarnation %x %v\n", address, err)
