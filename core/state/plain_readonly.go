@@ -533,12 +533,14 @@ func (s *PlainKVState) ReadAccountCodeSize(address common.Address, incarnation u
 		codeLen, err = s.replayset.Read(append([]byte("S"), address[:]...))
 		if err != nil {
 			code, err = s.replayset.Read(append([]byte("C"), address[:]...))
+			if err != nil {
+				fmt.Printf("ReadAccountCodeSize C %x %v\n", address, err)
+			}
 			if !bytes.Equal(codeDb, code) {
 				fmt.Printf("ReadAccountCodeSize diff %x %x: %x vs %x\n", address, codeHash, code, codeDb)
 			}
-		}
-		if len(codeDb) != int(binary.BigEndian.Uint32(codeLen)) {
-			fmt.Printf("ReadAccountCodeSize diff %x %x: %x vs %x\n", address, codeHash, binary.BigEndian.Uint32(codeLen), len(codeDb))
+		} else if len(codeDb) != int(binary.BigEndian.Uint32(codeLen)) {
+			fmt.Printf("ReadAccountCodeSize diff %x %x: %d vs %d\n", address, codeHash, binary.BigEndian.Uint32(codeLen), len(codeDb))
 		}
 	}
 	if err != nil {
