@@ -3,6 +3,7 @@ package state
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/holiman/uint256"
@@ -117,6 +118,9 @@ func (w *ChangeSetWriter) UpdateAccountCode(address common.Address, incarnation 
 		w.readset.Write(append([]byte("C"), address[:]...), len(code))
 	}
 	if w.replayset != nil {
+		var codeLen [4]byte
+		binary.BigEndian.PutUint32(codeLen[:], uint32(len(code)))
+		w.replayset.Write(append([]byte("S"), address[:]...), codeLen[:])
 		w.replayset.Write(append([]byte("C"), address[:]...), code)
 	}
 	return nil
