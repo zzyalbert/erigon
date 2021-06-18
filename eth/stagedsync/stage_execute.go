@@ -355,7 +355,7 @@ Loop:
 			if err != nil {
 				panic(err)
 			}
-			updateProgress := txDirty*2 > txLimit && !useExternalTx
+			updateProgress := txDirty > (txLimit/10)*9 && !useExternalTx
 			if updateProgress {
 				if err = s.Update(tx, stageProgress); err != nil {
 					return err
