@@ -2044,22 +2044,25 @@ func scanTxs(chaindata string) error {
 	}
 	defer c.Close()
 	trTypes := make(map[byte]int)
+	trIds := make(map[byte]uint64)
 	trTypesAl := make(map[byte]int)
+	trIdsAl := make(map[byte]uint64)
 	for k, v, err := c.First(); k != nil; k, v, err = c.Next() {
 		if err != nil {
 			return err
 		}
+		txId := binary.BigEndian.Uint64(k)
 		var tr types.Transaction
 		if tr, err = types.DecodeTransaction(rlp.NewStream(bytes.NewReader(v), 0)); err != nil {
 			return err
 		}
 		if _, ok := trTypes[tr.Type()]; !ok {
-			fmt.Printf("Example for type %d:\n%x\n", tr.Type(), v)
+			fmt.Printf("Example for type %d:\n%x\nTxHash: %x\n", tr.Type(), v, tr.Hash())
 		}
 		trTypes[tr.Type()]++
 		if tr.GetAccessList().StorageKeys() > 0 {
 			if _, ok := trTypesAl[tr.Type()]; !ok {
-				fmt.Printf("Example for type %d with AL:\n%x\n", tr.Type(), v)
+				fmt.Printf("Example for type %d with AL:\n%x\nTxHash: %x\n", tr.Type(), v, tr.Hash())
 			}
 			trTypesAl[tr.Type()]++
 		}
