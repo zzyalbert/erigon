@@ -246,6 +246,10 @@ func (s *snTX) ExistingBuckets() ([]string, error) {
 	return s.dbTX.(ethdb.BucketMigrator).ExistingBuckets()
 }
 
+func (s *snTX) SpaceDirty() (dirty uint64, txSize uint64, err error) {
+	return s.dbTX.(ethdb.RwTx).SpaceDirty()
+}
+
 func (s *snTX) Cursor(bucket string) (ethdb.Cursor, error) {
 	tx, err := s.getSnapshotTX(bucket)
 	if err != nil && !errors.Is(err, ErrUnavailableSnapshot) {

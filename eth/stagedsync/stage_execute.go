@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/c2h5oh/datasize"
-	"github.com/ledgerwatch/erigon/ethdb/kv"
-
 	"github.com/ledgerwatch/erigon/common"
 	"github.com/ledgerwatch/erigon/common/changeset"
 	"github.com/ledgerwatch/erigon/common/dbutils"
@@ -101,14 +99,13 @@ func readBlock(blockNum uint64, tx ethdb.Tx) (*types.Block, error) {
 func executeBlock(
 	block *types.Block,
 	tx ethdb.RwTx,
-	batch ethdb.Database,
 	cfg ExecuteBlockCfg,
 	writeChangesets bool,
 	accumulator *shards.Accumulator,
 	checkTEVM func(contractHash common.Hash) (bool, error),
 ) error {
 	blockNum := block.NumberU64()
-	stateReader, stateWriter := newStateReaderWriter(batch, tx, blockNum, block.Hash(), writeChangesets, accumulator)
+	stateReader, stateWriter := newStateReaderWriter(tx, blockNum, block.Hash(), writeChangesets, accumulator)
 
 	// where the magic happens
 	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(tx, hash, number) }
@@ -192,7 +189,6 @@ func executeBlock(
 }
 
 func newStateReaderWriter(
-	batch ethdb.Database,
 	tx ethdb.RwTx,
 	blockNum uint64,
 	blockHash common.Hash,
@@ -203,15 +199,15 @@ func newStateReaderWriter(
 	var stateReader state.StateReader
 	var stateWriter state.WriterWithChangeSets
 
-	stateReader = state.NewPlainStateReader(batch)
+	stateReader = state.NewPlainStateReader(tx)
 
 	if accumulator != nil {
 		accumulator.StartChange(blockNum, blockHash, false)
 	}
 	if writeChangesets {
-		stateWriter = state.NewPlainStateWriter(batch, tx, blockNum).SetAccumulator(accumulator)
+		stateWriter = state.NewPlainStateWriter(tx, tx, blockNum).SetAccumulator(accumulator)
 	} else {
-		stateWriter = state.NewPlainStateWriterNoHistory(batch).SetAccumulator(accumulator)
+		stateWriter = state.NewPlainStateWriterNoHistory(tx).SetAccumulator(accumulator)
 	}
 
 	return stateReader, stateWriter
@@ -245,10 +241,6 @@ func SpawnExecuteBlocksStage(s *StageState, u Unwinder, tx ethdb.RwTx, toBlock u
 		log.Info(fmt.Sprintf("[%s] Blocks execution", logPrefix), "from", s.BlockNumber, "to", to)
 	}
 
-	var batch ethdb.DbWithPendingMutations
-	batch = kv.NewBatch(tx)
-	defer batch.Rollback()
-
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
 	stageProgress := s.BlockNumber
@@ -258,6 +250,8 @@ func SpawnExecuteBlocksStage(s *StageState, u Unwinder, tx ethdb.RwTx, toBlock u
 	var gas uint64
 
 	var stoppedErr error
+	var txDirty, txLimit uint64
+
 Loop:
 	for blockNum := stageProgress + 1; blockNum <= to; blockNum++ {
 		if stoppedErr = common.Stopped(quit); stoppedErr != nil {
@@ -285,7 +279,7 @@ Loop:
 			checkTEVMCode = ethdb.GetCheckTEVM(tx)
 		}
 
-		if err = executeBlock(block, tx, batch, cfg, writeChangesets, accumulator, checkTEVMCode); err != nil {
+		if err = executeBlock(block, tx, cfg, writeChangesets, accumulator, checkTEVMCode); err != nil {
 			log.Error(fmt.Sprintf("[%s] Execution failed", logPrefix), "number", blockNum, "hash", block.Hash().String(), "error", err)
 			if unwindErr := u.UnwindTo(blockNum-1, tx, block.Hash()); unwindErr != nil {
 				return unwindErr
@@ -293,13 +287,13 @@ Loop:
 			break Loop
 		}
 		stageProgress = blockNum
-
-		updateProgress := batch.BatchSize() >= int(cfg.batchSize)
-		if updateProgress {
-			if err = batch.Commit(); err != nil {
+		if blockNum%100 == 0 {
+			txDirty, txLimit, err = tx.SpaceDirty()
+			if err != nil {
 				return err
 			}
-			if !useExternalTx {
+			updateProgress := txDirty > (txLimit/10)*9 && !useExternalTx
+			if updateProgress {
 				if err = s.Update(tx, stageProgress); err != nil {
 					return err
 				}
@@ -313,9 +307,6 @@ Loop:
 				// TODO: This creates stacked up deferrals
 				defer tx.Rollback()
 			}
-			batch = kv.NewBatch(tx)
-			// TODO: This creates stacked up deferrals
-			defer batch.Rollback()
 		}
 
 		gas = gas + block.GasUsed()
@@ -323,18 +314,15 @@ Loop:
 		select {
 		default:
 		case <-logEvery.C:
-			logBlock, logTx, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, logTx, lastLogTx, gas, batch)
+			logBlock, logTx, logTime = logProgress(logPrefix, logBlock, logTime, blockNum, logTx, lastLogTx, gas, nil, txDirty)
 			gas = 0
 			tx.CollectMetrics()
 			stageExecutionGauge.Update(int64(blockNum))
 		}
 	}
 
-	if err := s.Update(batch, stageProgress); err != nil {
+	if err := s.Update(tx, stageProgress); err != nil {
 		return err
-	}
-	if err := batch.Commit(); err != nil {
-		return fmt.Errorf("%s: failed to write batch commit: %v", logPrefix, err)
 	}
 	// Prune changesets if needed
 	if cfg.pruningDistance > 0 {
@@ -402,7 +390,7 @@ func pruneDupSortedBucket(tx ethdb.RwTx, logPrefix string, name string, tableNam
 	return nil
 }
 
-func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, currentBlock uint64, prevTx, currentTx uint64, gas uint64, batch ethdb.DbWithPendingMutations) (uint64, uint64, time.Time) {
+func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, currentBlock uint64, prevTx, currentTx uint64, gas uint64, batch ethdb.DbWithPendingMutations, txDirty uint64) (uint64, uint64, time.Time) {
 	currentTime := time.Now()
 	interval := currentTime.Sub(prevTime)
 	speed := float64(currentBlock-prevBlock) / (float64(interval) / float64(time.Second))
@@ -418,6 +406,9 @@ func logProgress(logPrefix string, prevBlock uint64, prevTime time.Time, current
 	}
 	if batch != nil {
 		logpairs = append(logpairs, "batch", common.StorageSize(batch.BatchSize()))
+	}
+	if txDirty > 0 {
+		logpairs = append(logpairs, "batch", common.StorageSize(txDirty))
 	}
 	logpairs = append(logpairs, "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys))
 	log.Info(fmt.Sprintf("[%s] Executed blocks", logPrefix), logpairs...)

@@ -241,8 +241,9 @@ func (db *RemoteKV) Update(ctx context.Context, f func(tx ethdb.RwTx) error) (er
 	return fmt.Errorf("remote db provider doesn't support .Update method")
 }
 
-func (tx *remoteTx) CollectMetrics()         {}
-func (tx *remoteTx) CHandle() unsafe.Pointer { panic("not implemented yet") }
+func (tx *remoteTx) SpaceDirty() (dirty uint64, txSize uint64, err error) { panic("not supported") }
+func (tx *remoteTx) CollectMetrics()                                      {}
+func (tx *remoteTx) CHandle() unsafe.Pointer                              { panic("not implemented yet") }
 
 func (tx *remoteTx) IncrementSequence(bucket string, amount uint64) (uint64, error) {
 	panic("not implemented yet")

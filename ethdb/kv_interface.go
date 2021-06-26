@@ -222,6 +222,7 @@ type RwTx interface {
 	// CollectMetrics - does collect all DB-related and Tx-related metrics
 	// this method exists only in RwTx to avoid concurrency
 	CollectMetrics()
+	SpaceDirty() (dirty uint64, txSize uint64, err error)
 }
 
 // BucketMigrator used for buckets migration, don't use it in usual app code
