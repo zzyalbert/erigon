@@ -183,10 +183,10 @@ func (opts MdbxOpts) Open() (ethdb.RwKV, error) {
 		if err = env.SetOption(mdbx.OptSpillMinDenominator, 4); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptTxnDpInitial, 16*1024); err != nil {
+		if err = env.SetOption(mdbx.OptTxnDpInitial, 32*1024); err != nil {
 			return nil, err
 		}
-		if err = env.SetOption(mdbx.OptDpReverseLimit, 16*1024); err != nil {
+		if err = env.SetOption(mdbx.OptDpReverseLimit, 32*1024); err != nil {
 			return nil, err
 		}
 
