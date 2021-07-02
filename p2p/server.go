@@ -832,10 +832,10 @@ running:
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
-		fmt.Printf("srv.MaxPeers: %d\n", srv.MaxPeers)
+		fmt.Printf("DiscTooManyPeers: srv.MaxPeers: %d, %d\n", len(peers), srv.MaxPeers)
 		return DiscTooManyPeers
 	case !c.is(trustedConn) && c.is(inboundConn) && inboundCount >= srv.maxInboundConns():
-		fmt.Printf("inboundCount %d,  srv.maxInboundConns(): %d\n", inboundCount, srv.maxInboundConns())
+		fmt.Printf("DiscTooManyPeers: inboundCount %d,  srv.maxInboundConns(): %d\n", inboundCount, srv.maxInboundConns())
 		return DiscTooManyPeers
 	case peers[c.node.ID()] != nil:
 		return DiscAlreadyConnected

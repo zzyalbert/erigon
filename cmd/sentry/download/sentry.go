@@ -749,9 +749,9 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 
 	fmt.Printf("SendMessageToRandomPeers: peers=%d, MaxPeers=%d %s,%d\n", amount, req.MaxPeers, req.Data.Id.String(), len(req.Data.Data)/32)
 
-	if bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
-		fmt.Printf("SendMessageToRandomPeers: peers=%d, MaxPeers=%d %s,%d\n", amount, req.MaxPeers, req.Data.Id.String(), len(req.Data.Data)/32)
-	}
+	//if bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
+	//	fmt.Printf("SendMessageToRandomPeers: peers=%d, MaxPeers=%d %s,%d\n", amount, req.MaxPeers, req.Data.Id.String(), len(req.Data.Data)/32)
+	//}
 
 	if req.MaxPeers < amount {
 		amount = req.MaxPeers
