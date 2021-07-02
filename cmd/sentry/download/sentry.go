@@ -738,20 +738,27 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 		return &proto_sentry.SentPeers{}, fmt.Errorf("sendMessageToRandomPeers not implemented for message Id: %s", req.Data.Id)
 	}
 
-	if msgcode != eth.NewPooledTransactionHashesMsg && bytes.Contains(req.Data.Data, common.FromHex("f2889b5545751d3f0a9aec1cf10f9739a9ff6d056c619e8d4aaddff9561a266a")) {
-		fmt.Printf("SendMessageToRandomPeers: %s,%d\n", req.Data.Id.String(), len(req.Data.Data)/32)
-	}
 	amount := uint64(0)
 	ss.Peers.Range(func(key, value interface{}) bool {
 		amount++
 		return true
 	})
+
+	if msgcode != eth.NewPooledTransactionHashesMsg && bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
+		fmt.Printf("SendMessageToRandomPeers: peers=%d, MaxPeers=%d %s,%d\n", amount, req.MaxPeers, req.Data.Id.String(), len(req.Data.Data)/32)
+	}
+
 	if req.MaxPeers > amount {
 		amount = req.MaxPeers
 	}
 
 	// Send the block to a subset of our peers
 	sendToAmount := int(math.Sqrt(float64(amount)))
+
+	if msgcode != eth.NewPooledTransactionHashesMsg && bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
+		fmt.Printf("SendMessageToRandomPeers: sendToAmount=%d\n", sendToAmount)
+	}
+
 	i := 0
 	var innerErr error
 	reply := &proto_sentry.SentPeers{Peers: []*proto_types.H512{}}
@@ -769,6 +776,10 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 			innerErr = err
 			return false
 		}
+		if msgcode != eth.NewPooledTransactionHashesMsg && bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
+			fmt.Printf("SendMessageToRandomPeers: sent, v=%d\n", ss.Protocol.Version)
+		}
+
 		reply.Peers = append(reply.Peers, gointerfaces.ConvertBytesToH512([]byte(peerID)))
 		i++
 		return sendToAmount <= i
