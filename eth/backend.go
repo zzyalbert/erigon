@@ -434,6 +434,19 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		}
 	}()
 
+	if err := backend.chainKV.View(context.Background(), func(tx ethdb.Tx) error {
+		execution, _ := stages.GetStageProgress(tx, stages.Execution)
+		hh := rawdb.ReadCurrentHeader(tx)
+		tx.Rollback()
+		if hh != nil {
+			if err := backend.txPool.Start(hh.GasLimit, execution); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 	if err := backend.StartMining(context.Background(), backend.chainKV, mining, backend.config.Miner, backend.gasPrice, backend.quitMining); err != nil {
 		return nil, err
 	}
