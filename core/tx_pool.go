@@ -1033,6 +1033,7 @@ func (pool *TxPool) queueTxEvent(tx types.Transaction) {
 // call those methods directly, but request them being run using requestReset and
 // requestPromoteExecutables instead.
 func (pool *TxPool) scheduleReorgLoop() {
+	fmt.Printf("scheduleReorgLoop\n")
 	defer debug.LogPanic()
 	defer pool.wg.Done()
 
