@@ -1423,9 +1423,11 @@ func (pool *TxPool) demoteUnexecutables() {
 
 func (pool *TxPool) IsStarted() bool {
 	if pool == nil {
+		fmt.Printf("is started1\n")
 		return false
 	}
 
+	fmt.Printf("is started2: %t\n", pool.isStarted)
 	return pool.isStarted
 }
 
