@@ -119,6 +119,7 @@ func (c *SentryClientDirect) SendMessageById(ctx context.Context, in *proto_sent
 }
 
 func (c *SentryClientDirect) SendMessageToRandomPeers(ctx context.Context, in *proto_sentry.SendMessageToRandomPeersRequest, opts ...grpc.CallOption) (*proto_sentry.SentPeers, error) {
+	fmt.Printf("SentryClientDirect.SendMessageToRandomPeers\n")
 	return c.server.SendMessageToRandomPeers(ctx, in)
 }
 
