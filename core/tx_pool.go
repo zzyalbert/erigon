@@ -1214,6 +1214,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []types.Transa
 		readies := list.Ready(pool.pendingNonces.get(addr))
 		for _, tx := range readies {
 			hash := tx.Hash()
+			fmt.Printf("promote1: %x\n", hash)
 			if pool.promoteTx(addr, hash, tx) {
 				promoted = append(promoted, tx)
 			}
@@ -1227,6 +1228,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []types.Transa
 			caps = list.Cap(int(pool.config.AccountQueue))
 			for _, tx := range caps {
 				hash := tx.Hash()
+				fmt.Printf("drop2: %x\n", hash)
 				pool.all.Remove(hash)
 				log.Trace("Removed cap-exceeding queued transaction", "hash", hash)
 			}
