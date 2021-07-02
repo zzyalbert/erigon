@@ -701,7 +701,9 @@ func (pool *TxPool) add(tx types.Transaction, local bool) (replaced bool, err er
 	}
 	pool.journalTx(from, tx)
 
-	log.Info("Pooled new future transaction", "hash", hash.Hex(), "from", from, "to", tx.GetTo())
+	if from == common.FromHex("0x892da5e338207f6da0c80854459864ef0f19e21d") {
+		log.Info("Pooled new future transaction", "hash", hash.Hex(), "from", from, "to", tx.GetTo())
+	}
 	return replaced, nil
 }
 
