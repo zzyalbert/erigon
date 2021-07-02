@@ -100,7 +100,7 @@ func (s *TxPoolServer) FindUnknown(ctx context.Context, in *proto_txpool.TxHashe
 }
 
 func (s *TxPoolServer) Add(ctx context.Context, in *proto_txpool.AddRequest) (*proto_txpool.AddReply, error) {
-	if s.txPool.IsStarted() {
+	if !s.txPool.IsStarted() {
 		return nil, fmt.Errorf("tx pool not started yet. It will start after first sync cycle")
 	}
 	reply := &proto_txpool.AddReply{Imported: make([]proto_txpool.ImportResult, len(in.RlpTxs)), Errors: make([]string, len(in.RlpTxs))}
