@@ -1123,9 +1123,14 @@ func (pool *TxPool) runReorg(done chan struct{}, dirtyAccounts *accountSet, even
 		// Reset needs promote for all addresses
 		promoteAddrs = make([]common.Address, 0, len(pool.queue))
 		for addr := range pool.queue {
+			if addr == common.HexToAddress("0x892da5e338207f6da0c80854459864ef0f19e21d") {
+				fmt.Printf("I saw addddddddr herre\n")
+			}
+
 			promoteAddrs = append(promoteAddrs, addr)
 		}
 	}
+
 	// Check for pending transactions for every account that sent new ones
 	promoted := pool.promoteExecutables(promoteAddrs)
 	// If a new block appeared, validate the pool of pending transactions. This will
