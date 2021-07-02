@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -306,6 +307,7 @@ func (pool *TxPool) Start(gasLimit uint64, headNumber uint64) error {
 
 	// If local transactions and journaling is enabled, load from disk
 	if !pool.config.NoLocals && pool.config.Journal != "" {
+		os.Remove(pool.config.Journal)
 		pool.journal = newTxJournal(pool.config.Journal)
 
 		if err := pool.journal.load(pool.AddLocals); err != nil {
