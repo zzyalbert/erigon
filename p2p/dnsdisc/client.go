@@ -177,7 +177,7 @@ func (c *Client) doResolveEntry(ctx context.Context, domain, hash string) (entry
 	}
 	name := hash + "." + domain
 	txts, err := c.cfg.Resolver.LookupTXT(ctx, hash+"."+domain)
-	c.cfg.Logger.Trace("DNS discovery lookup", "name", name, "err", err)
+	//c.cfg.Logger.Trace("DNS discovery lookup", "name", name, "err", err)
 	if err != nil {
 		return nil, err
 	}

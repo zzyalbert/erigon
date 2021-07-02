@@ -458,7 +458,7 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 
 // startDial runs the given dial task in a separate goroutine.
 func (d *dialScheduler) startDial(task *dialTask) {
-	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags)
+	//d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags)
 	hkey := string(task.dest.ID().Bytes())
 	d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
 	d.dialing[task.dest.ID()] = task

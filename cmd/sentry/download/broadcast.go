@@ -136,7 +136,6 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 		pending := make([]common.Hash, 0, pendingLen)
 
 		for i := 0; i < pendingLen && i < len(txs); i++ {
-
 			j, _ := json.Marshal(txs[i])
 			fmt.Printf("BroadcastNewTxs2: %x, %s\n", txs[i].Hash(), j)
 			pending = append(pending, txs[i].Hash())
@@ -145,7 +144,8 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 
 		data, err := rlp.EncodeToBytes(eth.NewPooledTransactionHashesPacket(pending))
 		if err != nil {
-			log.Error("broadcastNewBlock", "error", err)
+			log.Error("BroadcastNewTxs", "error", err)
+			return
 		}
 		var req66, req65 *proto_sentry.SendMessageToRandomPeersRequest
 		for _, sentry := range cs.sentries {
@@ -165,9 +165,11 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 					}
 				}
 
-				if _, err = sentry.SendMessageToRandomPeers(ctx, req65, &grpc.EmptyCallOption{}); err != nil {
-					log.Error("broadcastNewBlock", "error", err)
+				peers, err := sentry.SendMessageToRandomPeers(ctx, req65, &grpc.EmptyCallOption{})
+				if err != nil {
+					log.Error("BroadcastNewTxs", "error", err)
 				}
+				fmt.Printf("65: %d\n", len(peers.Peers))
 
 			case eth.ETH66:
 				if req66 == nil {
@@ -179,9 +181,12 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 						},
 					}
 				}
-				if _, err = sentry.SendMessageToRandomPeers(ctx, req66, &grpc.EmptyCallOption{}); err != nil {
-					log.Error("broadcastNewBlock", "error", err)
+				peers, err := sentry.SendMessageToRandomPeers(ctx, req66, &grpc.EmptyCallOption{})
+				if err != nil {
+					log.Error("BroadcastNewTxs", "error", err)
 				}
+				fmt.Printf("65: %d\n", len(peers.Peers))
+
 				continue
 			}
 		}
