@@ -126,16 +126,23 @@ func (cs *ControlServerImpl) BroadcastNewBlock(ctx context.Context, block *types
 func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Transaction) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
+	for i := range txs {
+		if txs[i].Hash() == common.HexToHash("f2889b5545751d3f0a9aec1cf10f9739a9ff6d056c619e8d4aaddff9561a266a") {
+			fmt.Printf("Sssssssssss\n")
+		}
+	}
 
 	for len(txs) > 0 {
 		pendingLen := maxTxPacketSize / common.HashLength
 		pending := make([]common.Hash, 0, pendingLen)
 
 		for i := 0; i < pendingLen && i < len(txs); i++ {
+			if txs[i].Hash() == common.HexToHash("f2889b5545751d3f0a9aec1cf10f9739a9ff6d056c619e8d4aaddff9561a266a") {
+				fmt.Printf("aaaaaaaa\n")
+			}
 			pending = append(pending, txs[i].Hash())
 		}
 		txs = txs[len(pending):]
-		fmt.Printf("BroadcastNewTxs: %x\n", pending)
 
 		data, err := rlp.EncodeToBytes(eth.NewPooledTransactionHashesPacket(pending))
 		if err != nil {
