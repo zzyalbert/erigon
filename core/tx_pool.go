@@ -1197,6 +1197,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []types.Transa
 		forwards := list.Forward(pool.currentState.GetNonce(addr))
 		for _, tx := range forwards {
 			hash := tx.Hash()
+			fmt.Printf("drop0: %x\n", hash)
 			pool.all.Remove(hash)
 		}
 		log.Trace("Removed old queued transactions", "count", len(forwards))
