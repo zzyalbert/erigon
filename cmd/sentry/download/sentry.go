@@ -732,7 +732,7 @@ func (ss *SentryServerImpl) SendMessageById(_ context.Context, inreq *proto_sent
 
 func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *proto_sentry.SendMessageToRandomPeersRequest) (*proto_sentry.SentPeers, error) {
 	msgcode := eth.FromProto[ss.Protocol.Version][req.Data.Id]
-	fmt.Printf("SendMessageToRandomPeers: msg=%s\n", eth.ToString[uint(msgcode)])
+	fmt.Printf("SendMessageToRandomPeers: msg=%s,%d, %s\n", eth.ToString[uint(msgcode)], msgcode, req.Data.Id)
 
 	if msgcode != eth.NewBlockMsg &&
 		msgcode != eth.NewBlockHashesMsg &&
@@ -760,9 +760,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 	// Send the block to a subset of our peers
 	sendToAmount := int(math.Sqrt(float64(amount)))
 
-	if msgcode != eth.NewPooledTransactionHashesMsg {
-		fmt.Printf("SendMessageToRandomPeers: sendToAmount=%d\n", sendToAmount)
-	}
+	fmt.Printf("SendMessageToRandomPeers: sendToAmount=%d\n", sendToAmount)
 
 	if msgcode != eth.NewPooledTransactionHashesMsg && bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
 		fmt.Printf("SendMessageToRandomPeers: sendToAmount=%d\n", sendToAmount)
@@ -785,9 +783,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 			innerErr = err
 			return false
 		}
-		if msgcode != eth.NewPooledTransactionHashesMsg {
-			fmt.Printf("SendMessageToRandomPeers: sent, v=%d\n", ss.Protocol.Version)
-		}
+		fmt.Printf("SendMessageToRandomPeers: sent, v=%d\n", ss.Protocol.Version)
 		if msgcode != eth.NewPooledTransactionHashesMsg && bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
 			fmt.Printf("SendMessageToRandomPeers: sent, v=%d\n", ss.Protocol.Version)
 		}
