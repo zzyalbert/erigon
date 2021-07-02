@@ -531,12 +531,8 @@ func (s *Ethereum) StartMining(ctx context.Context, kv ethdb.RwKV, mining *stage
 		})
 	}
 
-	if s.chainConfig.ChainID.Uint64() != params.MainnetChainConfig.ChainID.Uint64() {
-		tx, err := kv.BeginRo(context.Background())
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
+	//if s.chainConfig.ChainID.Uint64() != params.MainnetChainConfig.ChainID.Uint64() {
+	if err := kv.View(context.Background(), func(tx ethdb.Tx) error {
 		execution, _ := stages.GetStageProgress(tx, stages.Execution)
 		hh := rawdb.ReadCurrentHeader(tx)
 		tx.Rollback()
@@ -545,7 +541,11 @@ func (s *Ethereum) StartMining(ctx context.Context, kv ethdb.RwKV, mining *stage
 				return err
 			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
+	//}
 
 	go func() {
 		defer debug.LogPanic()

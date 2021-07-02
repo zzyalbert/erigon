@@ -346,6 +346,7 @@ func runPeer(
 			send(eth.ToProto[protocol][msg.Code], peerID, b)
 		case eth.NewPooledTransactionHashesMsg:
 			if !hasSubscribers(eth.ToProto[protocol][msg.Code]) {
+				fmt.Printf("dropped %s\n", eth.ToString[uint(msg.Code)])
 				continue
 			}
 
@@ -356,6 +357,7 @@ func runPeer(
 			send(eth.ToProto[protocol][msg.Code], peerID, b)
 		case eth.GetPooledTransactionsMsg:
 			if !hasSubscribers(eth.ToProto[protocol][msg.Code]) {
+				fmt.Printf("dropped %s\n", eth.ToString[uint(msg.Code)])
 				continue
 			}
 
@@ -366,6 +368,7 @@ func runPeer(
 			send(eth.ToProto[protocol][msg.Code], peerID, b)
 		case eth.TransactionsMsg:
 			if !hasSubscribers(eth.ToProto[protocol][msg.Code]) {
+				fmt.Printf("dropped %s\n", eth.ToString[uint(msg.Code)])
 				continue
 			}
 
@@ -376,6 +379,7 @@ func runPeer(
 			send(eth.ToProto[protocol][msg.Code], peerID, b)
 		case eth.PooledTransactionsMsg:
 			if !hasSubscribers(eth.ToProto[protocol][msg.Code]) {
+				fmt.Printf("dropped %s\n", eth.ToString[uint(msg.Code)])
 				continue
 			}
 
@@ -738,6 +742,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 		return &proto_sentry.SentPeers{}, fmt.Errorf("sendMessageToRandomPeers not implemented for message Id: %s", req.Data.Id)
 	}
 
+	fmt.Printf("SendMessageToRandomPeers: %s", req.Data.Id.String())
 	amount := uint64(0)
 	ss.Peers.Range(func(key, value interface{}) bool {
 		amount++
@@ -756,11 +761,13 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 		peerID := key.(string)
 		peerInfo, _ := value.(*PeerInfo)
 		if peerInfo == nil {
+			fmt.Printf("SendMessageToRandomPeers: whaaat????\n")
 			return true
 		}
 		if err := peerInfo.rw.WriteMsg(p2p.Msg{Code: msgcode, Size: uint32(len(req.Data.Data)), Payload: bytes.NewReader(req.Data.Data)}); err != nil {
 			peerInfo.Remove()
 			ss.Peers.Delete(peerID)
+			fmt.Printf("SendMessageToRandomPeers: send err: %s\n", err)
 			innerErr = err
 			return false
 		}
@@ -769,6 +776,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 		return sendToAmount <= i
 	})
 	if innerErr != nil {
+		fmt.Printf("SendMessageToRandomPeers: send1 err: %s\n", innerErr)
 		return reply, fmt.Errorf("sendMessageToRandomPeers to peer %w", innerErr)
 	}
 	return reply, nil
