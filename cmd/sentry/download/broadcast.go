@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	proto_sentry "github.com/ledgerwatch/erigon-lib/gointerfaces/sentry"
@@ -134,6 +135,7 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 			pending = append(pending, txs[i].Hash())
 		}
 		txs = txs[len(pending):]
+		fmt.Printf("BroadcastNewTxs: %x\n", pending)
 
 		data, err := rlp.EncodeToBytes(eth.NewPooledTransactionHashesPacket(pending))
 		if err != nil {
