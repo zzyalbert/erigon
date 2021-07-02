@@ -762,9 +762,9 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 
 	fmt.Printf("SendMessageToRandomPeers: sendToAmount=%d\n", sendToAmount)
 
-	if bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
-		fmt.Printf("SendMessageToRandomPeers: sendToAmount=%d\n", sendToAmount)
-	}
+	//if bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
+	//	fmt.Printf("SendMessageToRandomPeers: sendToAmount=%d\n", sendToAmount)
+	//}
 
 	i := 0
 	var innerErr error
@@ -784,14 +784,14 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 			innerErr = err
 			return true
 		}
-		fmt.Printf("SendMessageToRandomPeers: sent, v=%d\n", ss.Protocol.Version)
-		if bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
-			fmt.Printf("SendMessageToRandomPeers: sent, v=%d\n", ss.Protocol.Version)
-		}
+		//if bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
+		//	fmt.Printf("SendMessageToRandomPeers: sent, v=%d\n", ss.Protocol.Version)
+		//}
 
 		reply.Peers = append(reply.Peers, gointerfaces.ConvertBytesToH512([]byte(peerID)))
 		i++
-		return i <= sendToAmount
+		fmt.Printf("SendMessageToRandomPeers: sent, i=%d, v=%d\n", i, ss.Protocol.Version)
+		return i < sendToAmount
 	})
 	if innerErr != nil {
 		fmt.Printf("SendMessageToRandomPeers: send1 err: %s\n", innerErr)
@@ -818,7 +818,7 @@ func (ss *SentryServerImpl) SendMessageToAll(ctx context.Context, req *proto_sen
 			peerInfo.Remove()
 			ss.Peers.Delete(peerID)
 			innerErr = err
-			return false
+			return true
 		}
 		reply.Peers = append(reply.Peers, gointerfaces.ConvertBytesToH512([]byte(peerID)))
 		return true
