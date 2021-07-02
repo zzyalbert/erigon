@@ -1215,7 +1215,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []types.Transa
 		readies := list.Ready(pool.pendingNonces.get(addr))
 		for _, tx := range readies {
 			hash := tx.Hash()
-			fmt.Printf("promote1: %x\n", hash)
+			fmt.Printf("promote1: %x,%x\n", addr, hash)
 			if pool.promoteTx(addr, hash, tx) {
 				promoted = append(promoted, tx)
 			}
