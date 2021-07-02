@@ -127,7 +127,7 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 	for i := range txs {
-		if txs[i].Hash() == common.HexToHash("f2889b5545751d3f0a9aec1cf10f9739a9ff6d056c619e8d4aaddff9561a266a") {
+		if txs[i].Hash() == common.HexToHash("f21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4") {
 			fmt.Printf("Sssssssssss\n")
 		}
 	}
@@ -137,7 +137,7 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 		pending := make([]common.Hash, 0, pendingLen)
 
 		for i := 0; i < pendingLen && i < len(txs); i++ {
-			if txs[i].Hash() == common.HexToHash("f2889b5545751d3f0a9aec1cf10f9739a9ff6d056c619e8d4aaddff9561a266a") {
+			if txs[i].Hash() == common.HexToHash("f21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4") {
 				fmt.Printf("aaaaaaaa\n")
 			}
 			pending = append(pending, txs[i].Hash())
