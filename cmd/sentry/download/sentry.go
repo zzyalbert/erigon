@@ -782,7 +782,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 			ss.Peers.Delete(peerID)
 			fmt.Printf("SendMessageToRandomPeers: send err: %s\n", err)
 			innerErr = err
-			return false
+			return true
 		}
 		fmt.Printf("SendMessageToRandomPeers: sent, v=%d\n", ss.Protocol.Version)
 		if bytes.Contains(req.Data.Data, common.FromHex("0xf21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4")) {
@@ -791,7 +791,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 
 		reply.Peers = append(reply.Peers, gointerfaces.ConvertBytesToH512([]byte(peerID)))
 		i++
-		return sendToAmount <= i
+		return i <= sendToAmount
 	})
 	if innerErr != nil {
 		fmt.Printf("SendMessageToRandomPeers: send1 err: %s\n", innerErr)
