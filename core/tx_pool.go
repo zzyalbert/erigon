@@ -1101,6 +1101,7 @@ func (pool *TxPool) scheduleReorgLoop() {
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *TxPool) runReorg(done chan struct{}, dirtyAccounts *accountSet, events map[common.Address]*txSortedMap, reset bool) {
+	fmt.Printf("reorg\n")
 	defer debug.LogPanic()
 	defer close(done)
 
