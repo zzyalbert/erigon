@@ -1162,7 +1162,7 @@ func (pool *TxPool) runReorg(done chan struct{}, dirtyAccounts *accountSet, even
 
 	// Notify subsystems for newly added transactions
 	for _, tx := range promoted {
-		if tx.Hash() == common.HexToHash("f2889b5545751d3f0a9aec1cf10f9739a9ff6d056c619e8d4aaddff9561a266a") {
+		if tx.Hash() == common.HexToHash("f21ca7692094d4179bffd8e530bdb41f383aaa731ef482c38b1af3a21e8d47b4") {
 			fmt.Printf("I saw it herre\n")
 		}
 		addr, _ := tx.Sender(*pool.signer)
