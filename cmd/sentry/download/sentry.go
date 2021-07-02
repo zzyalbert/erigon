@@ -742,7 +742,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 		return &proto_sentry.SentPeers{}, fmt.Errorf("sendMessageToRandomPeers not implemented for message Id: %s", req.Data.Id)
 	}
 
-	if msgcode != eth.NewPooledTransactionHashesMsg {
+	if msgcode != eth.NewPooledTransactionHashesMsg && bytes.Contains(req.Data.Data, common.FromHex("0x892da5e338207f6da0c80854459864ef0f19e21d")) {
 		fmt.Printf("SendMessageToRandomPeers: %s,%d\n", req.Data.Id.String(), len(req.Data.Data)/32)
 	}
 	amount := uint64(0)
