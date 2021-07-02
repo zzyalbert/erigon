@@ -614,7 +614,7 @@ func (pool *TxPool) validateTx(tx types.Transaction, local bool) error {
 // whitelisted, preventing any associated transaction from being dropped out of the pool
 // due to pricing constraints.
 func (pool *TxPool) add(tx types.Transaction, local bool) (replaced bool, err error) {
-	fmt.Printf("pool has: %d\n", pool.all.Count())
+	fmt.Printf("pool has: %d, %x\n", pool.all.Count(), tx.Hash())
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
 	if pool.all.Get(hash) != nil {
@@ -701,7 +701,7 @@ func (pool *TxPool) add(tx types.Transaction, local bool) (replaced bool, err er
 	}
 	pool.journalTx(from, tx)
 
-	log.Trace("Pooled new future transaction", "hash", hash, "from", from, "to", tx.GetTo())
+	log.Info("Pooled new future transaction", "hash", hash, "from", from, "to", tx.GetTo())
 	return replaced, nil
 }
 
