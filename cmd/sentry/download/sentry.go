@@ -732,6 +732,8 @@ func (ss *SentryServerImpl) SendMessageById(_ context.Context, inreq *proto_sent
 
 func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *proto_sentry.SendMessageToRandomPeersRequest) (*proto_sentry.SentPeers, error) {
 	msgcode := eth.FromProto[ss.Protocol.Version][req.Data.Id]
+	fmt.Printf("SendMessageToRandomPeers: msg=%s\n", eth.ToString[uint(msgcode)])
+
 	if msgcode != eth.NewBlockMsg &&
 		msgcode != eth.NewBlockHashesMsg &&
 		msgcode != eth.NewPooledTransactionHashesMsg {
