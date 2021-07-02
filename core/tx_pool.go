@@ -1107,7 +1107,6 @@ func (pool *TxPool) scheduleReorgLoop() {
 
 // runReorg runs reset and promoteExecutables on behalf of scheduleReorgLoop.
 func (pool *TxPool) runReorg(done chan struct{}, dirtyAccounts *accountSet, events map[common.Address]*txSortedMap, reset bool) {
-	fmt.Printf("reorg\n")
 	defer debug.LogPanic()
 	defer close(done)
 
@@ -1118,6 +1117,8 @@ func (pool *TxPool) runReorg(done chan struct{}, dirtyAccounts *accountSet, even
 		// the flatten operation can be avoided.
 		promoteAddrs = dirtyAccounts.flatten()
 	}
+	fmt.Printf("reorg: %x\n", promoteAddrs)
+
 	pool.mu.Lock()
 	if reset {
 		// Nonces were reset, discard any events that became stale
@@ -1137,6 +1138,7 @@ func (pool *TxPool) runReorg(done chan struct{}, dirtyAccounts *accountSet, even
 			promoteAddrs = append(promoteAddrs, addr)
 		}
 	}
+	fmt.Printf("reorg2: %x\n", promoteAddrs)
 
 	// Check for pending transactions for every account that sent new ones
 	promoted := pool.promoteExecutables(promoteAddrs)
@@ -1202,6 +1204,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []types.Transa
 		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
 		for _, tx := range drops {
 			hash := tx.Hash()
+			fmt.Printf("drop1: %x\n", hash)
 			pool.all.Remove(hash)
 		}
 		log.Trace("Removed unpayable queued transactions", "count", len(drops))
