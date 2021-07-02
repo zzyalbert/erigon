@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -135,7 +136,9 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 		pending := make([]common.Hash, 0, pendingLen)
 
 		for i := 0; i < pendingLen && i < len(txs); i++ {
-			fmt.Printf("BroadcastNewTxs2: %x\n", txs[i].Hash())
+
+			j, _ := json.Marshal(txs[i])
+			fmt.Printf("BroadcastNewTxs2: %x, %s\n", txs[i].Hash(), j)
 			pending = append(pending, txs[i].Hash())
 		}
 		txs = txs[len(pending):]
