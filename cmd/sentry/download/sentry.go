@@ -346,7 +346,6 @@ func runPeer(
 			send(eth.ToProto[protocol][msg.Code], peerID, b)
 		case eth.NewPooledTransactionHashesMsg:
 			if !hasSubscribers(eth.ToProto[protocol][msg.Code]) {
-				fmt.Printf("dropped %s\n", eth.ToString[uint(msg.Code)])
 				continue
 			}
 
@@ -357,7 +356,6 @@ func runPeer(
 			send(eth.ToProto[protocol][msg.Code], peerID, b)
 		case eth.GetPooledTransactionsMsg:
 			if !hasSubscribers(eth.ToProto[protocol][msg.Code]) {
-				fmt.Printf("dropped %s\n", eth.ToString[uint(msg.Code)])
 				continue
 			}
 
@@ -368,7 +366,6 @@ func runPeer(
 			send(eth.ToProto[protocol][msg.Code], peerID, b)
 		case eth.TransactionsMsg:
 			if !hasSubscribers(eth.ToProto[protocol][msg.Code]) {
-				fmt.Printf("dropped %s\n", eth.ToString[uint(msg.Code)])
 				continue
 			}
 
@@ -379,7 +376,6 @@ func runPeer(
 			send(eth.ToProto[protocol][msg.Code], peerID, b)
 		case eth.PooledTransactionsMsg:
 			if !hasSubscribers(eth.ToProto[protocol][msg.Code]) {
-				fmt.Printf("dropped %s\n", eth.ToString[uint(msg.Code)])
 				continue
 			}
 
