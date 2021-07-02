@@ -801,6 +801,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx types.Tr
 // This method is used to add transactions from the RPC API and performs synchronous pool
 // reorganization and event propagation.
 func (pool *TxPool) AddLocals(txs []types.Transaction) []error {
+	fmt.Printf("pool.config.NoLocals: %t\n", pool.config.NoLocals)
 	return pool.addTxs(txs, !pool.config.NoLocals, true)
 }
 
