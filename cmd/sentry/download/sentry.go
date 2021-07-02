@@ -753,7 +753,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 		fmt.Printf("SendMessageToRandomPeers: peers=%d, MaxPeers=%d %s,%d\n", amount, req.MaxPeers, req.Data.Id.String(), len(req.Data.Data)/32)
 	}
 
-	if req.MaxPeers > amount {
+	if req.MaxPeers < amount {
 		amount = req.MaxPeers
 	}
 
@@ -770,6 +770,7 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 	var innerErr error
 	reply := &proto_sentry.SentPeers{Peers: []*proto_types.H512{}}
 	ss.Peers.Range(func(key, value interface{}) bool {
+		fmt.Printf("SendMessageToRandomPeers: peer i=%d\n", i)
 		peerID := key.(string)
 		peerInfo, _ := value.(*PeerInfo)
 		if peerInfo == nil {
