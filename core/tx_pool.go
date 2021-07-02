@@ -884,6 +884,9 @@ func (pool *TxPool) addTxs(txs []types.Transaction, local, sync bool) []error {
 		nilSlot++
 	}
 	// Reorg the pool internals if needed and return
+	if local {
+		fmt.Printf("dirtyAddrs: %x\n", dirtyAddrs)
+	}
 	done := pool.requestPromoteExecutables(dirtyAddrs)
 	if sync {
 		<-done
