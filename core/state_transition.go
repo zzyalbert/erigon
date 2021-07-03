@@ -19,7 +19,6 @@ package core
 import (
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/holiman/uint256"
 
@@ -180,7 +179,6 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // `gasBailout` is true when it is not required to fail transaction if the balance is not enough to pay gas.
 // for trace_call to replicate OE/Pariry behaviour
 func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool, refunds bool, gasBailout bool) (*ExecutionResult, error) {
-	defer func(t time.Time) { fmt.Printf("state_transition.go:183: %s\n", time.Since(t)) }(time.Now())
 	return NewStateTransition(evm, msg, gp).TransitionDb(refunds, gasBailout)
 }
 

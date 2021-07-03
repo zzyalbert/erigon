@@ -50,6 +50,7 @@ func ComputeTxEnv(ctx context.Context, block, parent *types.Block, cfg *params.C
 
 	BlockContext := core.NewEVMBlockContext(block.Header(), getHeader, engine, nil, checkTEVM)
 	vmenv := vm.NewEVM(BlockContext, vm.TxContext{}, statedb, cfg, vm.Config{})
+	fmt.Printf("amount: %d\n", block.Transactions().Len())
 	for idx, tx := range block.Transactions() {
 		select {
 		default:
