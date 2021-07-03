@@ -48,10 +48,11 @@ func FindAccount(c ethdb.CursorDupSort, blockNumber uint64, key []byte) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.HasPrefix(k[8:], key) {
+	_, k, v = DecodeAccounts(k, v)
+	if !bytes.HasPrefix(k, key) {
 		return nil, nil
 	}
-	return v[:common.AddressLength], nil
+	return v, nil
 }
 
 // GetModifiedAccounts returns a list of addresses that were modified in the block range
