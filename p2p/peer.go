@@ -329,6 +329,7 @@ func (p *Peer) handle(msg Msg) error {
 	default:
 		// it's a subprotocol message
 		proto, err := p.getProto(msg.Code)
+		fmt.Printf("proto2: err %v,%s\n", proto, err)
 		if err != nil {
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
