@@ -46,6 +46,7 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
 		fmt.Printf("getHeader!!!! %d\n", number)
+		panic(1)
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)
