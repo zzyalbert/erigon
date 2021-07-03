@@ -56,7 +56,7 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 		if hash == block.Hash() {
 			return block.Header()
 		}
-		fmt.Printf("read header! %d, %x, %x, %x\n", number, hash, blockHash, block.Hash())
+		fmt.Printf("read header! %d,%d, %x, %x, %x\n", number, block.NumberU64(), hash, blockHash, block.Hash())
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 
