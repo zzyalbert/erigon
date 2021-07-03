@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/c2h5oh/datasize"
 	"github.com/holiman/uint256"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/ledgerwatch/erigon/common"
@@ -19,6 +20,7 @@ import (
 	"github.com/ledgerwatch/erigon/eth/tracers"
 	"github.com/ledgerwatch/erigon/ethdb"
 	"github.com/ledgerwatch/erigon/params"
+	"github.com/ledgerwatch/erigon/turbo/shards"
 )
 
 const (
@@ -36,10 +38,10 @@ type BlockGetter interface {
 }
 
 // computeTxEnv returns the execution environment of a certain transaction.
-func ComputeTxEnv(ctx context.Context, block *types.Block, cfg *params.ChainConfig, getHeader func(hash common.Hash, number uint64) *types.Header, checkTEVM func(common.Hash) (bool, error), engine consensus.Engine, dbtx ethdb.Tx, blockHash common.Hash, txIndex uint64) (core.Message, vm.BlockContext, vm.TxContext, *state.IntraBlockState, *state.PlainKVState, error) {
+func ComputeTxEnv(ctx context.Context, block *types.Block, cfg *params.ChainConfig, getHeader func(hash common.Hash, number uint64) *types.Header, checkTEVM func(common.Hash) (bool, error), engine consensus.Engine, dbtx ethdb.Tx, blockHash common.Hash, txIndex uint64) (core.Message, vm.BlockContext, vm.TxContext, *state.IntraBlockState, state.StateReader, error) {
 	defer func(t time.Time) { fmt.Printf("tracing2.go:40: %s\n", time.Since(t)) }(time.Now())
 	// Create the parent state database
-	reader := state.NewPlainKvState(dbtx, block.NumberU64()-1)
+	reader := state.NewCachedReader(state.NewPlainKvState(dbtx, block.NumberU64()-1), shards.NewStateCache(32, datasize.MB))
 	statedb := state.New(reader)
 
 	if txIndex == 0 && len(block.Transactions()) == 0 {
