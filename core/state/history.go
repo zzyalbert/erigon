@@ -18,7 +18,7 @@ var a = 0
 
 func GetAsOf(tx ethdb.Tx, storage bool, key []byte, timestamp uint64) ([]byte, error) {
 	a++
-	fmt.Printf("a: %d\n")
+	fmt.Printf("a: %d\n", a)
 	v, err := FindByHistory(tx, storage, key, timestamp)
 	if err == nil {
 		return v, nil
