@@ -257,9 +257,11 @@ loop:
 			}
 			break loop
 		case err = <-p.protoErr:
+			fmt.Printf("disk1: err %s\n", err)
 			reason = discReasonForError(err)
 			break loop
 		case err = <-p.disc:
+			fmt.Printf("disk2: err %s\n", err)
 			reason = discReasonForError(err)
 			break loop
 		}
@@ -296,11 +298,13 @@ func (p *Peer) readLoop(errc chan<- error) {
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
+			fmt.Printf("read1: err %s\n", err)
 			errc <- err
 			return
 		}
 		msg.ReceivedAt = time.Now()
 		if err = p.handle(msg); err != nil {
+			fmt.Printf("read2: err %s\n", err)
 			errc <- err
 			return
 		}
