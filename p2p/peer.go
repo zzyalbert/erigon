@@ -257,11 +257,9 @@ loop:
 			}
 			break loop
 		case err = <-p.protoErr:
-			fmt.Printf("disk1: err %s\n", err)
 			reason = discReasonForError(err)
 			break loop
 		case err = <-p.disc:
-			fmt.Printf("disk2: err %s\n", err)
 			reason = discReasonForError(err)
 			break loop
 		}
