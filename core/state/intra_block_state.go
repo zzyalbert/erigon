@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/holiman/uint256"
 	"github.com/ledgerwatch/erigon/common"
@@ -735,6 +736,7 @@ func updateAccount(ctx context.Context, stateWriter StateWriter, addr common.Add
 
 // FinalizeTx should be called after every transaction.
 func (sdb *IntraBlockState) FinalizeTx(ctx context.Context, stateWriter StateWriter) error {
+	defer func(t time.Time) { fmt.Printf("intra_block_state.go:739: %s\n", time.Since(t)) }(time.Now())
 	for addr := range sdb.journal.dirties {
 		stateObject, exist := sdb.stateObjects[addr]
 		if !exist {
