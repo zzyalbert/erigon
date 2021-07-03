@@ -57,14 +57,27 @@ func (api *PrivateDebugAPIImpl) StorageRangeAt(ctx context.Context, blockHash co
 	}
 	defer tx.Rollback()
 
-	bc := adapter.NewBlockGetter(tx)
 	chainConfig, err := api.chainConfig(tx)
 	if err != nil {
 		return StorageRangeResult{}, err
 	}
-	getHeader := func(hash common.Hash, number uint64) *types.Header { return rawdb.ReadHeader(tx, hash, number) }
+
+	bc := adapter.NewBlockGetter(tx)
+	block, err := bc.GetBlockByHash(blockHash)
+	if err != nil {
+		return StorageRangeResult{}, err
+	}
+	if block == nil {
+		return StorageRangeResult{}, nil
+	}
+	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		if hash == block.Hash() {
+			return block.Header()
+		}
+		return rawdb.ReadHeader(tx, hash, number)
+	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)
-	_, _, _, _, stateReader, err := transactions.ComputeTxEnv(ctx, bc, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
+	_, _, _, _, stateReader, err := transactions.ComputeTxEnv(ctx, block, bc, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
 	if err != nil {
 		return StorageRangeResult{}, err
 	}
@@ -211,16 +224,27 @@ func (api *PrivateDebugAPIImpl) AccountAt(ctx context.Context, blockHash common.
 	}
 	defer tx.Rollback()
 
-	bc := adapter.NewBlockGetter(tx)
 	chainConfig, err := api.chainConfig(tx)
 	if err != nil {
 		return nil, err
 	}
+
+	bc := adapter.NewBlockGetter(tx)
+	block, err := bc.GetBlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+	if block == nil {
+		return nil, nil
+	}
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		if hash == block.Hash() {
+			return block.Header()
+		}
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)
-	_, _, _, ibs, _, err := transactions.ComputeTxEnv(ctx, bc, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
+	_, _, _, ibs, _, err := transactions.ComputeTxEnv(ctx, block, bc, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
 	if err != nil {
 		return nil, err
 	}

@@ -44,13 +44,23 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 		return err
 	}
 
+	bc := adapter.NewBlockGetter(tx)
+	block, err := bc.GetBlockByHash(blockHash)
+	if err != nil {
+		return err
+	}
+	if block == nil {
+		return nil
+	}
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
-		fmt.Printf("getHeader!!!! %d\n", number)
-		panic(1)
+		if hash == block.Hash() {
+			return block.Header()
+		}
 		return rawdb.ReadHeader(tx, hash, number)
 	}
+
 	checkTEVM := ethdb.GetCheckTEVM(tx)
-	msg, blockCtx, txCtx, ibs, _, err := transactions.ComputeTxEnv(ctx, getter, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
+	msg, blockCtx, txCtx, ibs, _, err := transactions.ComputeTxEnv(ctx, block, getter, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
 	if err != nil {
 		stream.WriteNil()
 		return err
