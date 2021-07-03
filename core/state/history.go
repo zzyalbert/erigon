@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/RoaringBitmap/roaring/roaring64"
 	"github.com/ledgerwatch/erigon/common"
@@ -39,6 +40,7 @@ func GetAsOf(tx ethdb.Tx, storage bool, key []byte, timestamp uint64) ([]byte, e
 }
 
 func FindByHistory(tx ethdb.Tx, storage bool, key []byte, timestamp uint64) ([]byte, error) {
+	defer func(t time.Time) { fmt.Printf("history.go:43: %s\n", time.Since(t)) }(time.Now())
 	var csBucket string
 	if storage {
 		csBucket = dbutils.StorageChangeSetBucket
