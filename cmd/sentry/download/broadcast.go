@@ -139,7 +139,7 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 		if err != nil {
 			log.Error("broadcastNewBlock", "error", err)
 		}
-		var req66, req65 *proto_sentry.SendMessageToRandomPeersRequest
+		var req66, req65 *proto_sentry.OutboundMessageData
 		for _, sentry := range cs.sentries {
 			if !sentry.Ready() {
 				continue
@@ -148,30 +148,24 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 			switch sentry.Protocol() {
 			case eth.ETH65:
 				if req65 == nil {
-					req65 = &proto_sentry.SendMessageToRandomPeersRequest{
-						MaxPeers: 1024,
-						Data: &proto_sentry.OutboundMessageData{
-							Id:   proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_65,
-							Data: data,
-						},
+					req65 = &proto_sentry.OutboundMessageData{
+						Id:   proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_65,
+						Data: data,
 					}
 				}
 
-				if _, err = sentry.SendMessageToRandomPeers(ctx, req65, &grpc.EmptyCallOption{}); err != nil {
+				if _, err = sentry.SendMessageToAll(ctx, req65, &grpc.EmptyCallOption{}); err != nil {
 					log.Error("broadcastNewBlock", "error", err)
 				}
 
 			case eth.ETH66:
 				if req66 == nil {
-					req66 = &proto_sentry.SendMessageToRandomPeersRequest{
-						MaxPeers: 1024,
-						Data: &proto_sentry.OutboundMessageData{
-							Id:   proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_66,
-							Data: data,
-						},
+					req66 = &proto_sentry.OutboundMessageData{
+						Id:   proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_66,
+						Data: data,
 					}
 				}
-				if _, err = sentry.SendMessageToRandomPeers(ctx, req66, &grpc.EmptyCallOption{}); err != nil {
+				if _, err = sentry.SendMessageToAll(ctx, req66, &grpc.EmptyCallOption{}); err != nil {
 					log.Error("broadcastNewBlock", "error", err)
 				}
 				continue
