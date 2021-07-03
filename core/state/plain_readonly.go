@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/holiman/uint256"
 	"github.com/ledgerwatch/erigon/common"
@@ -399,7 +400,11 @@ func (s *PlainKVState) ForEachStorage(addr common.Address, startLocation common.
 	return innerErr
 }
 
+var a = 0
+
 func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Account, error) {
+	a++
+	fmt.Printf("ReadAccountData: %d\n", a)
 	enc, err := GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+1)
 	if err != nil {
 		return nil, err
@@ -424,7 +429,11 @@ func (s *PlainKVState) ReadAccountData(address common.Address) (*accounts.Accoun
 	return &a, nil
 }
 
+var b = 0
+
 func (s *PlainKVState) ReadAccountStorage(address common.Address, incarnation uint64, key *common.Hash) ([]byte, error) {
+	b++
+	fmt.Printf("ReadAccountStorage: %d\n", b)
 	compositeKey := dbutils.PlainGenerateCompositeStorageKey(address.Bytes(), incarnation, key.Bytes())
 	enc, err := GetAsOf(s.tx, true /* storage */, compositeKey, s.blockNr+1)
 	if err != nil {
@@ -436,7 +445,11 @@ func (s *PlainKVState) ReadAccountStorage(address common.Address, incarnation ui
 	return enc, nil
 }
 
+var c = 0
+
 func (s *PlainKVState) ReadAccountCode(address common.Address, incarnation uint64, codeHash common.Hash) ([]byte, error) {
+	c++
+	fmt.Printf("ReadAccountCode: %d\n", c)
 	if bytes.Equal(codeHash[:], emptyCodeHash) {
 		return nil, nil
 	}
@@ -452,7 +465,12 @@ func (s *PlainKVState) ReadAccountCodeSize(address common.Address, incarnation u
 	return len(code), err
 }
 
+var d = 0
+
 func (s *PlainKVState) ReadAccountIncarnation(address common.Address) (uint64, error) {
+	d++
+	fmt.Printf("ReadAccountIncarnation: %d\n", d)
+
 	enc, err := GetAsOf(s.tx, false /* storage */, address[:], s.blockNr+2)
 	if err != nil {
 		return 0, err
