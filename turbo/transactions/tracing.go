@@ -37,6 +37,7 @@ type BlockGetter interface {
 
 // computeTxEnv returns the execution environment of a certain transaction.
 func ComputeTxEnv(ctx context.Context, block *types.Block, blockGetter BlockGetter, cfg *params.ChainConfig, getHeader func(hash common.Hash, number uint64) *types.Header, checkTEVM func(common.Hash) (bool, error), engine consensus.Engine, dbtx ethdb.Tx, blockHash common.Hash, txIndex uint64) (core.Message, vm.BlockContext, vm.TxContext, *state.IntraBlockState, *state.PlainKVState, error) {
+	defer func(t time.Time) { fmt.Printf("tracing2.go:40: %s\n", time.Since(t)) }(time.Now())
 	// Create the parent state database
 	parent := blockGetter.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
