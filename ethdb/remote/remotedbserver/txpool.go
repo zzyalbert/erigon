@@ -24,6 +24,7 @@ type txPool interface {
 	IsStarted() bool
 	Get(hash common.Hash) types.Transaction
 	AddLocals(txs []types.Transaction) []error
+	AddRemotes(txs []types.Transaction) []error
 	Content() (map[common.Address]types.Transactions, map[common.Address]types.Transactions)
 	SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription
 }
@@ -108,7 +109,7 @@ func (s *TxPoolServer) Add(ctx context.Context, in *proto_txpool.AddRequest) (*p
 	if err != nil {
 		return nil, err
 	}
-	errs := s.txPool.AddLocals(txs)
+	errs := s.txPool.AddRemotes(txs)
 	for i, err := range errs {
 		if err == nil {
 			continue
