@@ -42,12 +42,18 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 		return err
 	}
 
-	block := rawdb.ReadBlock(tx, blockHash, blockNumber)
+	block, _, err := rawdb.ReadBlockWithSenders(tx, blockHash, blockNumber)
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
 	if block == nil {
+		stream.WriteNil()
 		return nil
 	}
 	parent := rawdb.ReadBlock(tx, block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
+		stream.WriteNil()
 		return fmt.Errorf("parent %x not found", block.ParentHash())
 	}
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
