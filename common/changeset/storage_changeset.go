@@ -61,6 +61,7 @@ func DecodeStorage(dbKey, dbValue []byte) (uint64, []byte, []byte) {
 type StorageChangeSet struct{ c ethdb.CursorDupSort }
 
 func (b StorageChangeSet) Find(blockNumber uint64, k []byte) ([]byte, error) {
+	panic(1)
 	return findWithoutIncarnationInStorageChangeSet2(b.c, blockNumber, common.AddressLength, k[:common.AddressLength], k[common.AddressLength:])
 }
 
@@ -95,6 +96,7 @@ func doSearch2(
 ) ([]byte, error) {
 	keyPrefixLen := common.AddressLength
 	if incarnation == 0 {
+		panic(2)
 		seek := make([]byte, 8+keyPrefixLen)
 		binary.BigEndian.PutUint64(seek, blockNumber)
 		copy(seek[8:], addrBytesToFind)
