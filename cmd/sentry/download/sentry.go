@@ -758,7 +758,8 @@ func (ss *SentryServerImpl) SendMessageToRandomPeers(ctx context.Context, req *p
 	}
 
 	// Send the block to a subset of our peers
-	sendToAmount := int(math.Sqrt(float64(amount)))
+	//sendToAmount := int(math.Sqrt(float64(amount)))
+	sendToAmount := amount
 
 	fmt.Printf("SendMessageToRandomPeers: sendToAmount=%d\n", sendToAmount)
 
