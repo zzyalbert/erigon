@@ -58,14 +58,12 @@ func DecodeStorage(dbKey, dbValue []byte) (uint64, []byte, []byte) {
 	return blockN, k, v
 }
 
-type StorageChangeSet struct{ c ethdb.CursorDupSort }
-
-func (b StorageChangeSet) Find(blockNumber uint64, k []byte) ([]byte, error) {
+func FindStorage(c ethdb.CursorDupSort, blockNumber uint64, k []byte) ([]byte, error) {
 	addWithInc, loc := k[:common.AddressLength+common.IncarnationLength], k[common.AddressLength+common.IncarnationLength:]
 	seek := make([]byte, common.BlockNumberLength+common.AddressLength+common.IncarnationLength)
 	binary.BigEndian.PutUint64(seek, blockNumber)
 	copy(seek[8:], addWithInc)
-	v, err := b.c.SeekBothRange(seek, loc)
+	v, err := c.SeekBothRange(seek, loc)
 	if err != nil {
 		return nil, err
 	}

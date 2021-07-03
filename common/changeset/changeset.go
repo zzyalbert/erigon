@@ -174,6 +174,7 @@ func Truncate(tx ethdb.RwTx, from uint64) error {
 var Mapper = map[string]struct {
 	IndexBucket   string
 	IndexChunkKey func([]byte, uint64) []byte
+	Find          func(cursor ethdb.CursorDupSort, blockNumber uint64, key []byte) ([]byte, error)
 	WalkerAdapter func(cursor ethdb.CursorDupSort) Walker
 	New           func() *ChangeSet
 	Encode        Encoder
@@ -182,21 +183,17 @@ var Mapper = map[string]struct {
 	dbutils.AccountChangeSetBucket: {
 		IndexBucket:   dbutils.AccountsHistoryBucket,
 		IndexChunkKey: dbutils.AccountIndexChunkKey,
-		WalkerAdapter: func(c ethdb.CursorDupSort) Walker {
-			return AccountChangeSet{c: c}
-		},
-		New:    NewAccountChangeSet,
-		Encode: EncodeAccounts,
-		Decode: DecodeAccounts,
+		New:           NewAccountChangeSet,
+		Find:          FindAccount,
+		Encode:        EncodeAccounts,
+		Decode:        DecodeAccounts,
 	},
 	dbutils.StorageChangeSetBucket: {
 		IndexBucket:   dbutils.StorageHistoryBucket,
 		IndexChunkKey: dbutils.StorageIndexChunkKey,
-		WalkerAdapter: func(c ethdb.CursorDupSort) Walker {
-			return StorageChangeSet{c: c}
-		},
-		New:    NewStorageChangeSet,
-		Encode: EncodeStorage,
-		Decode: DecodeStorage,
+		Find:          FindStorage,
+		New:           NewStorageChangeSet,
+		Encode:        EncodeStorage,
+		Decode:        DecodeStorage,
 	},
 }
