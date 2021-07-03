@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"time"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/ledgerwatch/erigon/common"
@@ -21,6 +22,7 @@ import (
 
 // TraceTransaction implements debug_traceTransaction. Returns Geth style transaction traces.
 func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash common.Hash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
+	defer func(t time.Time) { fmt.Printf("tracing.go:25: %s\n", time.Since(t)) }(time.Now())
 	tx, err := api.db.BeginRo(ctx)
 	if err != nil {
 		stream.WriteNil()
