@@ -298,13 +298,11 @@ func (p *Peer) readLoop(errc chan<- error) {
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
-			fmt.Printf("read1: err %s\n", err)
 			errc <- err
 			return
 		}
 		msg.ReceivedAt = time.Now()
 		if err = p.handle(msg); err != nil {
-			fmt.Printf("read2: err %s\n", err)
 			errc <- err
 			return
 		}
@@ -321,8 +319,7 @@ func (p *Peer) handle(msg Msg) error {
 		// This is the last message. We don't need to discard or
 		// check errors because, the connection will be closed after it.
 		_ = rlp.Decode(msg.Payload, &reason)
-		fmt.Printf("proto1: err %s,%s\n", reason, msg)
-		return fmt.Errorf("peer has: %w\n", reason[0])
+		return fmt.Errorf("peer has: %w", reason[0])
 	case msg.Code < baseProtocolLength:
 		// ignore other base protocol messages
 		msg.Discard()
@@ -330,7 +327,6 @@ func (p *Peer) handle(msg Msg) error {
 	default:
 		// it's a subprotocol message
 		proto, err := p.getProto(msg.Code)
-		fmt.Printf("proto2: err %v,%s\n", proto, err)
 		if err != nil {
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
