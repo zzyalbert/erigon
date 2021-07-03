@@ -10,7 +10,6 @@ import (
 	"github.com/ledgerwatch/erigon/common"
 	"github.com/ledgerwatch/erigon/common/changeset"
 	"github.com/ledgerwatch/erigon/common/dbutils"
-	"github.com/ledgerwatch/erigon/core/types/accounts"
 	"github.com/ledgerwatch/erigon/ethdb"
 	"github.com/ledgerwatch/erigon/ethdb/bitmapdb"
 )
@@ -84,28 +83,6 @@ func FindByHistory(tx ethdb.Tx, storage bool, key []byte, timestamp uint64) ([]b
 		}
 	} else {
 		return nil, ethdb.ErrKeyNotFound
-	}
-
-	//restore codehash
-	if !storage {
-		var acc accounts.Account
-		if err := acc.DecodeForStorage(data); err != nil {
-			return nil, err
-		}
-		if acc.Incarnation > 0 && acc.IsEmptyCodeHash() {
-			var codeHash []byte
-			var err error
-			codeHash, err = tx.GetOne(dbutils.PlainContractCodeBucket, dbutils.PlainGenerateStoragePrefix(key, acc.Incarnation))
-			if err != nil {
-				return nil, err
-			}
-			if len(codeHash) > 0 {
-				acc.CodeHash = common.BytesToHash(codeHash)
-			}
-			data = make([]byte, acc.EncodingLengthForStorage())
-			acc.EncodeForStorage(data)
-		}
-		return data, nil
 	}
 
 	return data, nil
