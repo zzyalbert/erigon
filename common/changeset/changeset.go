@@ -11,10 +11,6 @@ import (
 	"github.com/ledgerwatch/erigon/ethdb"
 )
 
-type Walker interface {
-	Find(blockNumber uint64, k []byte) ([]byte, error)
-}
-
 func NewChangeSet() *ChangeSet {
 	return &ChangeSet{
 		Changes: make([]Change, 0),
@@ -175,7 +171,6 @@ var Mapper = map[string]struct {
 	IndexBucket   string
 	IndexChunkKey func([]byte, uint64) []byte
 	Find          func(cursor ethdb.CursorDupSort, blockNumber uint64, key []byte) ([]byte, error)
-	WalkerAdapter func(cursor ethdb.CursorDupSort) Walker
 	New           func() *ChangeSet
 	Encode        Encoder
 	Decode        Decoder
