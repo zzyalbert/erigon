@@ -33,7 +33,12 @@ func getReceipts(ctx context.Context, tx ethdb.Tx, chainConfig *params.ChainConf
 		return cached, nil
 	}
 
+	headers := make(map[common.Hash]*types.Header)
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		h, ok := headers[hash]
+		if ok {
+			return h
+		}
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)

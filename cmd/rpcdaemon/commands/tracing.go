@@ -47,7 +47,12 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 	if block == nil {
 		return nil
 	}
+	headers := make(map[common.Hash]*types.Header)
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		h, ok := headers[hash]
+		if ok {
+			return h
+		}
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)

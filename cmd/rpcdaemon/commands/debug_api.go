@@ -68,7 +68,12 @@ func (api *PrivateDebugAPIImpl) StorageRangeAt(ctx context.Context, blockHash co
 	if block == nil {
 		return StorageRangeResult{}, nil
 	}
+	headers := make(map[common.Hash]*types.Header)
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		h, ok := headers[hash]
+		if ok {
+			return h
+		}
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)
@@ -231,7 +236,12 @@ func (api *PrivateDebugAPIImpl) AccountAt(ctx context.Context, blockHash common.
 	if block == nil {
 		return nil, nil
 	}
+	headers := make(map[common.Hash]*types.Header)
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		h, ok := headers[hash]
+		if ok {
+			return h
+		}
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)
