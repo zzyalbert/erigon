@@ -48,6 +48,8 @@ func ComputeTxEnv(ctx context.Context, block, parent *types.Block, cfg *params.C
 	// Recompute transactions up to the target index.
 	signer := types.MakeSigner(cfg, block.NumberU64())
 
+	BlockContext := core.NewEVMBlockContext(block.Header(), getHeader, engine, nil, checkTEVM)
+	vmenv := vm.NewEVM(BlockContext, vm.TxContext{}, statedb, cfg, vm.Config{})
 	for idx, tx := range block.Transactions() {
 		select {
 		default:
@@ -58,13 +60,12 @@ func ComputeTxEnv(ctx context.Context, block, parent *types.Block, cfg *params.C
 
 		// Assemble the transaction call message and return if the requested offset
 		msg, _ := tx.AsMessage(*signer, block.Header().BaseFee)
-		BlockContext := core.NewEVMBlockContext(block.Header(), getHeader, engine, nil, checkTEVM)
 		TxContext := core.NewEVMTxContext(msg)
 		if idx == int(txIndex) {
 			return msg, BlockContext, TxContext, statedb, reader, nil
 		}
+		vmenv.Reset(TxContext, statedb)
 		// Not yet the searched for transaction, execute on top of the current state
-		vmenv := vm.NewEVM(BlockContext, TxContext, statedb, cfg, vm.Config{})
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.GetGas()), true /* refunds */, false /* gasBailout */); err != nil {
 			return nil, vm.BlockContext{}, vm.TxContext{}, nil, nil, fmt.Errorf("transaction %x failed: %v", tx.Hash(), err)
 		}
