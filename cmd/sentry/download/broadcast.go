@@ -2,7 +2,6 @@ package download
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -136,8 +135,6 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 		pending := make([]common.Hash, 0, pendingLen)
 
 		for i := 0; i < pendingLen && i < len(txs); i++ {
-			j, _ := json.Marshal(txs[i])
-			fmt.Printf("BroadcastNewTxs2: %x, %s\n", txs[i].Hash(), j)
 			pending = append(pending, txs[i].Hash())
 		}
 		txs = txs[len(pending):]
@@ -147,7 +144,7 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 			log.Error("BroadcastNewTxs", "error", err)
 			return
 		}
-		var req66, req65 *proto_sentry.OutboundMessageData
+		var req66, req65 *proto_sentry.SendMessageToRandomPeersRequest
 		for _, sentry := range cs.sentries {
 			if !sentry.Ready() {
 				continue
@@ -156,13 +153,16 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 			switch sentry.Protocol() {
 			case eth.ETH65:
 				if req65 == nil {
-					req65 = &proto_sentry.OutboundMessageData{
-						Id:   proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_65,
-						Data: data,
+					req65 = &proto_sentry.SendMessageToRandomPeersRequest{
+						MaxPeers: 1024,
+						Data: &proto_sentry.OutboundMessageData{
+							Id:   proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_65,
+							Data: data,
+						},
 					}
 				}
 
-				peers, err := sentry.SendMessageToAll(ctx, req65, &grpc.EmptyCallOption{})
+				peers, err := sentry.SendMessageToRandomPeers(ctx, req65, &grpc.EmptyCallOption{})
 				if err != nil {
 					log.Error("BroadcastNewTxs", "error", err)
 				}
@@ -170,12 +170,15 @@ func (cs *ControlServerImpl) BroadcastNewTxs(ctx context.Context, txs []types.Tr
 
 			case eth.ETH66:
 				if req66 == nil {
-					req66 = &proto_sentry.OutboundMessageData{
-						Id:   proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_66,
-						Data: data,
+					req66 = &proto_sentry.SendMessageToRandomPeersRequest{
+						MaxPeers: 1024,
+						Data: &proto_sentry.OutboundMessageData{
+							Id:   proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_66,
+							Data: data,
+						},
 					}
 				}
-				peers, err := sentry.SendMessageToAll(ctx, req66, &grpc.EmptyCallOption{})
+				peers, err := sentry.SendMessageToRandomPeers(ctx, req66, &grpc.EmptyCallOption{})
 				if err != nil {
 					log.Error("BroadcastNewTxs", "error", err)
 				}
