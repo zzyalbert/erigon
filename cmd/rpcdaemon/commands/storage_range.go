@@ -23,11 +23,11 @@ type StorageEntry struct {
 	Value common.Hash  `json:"value"`
 }
 
-func StorageRangeAt(stateReader *state.PlainKVState, contractAddress common.Address, start []byte, maxResult int) (StorageRangeResult, error) {
+func StorageRangeAt(stateReader state.StateReader, contractAddress common.Address, start []byte, maxResult int) (StorageRangeResult, error) {
 	result := StorageRangeResult{Storage: StorageMap{}}
 	resultCount := 0
 
-	if err := stateReader.ForEachStorage(contractAddress, common.BytesToHash(start), func(key, seckey common.Hash, value uint256.Int) bool {
+	if err := stateReader.(*state.PlainKVState).ForEachStorage(contractAddress, common.BytesToHash(start), func(key, seckey common.Hash, value uint256.Int) bool {
 		if resultCount < maxResult {
 			result.Storage[seckey] = StorageEntry{Key: &key, Value: value.Bytes32()}
 		} else {
