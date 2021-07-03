@@ -15,7 +15,6 @@ import (
 	"github.com/ledgerwatch/erigon/ethdb"
 	"github.com/ledgerwatch/erigon/internal/ethapi"
 	"github.com/ledgerwatch/erigon/rpc"
-	"github.com/ledgerwatch/erigon/turbo/adapter"
 	"github.com/ledgerwatch/erigon/turbo/rpchelper"
 	"github.com/ledgerwatch/erigon/turbo/transactions"
 )
@@ -31,12 +30,11 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 	defer tx.Rollback()
 
 	// Retrieve the transaction and assemble its EVM context
-	txn, blockHash, _, txIndex := rawdb.ReadTransaction(tx, hash)
+	txn, blockHash, blockNumber, txIndex := rawdb.ReadTransaction(tx, hash)
 	if txn == nil {
 		stream.WriteNil()
 		return fmt.Errorf("transaction %#x not found", hash)
 	}
-	getter := adapter.NewBlockGetter(tx)
 
 	chainConfig, err := api.chainConfig(tx)
 	if err != nil {
@@ -44,24 +42,27 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 		return err
 	}
 
-	bc := adapter.NewBlockGetter(tx)
-	block, err := bc.GetBlockByHash(blockHash)
-	if err != nil {
-		return err
-	}
+	block := rawdb.ReadBlock(tx, blockHash, blockNumber)
 	if block == nil {
 		return nil
 	}
+	parent := rawdb.ReadBlock(tx, block.ParentHash(), block.NumberU64()-1)
+	if parent == nil {
+		return fmt.Errorf("parent %x not found", block.ParentHash())
+	}
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		if hash == parent.Hash() {
+			return parent.Header()
+		}
 		if hash == block.Hash() {
 			return block.Header()
 		}
-		fmt.Printf("read header! %d,%d, %x, %x, %x\n", number, block.NumberU64(), hash, blockHash, block.Hash())
+
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 
 	checkTEVM := ethdb.GetCheckTEVM(tx)
-	msg, blockCtx, txCtx, ibs, _, err := transactions.ComputeTxEnv(ctx, block, getter, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
+	msg, blockCtx, txCtx, ibs, _, err := transactions.ComputeTxEnv(ctx, block, parent, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
 	if err != nil {
 		stream.WriteNil()
 		return err

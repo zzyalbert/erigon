@@ -18,7 +18,6 @@ import (
 	"github.com/ledgerwatch/erigon/ethdb"
 	"github.com/ledgerwatch/erigon/internal/ethapi"
 	"github.com/ledgerwatch/erigon/rpc"
-	"github.com/ledgerwatch/erigon/turbo/adapter"
 	"github.com/ledgerwatch/erigon/turbo/transactions"
 )
 
@@ -62,22 +61,29 @@ func (api *PrivateDebugAPIImpl) StorageRangeAt(ctx context.Context, blockHash co
 		return StorageRangeResult{}, err
 	}
 
-	bc := adapter.NewBlockGetter(tx)
-	block, err := bc.GetBlockByHash(blockHash)
+	block, err := rawdb.ReadBlockByHash(tx, blockHash)
 	if err != nil {
 		return StorageRangeResult{}, err
 	}
 	if block == nil {
 		return StorageRangeResult{}, nil
 	}
+	parent := rawdb.ReadBlock(tx, block.ParentHash(), block.NumberU64()-1)
+	if parent == nil {
+		return StorageRangeResult{}, fmt.Errorf("parent %x not found", block.ParentHash())
+	}
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		if hash == parent.Hash() {
+			return parent.Header()
+		}
 		if hash == block.Hash() {
 			return block.Header()
 		}
+
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)
-	_, _, _, _, stateReader, err := transactions.ComputeTxEnv(ctx, block, bc, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
+	_, _, _, _, stateReader, err := transactions.ComputeTxEnv(ctx, block, parent, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
 	if err != nil {
 		return StorageRangeResult{}, err
 	}
@@ -229,22 +235,29 @@ func (api *PrivateDebugAPIImpl) AccountAt(ctx context.Context, blockHash common.
 		return nil, err
 	}
 
-	bc := adapter.NewBlockGetter(tx)
-	block, err := bc.GetBlockByHash(blockHash)
+	block, err := rawdb.ReadBlockByHash(tx, blockHash)
 	if err != nil {
 		return nil, err
 	}
 	if block == nil {
 		return nil, nil
 	}
+	parent := rawdb.ReadBlock(tx, block.ParentHash(), block.NumberU64()-1)
+	if parent == nil {
+		return nil, fmt.Errorf("parent %x not found", block.ParentHash())
+	}
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		if hash == parent.Hash() {
+			return parent.Header()
+		}
 		if hash == block.Hash() {
 			return block.Header()
 		}
+
 		return rawdb.ReadHeader(tx, hash, number)
 	}
 	checkTEVM := ethdb.GetCheckTEVM(tx)
-	_, _, _, ibs, _, err := transactions.ComputeTxEnv(ctx, block, bc, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
+	_, _, _, ibs, _, err := transactions.ComputeTxEnv(ctx, block, parent, chainConfig, getHeader, checkTEVM, ethash.NewFaker(), tx, blockHash, txIndex)
 	if err != nil {
 		return nil, err
 	}
