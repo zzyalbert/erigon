@@ -489,12 +489,10 @@ func (srv *Server) Start() (err error) {
 	srv.peerOpDone = make(chan struct{})
 
 	if err := srv.setupLocalNode(); err != nil {
-		panic(1)
 		return err
 	}
 	if srv.ListenAddr != "" {
 		if err := srv.setupListening(); err != nil {
-			panic(1)
 			return err
 		}
 	}

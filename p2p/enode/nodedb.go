@@ -135,6 +135,7 @@ func newPersistentDB(path string) (*DB, error) {
 		}
 		return tx.Put(dbutils.InodesBucket, []byte(dbVersionKey), currentVer)
 	}); err != nil {
+		fmt.Printf("here???????\n")
 		return nil, err
 	}
 	if blob != nil && !bytes.Equal(blob, currentVer) {
