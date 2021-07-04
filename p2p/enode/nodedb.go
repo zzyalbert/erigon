@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/c2h5oh/datasize"
+	"github.com/ledgerwatch/erigon/common/debug"
 	"github.com/ledgerwatch/erigon/ethdb/kv"
 
 	"github.com/ledgerwatch/erigon/common"
@@ -108,12 +109,11 @@ func newMemoryDB() (*DB, error) {
 // newPersistentNodeDB creates/opens a persistent node database,
 // also flushing its contents in case of a version mismatch.
 func newPersistentDB(path string) (*DB, error) {
-	fmt.Printf("open: %s\n", path)
+	fmt.Printf("open: %s,%s\n", path, debug.Callers(7))
 	var db ethdb.RwKV
 	var err error
 	db, err = kv.NewMDBX().Path(path).Label(ethdb.Sentry).MapSize(64 * datasize.MB).WithBucketsConfig(bucketsConfig).Open()
 	if err != nil {
-		fmt.Printf("here?\n")
 		return nil, err
 	}
 	// The nodes contained in the cache correspond to a certain pfrotocol version.
