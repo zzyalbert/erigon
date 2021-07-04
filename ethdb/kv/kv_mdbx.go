@@ -195,7 +195,7 @@ func (opts MdbxOpts) Open() (ethdb.RwKV, error) {
 		if newDpLimit > maxDpLimit {
 			newDpLimit = maxDpLimit
 		}
-		if err = env.SetOption(mdbx.OptTxnDpLimit, defaultDirtyPagesLimit*4); err != nil { // default is RAM/42
+		if err = env.SetOption(mdbx.OptTxnDpLimit, newDpLimit); err != nil { // default is RAM/42
 			return nil, err
 		}
 		// must be in the range from 12.5% (almost empty) to 50% (half empty)
