@@ -108,7 +108,7 @@ func newMemoryDB() (*DB, error) {
 // newPersistentNodeDB creates/opens a persistent node database,
 // also flushing its contents in case of a version mismatch.
 func newPersistentDB(path string) (*DB, error) {
-	fmt.Printf("open\n")
+	fmt.Printf("open: %s\n", path)
 	var db ethdb.RwKV
 	var err error
 	db, err = kv.NewMDBX().Path(path).Label(ethdb.Sentry).MapSize(64 * datasize.MB).WithBucketsConfig(bucketsConfig).Open()
