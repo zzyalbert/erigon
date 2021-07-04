@@ -484,9 +484,9 @@ func (tx *MdbxTx) CollectMetrics() {
 	if tx.db.opts.label != ethdb.Chain {
 		return
 	}
-
-	info, err := tx.db.env.Info()
+	info, err := tx.db.env.Info(tx.tx)
 	if err != nil {
+		fmt.Printf("%s\n", err)
 		return
 	}
 	if info.SinceReaderCheck.Hours() > 1 {
