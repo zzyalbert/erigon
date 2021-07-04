@@ -805,7 +805,7 @@ func (ss *SentryServerImpl) SendMessageToAll(ctx context.Context, req *proto_sen
 
 func (ss *SentryServerImpl) SetStatus(_ context.Context, statusData *proto_sentry.StatusData) (*proto_sentry.SetStatusReply, error) {
 	genesisHash := gointerfaces.ConvertH256ToHash(statusData.ForkData.Genesis)
-	fmt.Printf("before lock: %d\n", ss.Protocol.Version)
+	fmt.Printf("before lock: %d, %t, %t\n", ss.Protocol.Version, ss.P2pServer == nil, ss.statusData == nil)
 	ss.lock.Lock()
 	defer ss.lock.Unlock()
 	reply := &proto_sentry.SetStatusReply{}
@@ -816,7 +816,7 @@ func (ss *SentryServerImpl) SetStatus(_ context.Context, statusData *proto_sentr
 		reply.Protocol = proto_sentry.Protocol_ETH65
 	}
 
-	init := ss.statusData == nil
+	init := ss.P2pServer == nil
 	if init {
 		fmt.Printf("do init!!!!!: %d, %#v,%#v\n", ss.Protocol.Version, ss.statusData, statusData)
 		var err error
