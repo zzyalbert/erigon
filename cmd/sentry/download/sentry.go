@@ -818,7 +818,7 @@ func (ss *SentryServerImpl) SetStatus(_ context.Context, statusData *proto_sentr
 
 	init := ss.P2pServer == nil
 	if init {
-		fmt.Printf("do init!!!!!: %d, %#v,%#v\n", ss.Protocol.Version, ss.statusData, statusData)
+		fmt.Printf("do init!!!!!: %d\n", ss.Protocol.Version)
 		var err error
 		if !ss.p2p.NoDiscovery {
 			if len(ss.discoveryDNS) == 0 {
@@ -834,16 +834,19 @@ func (ss *SentryServerImpl) SetStatus(_ context.Context, statusData *proto_sentr
 
 		ss.P2pServer, err = makeP2PServer(*ss.p2p, genesisHash, ss.Protocol)
 		if err != nil {
+			fmt.Printf("p2p err\n", ss.Protocol.Version)
 			return reply, err
 		}
 		// Add protocol
 		if err := ss.P2pServer.Start(); err != nil {
 			return reply, fmt.Errorf("could not start server: %w", err)
 		}
+		fmt.Printf("p2p started\n", ss.Protocol.Version)
 	}
 	genesisHash = gointerfaces.ConvertH256ToHash(statusData.ForkData.Genesis)
 	ss.P2pServer.LocalNode().Set(eth.CurrentENREntryFromForks(statusData.ForkData.Forks, genesisHash, statusData.MaxBlock))
 	ss.statusData = statusData
+	fmt.Printf("before done: %d, %t, %t\n", ss.Protocol.Version, ss.P2pServer == nil, ss.statusData == nil)
 	return reply, nil
 }
 
