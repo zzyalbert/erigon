@@ -108,6 +108,7 @@ func newMemoryDB() (*DB, error) {
 // newPersistentNodeDB creates/opens a persistent node database,
 // also flushing its contents in case of a version mismatch.
 func newPersistentDB(path string) (*DB, error) {
+	fmt.Printf("open\n")
 	var db ethdb.RwKV
 	var err error
 	db, err = kv.NewMDBX().Path(path).Label(ethdb.Sentry).MapSize(64 * datasize.MB).WithBucketsConfig(bucketsConfig).Open()
@@ -121,13 +122,9 @@ func newPersistentDB(path string) (*DB, error) {
 
 	var blob []byte
 	if err := db.Update(context.Background(), func(tx ethdb.RwTx) error {
-		c, err := tx.RwCursor(dbutils.InodesBucket)
+		v, err := tx.GetOne(dbutils.InodesBucket, []byte(dbVersionKey))
 		if err != nil {
 			return err
-		}
-		_, v, errGet := c.SeekExact([]byte(dbVersionKey))
-		if errGet != nil {
-			return errGet
 		}
 		if v != nil {
 			// v only lives during transaction tx
@@ -135,15 +132,17 @@ func newPersistentDB(path string) (*DB, error) {
 			copy(blob, v)
 			return nil
 		}
-		return c.Put([]byte(dbVersionKey), currentVer)
+		return tx.Put(dbutils.InodesBucket, []byte(dbVersionKey), currentVer)
 	}); err != nil {
 		return nil, err
 	}
 	if blob != nil && !bytes.Equal(blob, currentVer) {
 		db.Close()
+		fmt.Printf("closed aaaa\n")
 		if err := os.Remove(path); err != nil {
 			return nil, err
 		}
+		fmt.Printf("removed aaaa\n")
 		return newPersistentDB(path)
 	}
 	return &DB{kv: db, quit: make(chan struct{})}, nil
