@@ -113,9 +113,10 @@ func newPersistentDB(path string) (*DB, error) {
 	var err error
 	db, err = kv.NewMDBX().Path(path).Label(ethdb.Sentry).MapSize(64 * datasize.MB).WithBucketsConfig(bucketsConfig).Open()
 	if err != nil {
+		fmt.Printf("here?\n")
 		return nil, err
 	}
-	// The nodes contained in the cache correspond to a certain protocol version.
+	// The nodes contained in the cache correspond to a certain pfrotocol version.
 	// Flush all nodes if the version doesn't match.
 	currentVer := make([]byte, binary.MaxVarintLen64)
 	currentVer = currentVer[:binary.PutVarint(currentVer, int64(dbVersion))]
