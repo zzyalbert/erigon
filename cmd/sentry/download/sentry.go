@@ -818,7 +818,7 @@ func (ss *SentryServerImpl) SetStatus(_ context.Context, statusData *proto_sentr
 
 	init := ss.statusData == nil
 	if init {
-		fmt.Printf("do init!!!!!\n")
+		fmt.Printf("do init!!!!!: %#v,%#v\n", ss.statusData, statusData)
 		var err error
 		if !ss.p2p.NoDiscovery {
 			if len(ss.discoveryDNS) == 0 {
