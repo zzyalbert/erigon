@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/c2h5oh/datasize"
 	"github.com/ledgerwatch/erigon/ethdb"
 
 	"github.com/ledgerwatch/erigon/common"
@@ -158,6 +159,8 @@ type Config struct {
 	AllowUnprotectedTxs bool `toml:",omitempty"`
 	TLSKeyFile          string
 	TLSCACert           string
+
+	TxSize datasize.ByteSize
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into

@@ -534,7 +534,7 @@ func (n *Node) OpenDatabase(label ethdb.Label, datadir string) (ethdb.RwKV, erro
 	var openFunc func(exclusive bool) (ethdb.RwKV, error)
 	log.Info("Opening Database", "label", name)
 	openFunc = func(exclusive bool) (ethdb.RwKV, error) {
-		opts := kv2.NewMDBX().Path(dbPath).Label(label).DBVerbosity(n.config.DatabaseVerbosity)
+		opts := kv2.NewMDBX().Path(dbPath).Label(label).TxSize(n.config.TxSize).DBVerbosity(n.config.DatabaseVerbosity)
 		if exclusive {
 			opts = opts.Exclusive()
 		}
@@ -595,7 +595,7 @@ func OpenDatabase(config *Config, label ethdb.Label) (ethdb.RwKV, error) {
 	var openFunc func(exclusive bool) (ethdb.RwKV, error)
 	log.Info("Opening Database", "label", name)
 	openFunc = func(exclusive bool) (ethdb.RwKV, error) {
-		opts := kv2.NewMDBX().Path(dbPath).Label(label).DBVerbosity(config.DatabaseVerbosity)
+		opts := kv2.NewMDBX().Path(dbPath).Label(label).TxSize(config.TxSize).DBVerbosity(config.DatabaseVerbosity)
 		if exclusive {
 			opts = opts.Exclusive()
 		}

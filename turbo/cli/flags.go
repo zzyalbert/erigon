@@ -26,6 +26,10 @@ var (
 		Usage: "Batch size for the execution stage",
 		Value: "512M",
 	}
+	TxSizeFlag = cli.StringFlag{
+		Name:  "txSize",
+		Usage: "Tx DirtyPages limit",
+	}
 	EtlBufferSizeFlag = cli.StringFlag{
 		Name:  "etl.bufferSize",
 		Usage: "Buffer size for ETL operations.",
@@ -196,6 +200,13 @@ func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
 func ApplyFlagsForNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	setPrivateApi(ctx, cfg)
 	cfg.DatabaseVerbosity = ethdb.DBVerbosityLvl(ctx.GlobalInt(DatabaseVerbosityFlag.Name))
+	if ctx.GlobalString(TxSizeFlag.Name) != "" {
+		err := cfg.TxSize.UnmarshalText([]byte(ctx.GlobalString(TxSizeFlag.Name)))
+		if err != nil {
+			utils.Fatalf("Invalid txSize provided: %v", err)
+		}
+	}
+
 }
 
 // setPrivateApi populates configuration fields related to the remote

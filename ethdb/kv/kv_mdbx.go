@@ -44,6 +44,7 @@ type MdbxOpts struct {
 	label      ethdb.Label // marker to distinct db instances - one process may open many databases. for example to collect metrics of only 1 database
 	verbosity  ethdb.DBVerbosityLvl
 	mapSize    datasize.ByteSize
+	txSize     datasize.ByteSize
 	flags      uint
 }
 
@@ -62,6 +63,10 @@ func NewMDBX() MdbxOpts {
 	}
 }
 
+func (opts MdbxOpts) TxSize(sz datasize.ByteSize) MdbxOpts {
+	opts.txSize = sz
+	return opts
+}
 func (opts MdbxOpts) Label(label ethdb.Label) MdbxOpts {
 	opts.label = label
 	return opts
@@ -194,6 +199,17 @@ func (opts MdbxOpts) Open() (ethdb.RwKV, error) {
 		maxDpLimit := uint64(2*datasize.GB) / uint64(pageSize)
 		if newDpLimit > maxDpLimit {
 			newDpLimit = maxDpLimit
+		}
+		if opts.label == ethdb.Chain {
+			if opts.txSize > 0 {
+				newDpLimit = uint64(opts.txSize) / uint64(pageSize)
+			}
+			if opts.flags&mdbx.Exclusive == 0 {
+				if opts.txSize == 0 {
+					panic(12)
+				}
+				log.Info("Set tx size", "label", opts.label.String(), "size", datasize.ByteSize(newDpLimit*uint64(pageSize)), "pages", newDpLimit)
+			}
 		}
 		if err = env.SetOption(mdbx.OptTxnDpLimit, newDpLimit); err != nil { // default is RAM/42
 			return nil, err
