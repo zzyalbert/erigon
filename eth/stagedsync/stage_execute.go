@@ -317,6 +317,7 @@ Loop:
 			}
 			// TODO: This creates stacked up deferrals
 			defer tx.Rollback()
+			tx.CollectMetrics()
 		}
 	}
 
