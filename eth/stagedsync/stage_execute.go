@@ -243,6 +243,8 @@ func SpawnExecuteBlocksStage(s *StageState, u Unwinder, tx ethdb.RwTx, toBlock u
 
 	logEvery := time.NewTicker(logInterval)
 	defer logEvery.Stop()
+	commitEvery := time.NewTicker(2 * time.Hour)
+	defer commitEvery.Stop()
 	stageProgress := s.BlockNumber
 	logBlock := stageProgress
 	logTx, lastLogTx := uint64(0), uint64(0)
@@ -250,7 +252,7 @@ func SpawnExecuteBlocksStage(s *StageState, u Unwinder, tx ethdb.RwTx, toBlock u
 	var gas uint64
 
 	var stoppedErr error
-	var txDirty, txLimit uint64
+	var txDirty uint64
 
 Loop:
 	for blockNum := stageProgress + 1; blockNum <= to; blockNum++ {
@@ -292,27 +294,6 @@ Loop:
 			break Loop
 		}
 		stageProgress = blockNum
-		if blockNum%100 == 0 {
-			txDirty, txLimit, err = tx.SpaceDirty()
-			if err != nil {
-				return err
-			}
-			updateProgress := txDirty > (txLimit/10)*9 && !useExternalTx
-			if updateProgress {
-				if err = s.Update(tx, stageProgress); err != nil {
-					return err
-				}
-				if err = tx.Commit(); err != nil {
-					return err
-				}
-				tx, err = cfg.db.BeginRw(context.Background())
-				if err != nil {
-					return err
-				}
-				// TODO: This creates stacked up deferrals
-				defer tx.Rollback()
-			}
-		}
 
 		gas = gas + block.GasUsed()
 
@@ -323,6 +304,19 @@ Loop:
 			gas = 0
 			tx.CollectMetrics()
 			stageExecutionGauge.Update(int64(blockNum))
+		case <-commitEvery.C:
+			if err = s.Update(tx, stageProgress); err != nil {
+				return err
+			}
+			if err = tx.Commit(); err != nil {
+				return err
+			}
+			tx, err = cfg.db.BeginRw(context.Background())
+			if err != nil {
+				return err
+			}
+			// TODO: This creates stacked up deferrals
+			defer tx.Rollback()
 		}
 	}
 
