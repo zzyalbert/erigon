@@ -205,9 +205,6 @@ func (opts MdbxOpts) Open() (ethdb.RwKV, error) {
 				newDpLimit = uint64(opts.txSize) / uint64(pageSize)
 			}
 			if opts.flags&mdbx.Exclusive == 0 {
-				if opts.txSize == 0 {
-					panic(12)
-				}
 				log.Info("Set tx size", "label", opts.label.String(), "size", datasize.ByteSize(newDpLimit*uint64(pageSize)), "pages", newDpLimit)
 			}
 		}
