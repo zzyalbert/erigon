@@ -2,6 +2,7 @@ package txpropagate
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -21,7 +22,7 @@ func BroadcastNewTxsToNetworks(ctx context.Context, txPool *core.TxPool, recentP
 	txsSub := txPool.SubscribeNewTxsEvent(txsCh)
 	defer txsSub.Unsubscribe()
 
-	syncToNewPeersEvery := time.NewTicker(5 * time.Minute)
+	syncToNewPeersEvery := time.NewTicker(30 * time.Second)
 	defer syncToNewPeersEvery.Stop()
 
 	flatPendingHashes := make([]common.Hash, 128)
@@ -29,14 +30,18 @@ func BroadcastNewTxsToNetworks(ctx context.Context, txPool *core.TxPool, recentP
 	for {
 		select {
 		case e := <-txsCh:
-			s.BroadcastNewTxs(context.Background(), e.Txs)
+			_ = e
+			//s.BroadcastNewTxs(context.Background(), e.Txs)
 		case <-txsSub.Err():
 			return
 		case <-txsSub.Err():
 			return
 		case <-syncToNewPeersEvery.C:
+			t := time.Now()
 			flatPendingHashes = txPool.AppendHashes(flatPendingHashes[:0])
+			fmt.Printf("t1: %s\n", time.Since(t))
 			s.PropagatePooledTxsToPeersList(context.Background(), recentPeers.GetAndClean(), flatPendingHashes)
+			fmt.Printf("t2: %s\n", time.Since(t))
 		case <-ctx.Done():
 			return
 		}
