@@ -15,35 +15,50 @@ import (
 
 const txChanSize int = 4096
 
-func BroadcastNewTxsToNetworks(ctx context.Context, txPool *core.TxPool, recentPeers *RecentlyConnectedPeers, s *download.ControlServerImpl) {
+// BroadcastPendingTxsToNetwork - does send to p2p:
+// - new txs
+// - all pooled txs to recently connected peers
+// - all local pooled txs to random peers periodically
+func BroadcastPendingTxsToNetwork(ctx context.Context, txPool *core.TxPool, recentPeers *RecentlyConnectedPeers, s *download.ControlServerImpl) {
 	defer debug.LogPanic()
 
 	txsCh := make(chan core.NewTxsEvent, txChanSize)
 	txsSub := txPool.SubscribeNewTxsEvent(txsCh)
 	defer txsSub.Unsubscribe()
 
-	syncToNewPeersEvery := time.NewTicker(30 * time.Second)
+	syncToNewPeersEvery := time.NewTicker(2 * time.Minute)
 	defer syncToNewPeersEvery.Stop()
 
-	flatPendingHashes := make([]common.Hash, 128)
+	broadcastLocalTransactionsEvery := time.NewTicker(10 * time.Minute)
+	defer broadcastLocalTransactionsEvery.Stop()
+
+	pooledTxHashes := make([]common.Hash, 128)
 
 	for {
 		select {
-		case e := <-txsCh:
-			_ = e
-			//s.BroadcastNewTxs(context.Background(), e.Txs)
 		case <-txsSub.Err():
 			return
-		case <-txsSub.Err():
-			return
-		case <-syncToNewPeersEvery.C:
-			t := time.Now()
-			flatPendingHashes = txPool.AppendHashes(flatPendingHashes[:0])
-			fmt.Printf("t1: %s\n", time.Since(t))
-			s.PropagatePooledTxsToPeersList(context.Background(), recentPeers.GetAndClean(), flatPendingHashes)
-			fmt.Printf("t2: %s\n", time.Since(t))
 		case <-ctx.Done():
 			return
+		case e := <-txsCh: // new txs
+			pooledTxHashes = pooledTxHashes[:0]
+			for i := range e.Txs {
+				pooledTxHashes = append(pooledTxHashes, e.Txs[i].Hash())
+			}
+			//s.BroadcastPooledTxs(ctx, pooledTxHashes)
+		case <-syncToNewPeersEvery.C: // new peer
+			t := time.Now()
+			newPeers := recentPeers.GetAndClean()
+			if len(newPeers) == 0 {
+				continue
+			}
+			pooledTxHashes = txPool.AppendHashes(pooledTxHashes[:0])
+			fmt.Printf("t1: %s\n", time.Since(t))
+			s.PropagatePooledTxsToPeersList(ctx, newPeers, pooledTxHashes)
+			fmt.Printf("t2: %s\n", time.Since(t))
+		case <-broadcastLocalTransactionsEvery.C: // periodically broadcast local txs to random peers
+			pooledTxHashes = txPool.AppendLocalHashes(pooledTxHashes[:0])
+			s.BroadcastPooledTxs(ctx, pooledTxHashes)
 		}
 	}
 }
