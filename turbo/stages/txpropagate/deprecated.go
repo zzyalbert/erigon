@@ -45,6 +45,7 @@ func BroadcastPendingTxsToNetwork(ctx context.Context, txPool *core.TxPool, rece
 			for i := range e.Txs {
 				pooledTxHashes = append(pooledTxHashes, e.Txs[i].Hash())
 			}
+			fmt.Printf("new txs %d,%s\n", len(pooledTxHashes), time.Now())
 			//s.BroadcastPooledTxs(ctx, pooledTxHashes)
 		case <-syncToNewPeersEvery.C: // new peer
 			t := time.Now()
