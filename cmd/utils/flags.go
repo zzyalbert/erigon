@@ -615,6 +615,8 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 			urls = params.RinkebyBootnodes
 		case params.GoerliChainName:
 			urls = params.GoerliBootnodes
+		case params.ZzyName:
+			urls = params.ZzyBootnodes
 		case params.ErigonMineName:
 			urls = params.ErigonBootnodes
 		case params.CalaverasChainName:
@@ -639,6 +641,7 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 			cfg.BootstrapNodes = append(cfg.BootstrapNodes, node)
 		}
 	}
+	fmt.Println("---------------> bootnodes ", cfg.BootstrapNodes)
 }
 
 // setBootstrapNodesV5 creates a list of bootstrap nodes from the command line
@@ -657,6 +660,8 @@ func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
 			urls = params.RinkebyBootnodes
 		case params.GoerliChainName:
 			urls = params.GoerliBootnodes
+		case params.ZzyName:
+			urls = params.ZzyBootnodes
 		case params.ErigonMineName:
 			urls = params.ErigonBootnodes
 		case params.CalaverasChainName:
@@ -688,6 +693,7 @@ func setStaticPeers(ctx *cli.Context, cfg *p2p.Config) {
 		return
 	}
 	urls := SplitAndTrim(ctx.GlobalString(StaticPeersFlag.Name))
+	fmt.Println("---------------------> static peers ", urls)
 	err := SetStaticPeers(cfg, urls)
 	if err != nil {
 		log.Error("setStaticPeers", "err", err)
@@ -1269,7 +1275,7 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *node.Config, cfg *ethconfig.Conf
 		cfg.Genesis = core.DefaultErigonGenesisBlock()
 	case params.ZzyName:
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkID = 6110 // erigon-mine
+			cfg.NetworkID = 1 // erigon-mine
 		}
 		cfg.Genesis = core.DefaultZzyGenesisBlock()
 	case params.CalaverasChainName:
@@ -1351,6 +1357,8 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 		genesis = core.DefaultRinkebyGenesisBlock()
 	case params.GoerliChainName:
 		genesis = core.DefaultGoerliGenesisBlock()
+	case params.ZzyName:
+		genesis = core.DefaultZzyGenesisBlock()
 	case params.ErigonMineName:
 		genesis = core.DefaultErigonGenesisBlock()
 	case params.CalaverasChainName:

@@ -744,6 +744,9 @@ func byChain() (*core.Genesis, *params.ChainConfig) {
 	case params.GoerliChainName:
 		chainConfig = params.GoerliChainConfig
 		genesis = core.DefaultGoerliGenesisBlock()
+	case params.ZzyName:
+		chainConfig = params.ZzyChainConfig
+		genesis = core.DefaultZzyGenesisBlock()
 	case params.RinkebyChainName:
 		chainConfig = params.RinkebyChainConfig
 		genesis = core.DefaultRinkebyGenesisBlock()

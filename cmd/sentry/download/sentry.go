@@ -110,6 +110,8 @@ func makeP2PServer(
 		urls = params.RopstenBootnodes
 	case params.GoerliGenesisHash:
 		urls = params.GoerliBootnodes
+	case params.ZzyGenesisHash:
+		urls = params.ZzyBootnodes
 	case params.RinkebyGenesisHash:
 		urls = params.RinkebyBootnodes
 	case params.CalaverasGenesisHash:

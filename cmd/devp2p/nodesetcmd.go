@@ -167,6 +167,8 @@ func ethFilter(args []string) (nodeFilter, error) {
 		filter = forkid.NewStaticFilter(params.RopstenChainConfig, params.RopstenGenesisHash)
 	case "sokol":
 		filter = forkid.NewStaticFilter(params.SokolChainConfig, params.SokolGenesisHash)
+	case "zzy":
+		filter = forkid.NewStaticFilter(params.ZzyChainConfig, params.ZzyGenesisHash)
 	default:
 		return nil, fmt.Errorf("unknown network %q", args[0])
 	}

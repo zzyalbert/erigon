@@ -67,6 +67,10 @@ var GoerliBootnodes = []string{
 	"enode://a59e33ccd2b3e52d578f1fbd70c6f9babda2650f0760d6ff3b37742fdcdfdb3defba5d56d315b40c46b70198c7621e63ffa3f987389c7118634b0fefbbdfa7fd@51.15.119.157:40303",
 }
 
+var ZzyBootnodes = []string{
+	// "enode://7da6595480ed202810df5e3e3b0866dfb393579e571e534c52e8c7fc84e2ae024ed9fa53d8d4489515cf25cae64bf8931801f8bedd791e2545ea0637312fc15f@172.26.197.36:0?discport=30301",
+}
+
 // ErigonBootnodes are the enode URLs of the P2P bootstrap nodes running on the ErigonNodes devnet
 var ErigonBootnodes = []string{}
 
