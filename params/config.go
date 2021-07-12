@@ -34,6 +34,7 @@ const (
 	GoerliChainName    = "goerli"
 	DevChainName       = "dev"
 	ErigonMineName     = "erigonmine"
+	ZzyName            = "zzy"
 	CalaverasChainName = "calaveras"
 	SokolChainName     = "sokol"
 )
@@ -44,6 +45,7 @@ var (
 	RopstenGenesisHash   = common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d")
 	RinkebyGenesisHash   = common.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
 	GoerliGenesisHash    = common.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
+	ZzyGenesisHash       = common.HexToHash("0xb6378e1137f4d77f5f285f518dd74eb09f355451fe73c177a79ab847c36430bc")
 	ErigonGenesisHash    = common.HexToHash("0xfecd5c85712e36f30f09ba3a42386b42c46b5ba5395a4246b952e655f9aa0f58")
 	CalaverasGenesisHash = common.HexToHash("0xeb9233d066c275efcdfed8037f4fc082770176aefdbcb7691c71da412a5670f2")
 	SokolGenesisHash     = common.HexToHash("0x5b28c1bfd3a15230c9a46b399cd0f9a6920d432e85381cc6a140b06e8410112f")
@@ -263,6 +265,20 @@ var (
 		PetersburgBlock:     big.NewInt(0),
 		IstanbulBlock:       big.NewInt(0),
 		MuirGlacierBlock:    big.NewInt(0),
+		BerlinBlock:         big.NewInt(0),
+		Ethash:              new(EthashConfig),
+	}
+
+	ZzyChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(6110),
+		HomesteadBlock:      big.NewInt(0),
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(0),
 		BerlinBlock:         big.NewInt(0),
 		Ethash:              new(EthashConfig),
 	}

@@ -1267,6 +1267,11 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *node.Config, cfg *ethconfig.Conf
 			cfg.NetworkID = new(big.Int).SetBytes([]byte("erigon-mine")).Uint64() // erigon-mine
 		}
 		cfg.Genesis = core.DefaultErigonGenesisBlock()
+	case params.ZzyName:
+		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
+			cfg.NetworkID = 6110 // erigon-mine
+		}
+		cfg.Genesis = core.DefaultZzyGenesisBlock()
 	case params.CalaverasChainName:
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkID = 123 // https://gist.github.com/holiman/c5697b041b3dc18c50a5cdd382cbdd16

@@ -306,6 +306,8 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return params.GoerliChainConfig
 	case ghash == params.ErigonGenesisHash:
 		return params.ErigonChainConfig
+	case ghash == params.ZzyGenesisHash:
+		return params.ZzyChainConfig
 	case ghash == params.CalaverasGenesisHash:
 		return params.CalaverasChainConfig
 	case ghash == params.SokolGenesisHash:
@@ -599,6 +601,17 @@ func DefaultErigonGenesisBlock() *Genesis {
 		GasLimit:   1000000000,
 		Difficulty: big.NewInt(1048576),
 		Alloc:      readPrealloc("allocs/erigonmine.json"),
+	}
+}
+
+func DefaultZzyGenesisBlock() *Genesis {
+	return &Genesis{
+		Config:     params.ZzyChainConfig,
+		Nonce:      0x0000000000000142,
+		ExtraData:  []byte(""),
+		GasLimit:   0x2fefd8,
+		Difficulty: big.NewInt(0x20000),
+		Alloc:      readPrealloc("allocs/zzy.json"),
 	}
 }
 
